@@ -1,0 +1,415 @@
+{
+  "experiments": [
+    {
+      "name": "latency-and-goodput-vs-load-social-1-sidecar",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run.sh",
+      "loads": {
+        "start": 100,
+        "end": 1400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "sidecar",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-goodput-vs-load-social-3-sidecar",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 100,
+        "end": 1000,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "sidecar",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-rate-vs-time-social-1-sidecar",
+      "type": "latency-and-rate-vs-time",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "sidecar",
+      "repeat": 5,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-rate-vs-time-social-3-sidecar",
+      "type": "latency-and-rate-vs-time",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "sidecar",
+      "repeat": 5,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "max-queue-social-1-sidecar",
+      "type": "max-queue",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "sidecar-queue",
+      "repeat": 5,
+      "collector_step": "4s",
+      "collector_range": "5s",
+      "services": ["nginx", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "max-queue-social-3-sidecar",
+      "type": "max-queue",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_graph": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "sidecar-queue",
+      "repeat": 5,
+      "collector_step": "4s",
+      "collector_range": "5s",
+      "services": ["nginx", "compose", "home", "user", "posts", "graph"]
+    },
+
+
+    {
+      "name": "latency-and-goodput-vs-load-social-1-rajomon",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run.sh",
+      "loads": {
+        "start": 100,
+        "end": 1400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "rajomon",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-goodput-vs-load-social-3-rajomon",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 100,
+        "end": 1000,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "rajomon",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-rate-vs-time-social-1-rajomon",
+      "type": "latency-and-rate-vs-time",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "rajomon",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-rate-vs-time-social-3-rajomon",
+      "type": "latency-and-rate-vs-time",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "rajomon",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "max-queue-social-1-rajomon",
+      "type": "max-queue",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "rajomon",
+      "repeat": 5,
+      "collector_step": "4s",
+      "collector_range": "5s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "max-queue-social-3-rajomon",
+      "type": "max-queue",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_graph": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "rajomon",
+      "repeat": 5,
+      "collector_step": "4s",
+      "collector_range": "5s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "resource-waste-social-1-rajomon",
+      "type": "resource-waste",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "rajomon",
+      "repeat": 5,
+      "collector_step": "2s",
+      "collector_range": "15s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "resource-waste-social-3-rajomon",
+      "type": "resource-waste",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "rajomon",
+      "repeat": 5,
+      "collector_step": "2s",
+      "collector_range": "15s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+
+
+
+    {
+      "name": "latency-and-goodput-vs-load-social-1-dagor",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run.sh",
+      "loads": {
+        "start": 100,
+        "end": 1400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "dagor",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-goodput-vs-load-social-3-dagor",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 100,
+        "end": 1000,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "dagor",
+      "repeat": 10,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-rate-vs-time-social-1-dagor",
+      "type": "latency-and-rate-vs-time",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "dagor",
+      "repeat": 7,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-rate-vs-time-social-3-dagor",
+      "type": "latency-and-rate-vs-time",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "dagor",
+      "repeat": 7,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "max-queue-social-1-dagor",
+      "type": "max-queue",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "dagor",
+      "repeat": 5,
+      "collector_step": "4s",
+      "collector_range": "5s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "max-queue-social-3-dagor",
+      "type": "max-queue",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_graph": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "dagor",
+      "repeat": 5,
+      "collector_step": "4s",
+      "collector_range": "5s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "resource-waste-social-1-dagor",
+      "type": "resource-waste",
+      "script": "run.sh",
+      "loads": {
+        "start": 600,
+        "end": 600,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post"],
+      "system": "dagor",
+      "repeat": 5,
+      "collector_step": "2s",
+      "collector_range": "15s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    },
+    {
+      "name": "resource-waste-social-3-dagor",
+      "type": "resource-waste",
+      "script": "run-3-api-social.sh",
+      "loads": {
+        "start": 400,
+        "end": 400,
+        "step": 100
+      },
+      "base_rate": 100,
+      "duration_sec": 10,
+      "bench": "social",
+      "apis": ["compose-post", "read-user-timeline", "read-home-timeline"],
+      "system": "dagor",
+      "repeat": 5,
+      "collector_step": "2s",
+      "collector_range": "15s",
+      "services": ["nginx-grpc", "compose", "home", "user", "posts", "graph"]
+    }
+  ]
+}

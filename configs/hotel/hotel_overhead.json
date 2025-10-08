@@ -1,0 +1,58 @@
+{
+  "experiments": [
+    {
+      "name": "latency-and-goodput-vs-load-hotel-1-sidecar",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run.sh",
+      "loads": {
+        "start": 430,
+        "end": 550,
+        "step": 30
+      },
+      "base_rate": 10,
+      "duration_sec": 10,
+      "bench": "hotel",
+      "apis": ["search-hotel"],
+      "system": "sidecar",
+      "repeat": 5,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-goodput-vs-load-hotel-1-plain",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run.sh",
+      "loads": {
+        "start": 10,
+        "end": 400,
+        "step": 30
+      },
+      "base_rate": 10,
+      "duration_sec": 10,
+      "bench": "hotel",
+      "apis": ["search-hotel"],
+      "system": "plain",
+      "repeat": 2,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    },
+    {
+      "name": "latency-and-goodput-vs-load-hotel-1-envoy",
+      "type": "latency-and-goodput-vs-load",
+      "script": "run.sh",
+      "loads": {
+        "start": 10,
+        "end": 400,
+        "step": 30
+      },
+      "base_rate": 10,
+      "duration_sec": 10,
+      "bench": "hotel",
+      "apis": ["search-hotel"],
+      "system": "envoy",
+      "repeat": 5,
+      "collector_step": "100ms",
+      "collector_range": "1s"
+    }
+  ]
+}
