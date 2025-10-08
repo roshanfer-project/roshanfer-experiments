@@ -1,0 +1,162 @@
+"""Data models used across executor, runner, collector, and reporting.
+
+Adjust / extend as needed for richer metadata.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, asdict, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from datetime import datetime
+import re
+
+
+@dataclass
+class LoadRange:
+    """Represents a numeric load sweep (inclusive)."""
+    start: int
+    end: int
+    step: int
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "LoadRange":
+        return LoadRange(start=int(d["start"]), end=int(d["end"]), step=int(d["step"]))
+
+
+@dataclass
+class ExperimentConfig:
+    """Parsed high-level experiment specification.
+
+    New schema (sample_experiments.json) places common knobs at top-level instead of params{}.
+    We keep a params dict for backward compatibility and to pass through any extra keys.
+    """
+
+    name: str
+    type: str
+    script: Optional[str] = None
+    loads: Optional[LoadRange] = None
+    base_rate: int = 0
+    duration_sec: int = 0
+    bench: str = ""
+    apis: List[str] = field(default_factory=list)
+    system: str = ""
+    repeat: int = 1
+    collector_step: str = ""
+    collector_range: str = ""
+    services: List[str] = field(default_factory=list)
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "ExperimentConfig":
+        # Allow legacy nested params usage; merge into top-level fields where sensible.
+        params = d.get("params", {})
+        merged = {**params, **{k: v for k, v in d.items() if k not in {"params"}}}
+        loads_obj = merged.get("loads")
+        loads = LoadRange.from_dict(loads_obj) if isinstance(loads_obj, dict) else None
+        return ExperimentConfig(
+            name=merged["name"],
+            type=merged["type"],
+            script=merged.get("script"),
+            loads=loads,
+            base_rate=int(merged.get("base_rate", merged.get("base", 0)) or 0),
+            duration_sec=int(merged.get("duration_sec", merged.get("duration", 0)) or 0),
+            bench=str(merged.get("bench", "")),
+            apis=list(merged.get("apis", [])),
+            system=str(merged.get("system", "")),
+            repeat=int(merged.get("repeat", params.get("repeat", 1)) or 1),
+            collector_step=str(merged.get("collector_step", "")),
+            collector_range=str(merged.get("collector_range", "")),
+            services=list(merged.get("services", [])),
+            params=merged,  # store everything for downstream flexibility
+        )
+
+    @property
+    def api(self) -> str:
+        """Convenience: first api if list provided (executor currently expects single)."""
+        return self.apis[0] if self.apis else ""
+
+    @property
+    def duration(self) -> int:
+        """Alias used by existing executor expansion code."""
+        return self.duration_sec
+
+
+@dataclass
+class RunUnit:
+    """Concrete run unit after expansion.
+
+    Expanded fields (base, rate, duration, system, api, bench) are explicit to match
+    the current executor._expand_experiment implementation.
+    All original key/values are also retained in params for generic logic (repeats, etc.).
+    """
+    name: str
+    type: str
+    script: Optional[str]
+    base: int
+    rate: int
+    duration: int
+    system: str
+    apis: List[str]
+    bench: str = ""
+    apis: List[str] = field(default_factory=list)
+    collector_step: str = ""
+    collector_range: str = ""
+    services: List[str] = field(default_factory=list)
+    params: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    repeats: int = 1
+
+    def base_name(self) -> str:
+        return self.name
+
+    def safe_name(self) -> str:
+        return re.sub(r"[^A-Za-z0-9_.-]", "_", self.name)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-serializable representation.
+
+        (Hook point: if future fields become non-serializable, coerce them here.)
+        """
+        d = asdict(self)
+        return d
+
+
+@dataclass
+class RunResult:
+    unit_name: str
+    status: str  # e.g., success, error
+    raw_artifact_dir: str
+    details: Dict[str, Any] = field(default_factory=dict)
+    repeat_index: int = 0  # 0-based repeat index
+    total_repeats: int = 1
+    group_name: str = ""  # base grouping name (same for all repeats of a unit variant)
+    # Optional explicit timestamps (e.g., workload generation window) separate from internal started_at/ended_at in details.
+    start_timestamp: Any | None = None  # Accept datetime or string; user code sets.
+    end_timestamp: Any | None = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        # Normalize top-level timestamp fields
+        for k in ("start_timestamp", "end_timestamp"):
+            v = d.get(k)
+            if isinstance(v, datetime):
+                d[k] = v.isoformat()
+        # Normalize any datetime values inside details (shallow)
+        details = d.get("details", {})
+        if isinstance(details, dict):
+            for dk, dv in list(details.items()):
+                if isinstance(dv, datetime):
+                    details[dk] = dv.isoformat()
+        return d
+
+
+@dataclass
+class CollectorResult:
+    unit_name: str
+    metrics_dir: str
+    metrics_files: List[str]
+    notes: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
