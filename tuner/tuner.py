@@ -4,7 +4,7 @@ from time import time
 from bayes_opt import BayesianOptimization
 import json
 from .runner import run_experiment
-from .extractor import extract_metrics_from_prometheus
+from .extractor import extract_metrics_from_output
 import sys
 
 tuner_parameters = {
@@ -67,7 +67,7 @@ def objective_breakwater(breakwaterSLO, breakwaterClientExpiration, breakwaterAF
     })
 
     # Calculate metrics from results
-    goodput, tail_latency = extract_metrics_from_prometheus(path, tuner_parameters["method"])
+    goodput, tail_latency = extract_metrics_from_output(path)
 
     # Objective function combines goodput and latency penalty
     objective = goodput - 10 * tail_latency
@@ -90,7 +90,7 @@ def objective_dagor(Alpha, Beta, QueuingThresh, AdmissionLevelUpdateInterval, Ad
     )
 
     # Calculate metrics from results
-    goodput, tail_latency = extract_metrics_from_prometheus(path, tuner_parameters["method"])
+    goodput, tail_latency = extract_metrics_from_output(path)
 
     # Objective function combines goodput and latency penalty
     if tuner_parameters["bench"] == "social":
@@ -115,7 +115,7 @@ def objective_rajomon(priceUpdateRate, tokenUpdateRate, latencyThreshold, priceS
     })
 
     # Calculate metrics from results
-    goodput, tail_latency = extract_metrics_from_prometheus(path, tuner_parameters["method"])
+    goodput, tail_latency = extract_metrics_from_output(path)
 
     # Objective function combines goodput and latency penalty
     if tuner_parameters["bench"] == "rajomon":

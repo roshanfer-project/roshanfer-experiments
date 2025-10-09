@@ -49,7 +49,7 @@ class Config:
     k6_scripts_root: str = "" # bench/hotel/k6
     ssh_binary: str = "ssh"
     docker_compose_binary: str = "docker-compose"
-    git_root: str = "../.."  # relative path to repo root (optional)
+    git_root: str = ".."  # relative path to repo root (optional)
 
     # --- Feature toggles ---
     plotting_enabled: bool = True

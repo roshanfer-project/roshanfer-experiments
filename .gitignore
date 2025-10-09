@@ -1,1 +1,4 @@
 __pycache__/
+/env
+/tuner_output
+env-setter.env

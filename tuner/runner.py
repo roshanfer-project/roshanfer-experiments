@@ -12,7 +12,6 @@ import time
 
 from .config import Config
 from .models import RunUnit, RunResult
-from .extractor import extract_metrics_from_prometheus
 
 class Runner:
 	def __init__(self, config: Config, env_fields: dict[str, str]):
@@ -90,6 +89,8 @@ class Runner:
 		start = time.time()
 		raw_dir = unit_dir / self.config.raw_artifact_subdir
 		raw_dir.mkdir(parents=True, exist_ok=True)
+		output_dir = unit_dir / "output"
+		output_dir.mkdir(parents=True, exist_ok=True)
 		
 		self._clear_microservice(unit)
 		time.sleep(1)
@@ -111,14 +112,14 @@ class Runner:
 				cmd = ["./" + unit.script]
 
 				http_type = "http" if unit.system in ("sidecar", "sidecar-queue", "plain", "envoy") else "grpc"
-				duration = f"{int(unit.duration)}s"
+				#duration = f"{int(unit.duration)}s"
 				cmd += [
 					http_type,
 					str(unit.base),
 					str(unit.rate),
-					duration,
+					str(unit.duration),
 					self._api_list(unit.apis),
-					str(unit_dir.absolute()),
+					str(output_dir),
 				]
 				# Execute script
 				result = subprocess.run(cmd, capture_output=True, text=True, cwd=cmd_path)
@@ -157,7 +158,8 @@ class Runner:
 			raw_artifact_dir=str(raw_dir),
 			details=details,
 			start_timestamp=start_timestamp,
-			end_timestamp=end_timestamp
+			end_timestamp=end_timestamp,
+			output_file=str(output_dir / f"out-{self._api_list(unit.apis)}.csv")
 		)
 	
 index = 0
@@ -165,32 +167,21 @@ index = 0
 def run_experiment(bench: str, system: str, api: str, env_fields: dict[str, str]):
 	# Example usage
 	config = Config()
-	config.remote_microservice_path = f"/home/farzad/files/ppm/bench/{bench}/exec"
-	config.k6_scripts_root = f"bench/{bench}/k6"
+	base_path = "/home/farzad/files"
+	config.remote_microservice_path = f"{base_path}/benchmarks/{bench}/exec"
+	config.k6_scripts_root = f"wrapper/{bench}"
 	runner = Runner(config, env_fields)
 
 	if bench == "social":
-		base = 100
-		rate = 600
+		base = 1000
+		rate = 6000
 	elif bench == "hotel":
 		base = 300
 		rate = 800
 	unit = RunUnit(name="rajomon_tune", script="run.sh", system=system, duration=10, base=base, rate=rate, apis=[api],
 				bench=bench, type="latency-and-rate-vs-time")
 	global index
-	unit_dir = Path(os.getcwd()) / f"rajomon_tune_run/{index}"
+	unit_dir = Path(os.getcwd()) / f"tuner_output/{index}"
 	index += 1
 	result = runner.run(unit, unit_dir)
-	return unit_dir
-
-if __name__ == "__main__":
-	dir = run_experiment(
-		{
-			"priceUpdateRate": 5000,
-			"tokenUpdateRate": 10000,
-			"latencyThreshold": 1000,
-			"priceStep": 100,
-			"tokenUpdateStep": 10
-		}
-	)
-	extract_metrics_from_prometheus(dir)
+	return result.output_file

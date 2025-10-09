@@ -134,6 +134,7 @@ class RunResult:
     # Optional explicit timestamps (e.g., workload generation window) separate from internal started_at/ended_at in details.
     start_timestamp: Any | None = None  # Accept datetime or string; user code sets.
     end_timestamp: Any | None = None
+    output_file: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
