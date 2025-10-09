@@ -176,8 +176,8 @@ def run_experiment(bench: str, system: str, api: str, env_fields: dict[str, str]
 		base = 1000
 		rate = 6000
 	elif bench == "hotel":
-		base = 300
-		rate = 800
+		base = 3000
+		rate = 8000
 	unit = RunUnit(name="rajomon_tune", script="run.sh", system=system, duration=10, base=base, rate=rate, apis=[api],
 				bench=bench, type="latency-and-rate-vs-time")
 	global index
