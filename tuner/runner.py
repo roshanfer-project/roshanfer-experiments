@@ -175,13 +175,15 @@ def run_experiment(bench: str, system: str, api: str, env_fields: dict[str, str]
 	if bench == "social":
 		base = 1000
 		rate = 6000
+		slo = "90"
 	elif bench == "hotel":
 		base = 3000
 		rate = 8000
+		slo = "60"
 	unit = RunUnit(name="rajomon_tune", script="run.sh", system=system, duration=10, base=base, rate=rate, apis=[api],
-				bench=bench, type="latency-and-rate-vs-time")
+				bench=bench, type="latency-and-rate-vs-time", slo=slo)
 	global index
 	unit_dir = Path(os.getcwd()) / f"tuner_output/{index}"
 	index += 1
 	result = runner.run(unit, unit_dir)
-	return result.output_file
+	return result.output_file, slo

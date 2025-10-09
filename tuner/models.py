@@ -92,6 +92,7 @@ class RunUnit:
     """
     name: str
     type: str
+    slo: str
     script: Optional[str]
     base: int
     rate: int

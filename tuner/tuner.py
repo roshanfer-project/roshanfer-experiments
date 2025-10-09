@@ -54,7 +54,7 @@ pbounds_rajomon = {
 
 def objective_breakwater(breakwaterSLO, breakwaterClientExpiration, breakwaterAFactor, breakwaterBFactor, breakwaterRTT_MICROSECOND):
     # Run experiment with given parameters
-    path = run_experiment(
+    path, slo = run_experiment(
         tuner_parameters["bench"],
         "breakwater",
         tuner_parameters["method"],
@@ -67,7 +67,7 @@ def objective_breakwater(breakwaterSLO, breakwaterClientExpiration, breakwaterAF
     })
 
     # Calculate metrics from results
-    goodput, tail_latency = extract_metrics_from_output(path)
+    goodput, tail_latency = extract_metrics_from_output(path, slo)
 
     # Objective function combines goodput and latency penalty
     objective = goodput - 10 * tail_latency
@@ -76,7 +76,7 @@ def objective_breakwater(breakwaterSLO, breakwaterClientExpiration, breakwaterAF
 
 def objective_dagor(Alpha, Beta, QueuingThresh, AdmissionLevelUpdateInterval, AddmissionUpdateN):
     # Run experiment with given parameters
-    path = run_experiment(
+    path, slo = run_experiment(
         tuner_parameters["bench"],
         "dagor",
         tuner_parameters["method"],
@@ -90,7 +90,7 @@ def objective_dagor(Alpha, Beta, QueuingThresh, AdmissionLevelUpdateInterval, Ad
     )
 
     # Calculate metrics from results
-    goodput, tail_latency = extract_metrics_from_output(path)
+    goodput, tail_latency = extract_metrics_from_output(path, slo)
 
     # Objective function combines goodput and latency penalty
     if tuner_parameters["bench"] == "social":
@@ -102,7 +102,7 @@ def objective_dagor(Alpha, Beta, QueuingThresh, AdmissionLevelUpdateInterval, Ad
 
 def objective_rajomon(priceUpdateRate, tokenUpdateRate, latencyThreshold, priceStep, tokenUpdateStep):
     # Run experiment with given parameters
-    path = run_experiment(
+    path, slo = run_experiment(
         tuner_parameters["bench"],
         "rajomon",
         tuner_parameters["method"],
@@ -115,7 +115,7 @@ def objective_rajomon(priceUpdateRate, tokenUpdateRate, latencyThreshold, priceS
     })
 
     # Calculate metrics from results
-    goodput, tail_latency = extract_metrics_from_output(path)
+    goodput, tail_latency = extract_metrics_from_output(path, slo)
 
     # Objective function combines goodput and latency penalty
     if tuner_parameters["bench"] == "rajomon":
