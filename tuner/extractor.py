@@ -15,7 +15,9 @@ def extract_metrics_from_output(rwg_output: str):
         "--version", "2",
         "--overall_output", overall_output,
         "--warmup", "5"
-    ])
+    ],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL)
 
     with open(overall_output, "r") as f:
         data = json.loads(f.read())
@@ -29,5 +31,7 @@ def extract_metrics_from_output(rwg_output: str):
 
     final_goodput = data["goodput"]
     final_tail = data["p95_latency"]
+
+    print(f"Goodput: {final_goodput}, p95 latency: {final_tail}")
 
     return final_goodput, final_tail
