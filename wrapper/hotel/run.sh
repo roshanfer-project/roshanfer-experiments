@@ -24,7 +24,7 @@ if [ "$protocol" == "grpc" ]; then
         echo "API 'hotel-reserve' is not supported"
         exit 1
     fi
-    ../../rwg/rwg run -u $address -p $proto -d exp -D 5,$DURATION -r $BASE,$RATE -w 30000 -o $output_dir --args $args
+    ./rwg/rwg run -u $address -p $proto -d exp -D 5,$DURATION -r $BASE,$RATE -w 40000 -o $output_dir --args $args
 else
     if [ "$API" = "hotel-search" ]; then
         url="http://$address/hotels?lat=37.7867&lon=-122.4112&inDate=2024-08-15&outDate=2024-08-17"
@@ -32,5 +32,5 @@ else
         echo "API 'hotel-reserve' is not supported"
         exit 1
     fi
-    ../../rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 150 -o $output_dir
+    ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 150 -o $output_dir
 fi
