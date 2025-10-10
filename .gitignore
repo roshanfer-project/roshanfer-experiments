@@ -3,3 +3,6 @@ __pycache__/
 /tuner_output
 env-setter.env
 /rajomon_tune_run
+*.pdf
+*.json
+*.csv
