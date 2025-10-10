@@ -14,7 +14,6 @@ def extract_metrics_from_output(rwg_output: str, slo: str) -> tuple[float, float
         "--slo", slo,
         "--version", "2",
         "--overall_output", overall_output,
-        "--warmup", "5"
     ],
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL)

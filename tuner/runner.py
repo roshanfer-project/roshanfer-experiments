@@ -108,8 +108,8 @@ class Runner:
 				with params_path.open("w") as f:
 					json.dump(unit.to_dict(), f, indent=2)
 				
-				cmd_path = os.path.join(os.path.dirname(__file__), self.config.git_root, self.config.k6_scripts_root)
-				cmd = ["./" + unit.script]
+				cmd_path = os.path.join(os.path.dirname(__file__), self.config.git_root)
+				cmd = [os.path.join(".", self.config.k6_scripts_root, unit.script)]
 
 				http_type = "http" if unit.system in ("sidecar", "sidecar-queue", "plain", "envoy") else "grpc"
 				#duration = f"{int(unit.duration)}s"
@@ -131,10 +131,10 @@ class Runner:
 				if result.returncode != 0:
 					status = "error"			
 
-				with open(os.path.join(unit_dir, "timestamps.csv"), "r") as file:
+				""" with open(os.path.join(unit_dir, "timestamps.csv"), "r") as file:
 					timestamps = file.readlines()
 					start_timestamp = datetime.fromtimestamp(float(timestamps[0].strip()))
-					end_timestamp = datetime.fromtimestamp(float(timestamps[1].strip()))
+					end_timestamp = datetime.fromtimestamp(float(timestamps[1].strip())) """
 
 			except Exception as e:  # noqa: BLE001
 				status = "error"
@@ -157,8 +157,6 @@ class Runner:
 			status=status,
 			raw_artifact_dir=str(raw_dir),
 			details=details,
-			start_timestamp=start_timestamp,
-			end_timestamp=end_timestamp,
 			output_file=str(output_dir / f"out-{self._api_list(unit.apis)}.csv")
 		)
 	
