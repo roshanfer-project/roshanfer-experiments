@@ -16,7 +16,15 @@ Plugin contract (repeat-level, current scope):
     generate_repeat_plots(ctx: Dict) -> List[pathlib.Path]
         ctx keys provided:
             type, experiment_name, run_unit_name, group_name, repeat_index,
-            artifact_dir, metrics_dir, output_dir, metric_files (stem->json), record (raw summary line)
+            artifact_dir, metrics_dir, output_dir, metric_files (stem->json), record, slos, bench
+            
+        Data sources:
+            * NEW (RWG-based plugins): Use artifact_dir to load:
+              - output/overall-{api}.json (via data_loader.py)
+              - output/realtime-{api}.csv (via data_loader.py)
+            * LEGACY (Prometheus plugins): Use metric_files dict
+            
+        Plugins can use either data source based on their implementation.
 
 Discovery rules:
     * If module defines PLUGIN_TYPES = { 'exp-type': func, ... } each func is registered for that type.
@@ -184,6 +192,14 @@ def _load_summary(run_root: Path) -> List[Dict]:
 
 
 def _load_metric_files(metrics_dir: Path) -> Dict[str, dict]:
+    """Load legacy Prometheus metric files (for backward compatibility).
+    
+    NOTE: New RWG-based plugins should use artifact_dir/output/ instead:
+        - output/overall-{api}.json
+        - output/realtime-{api}.csv
+    
+    See data_loader.py for the new data loading utilities.
+    """
     out: Dict[str, dict] = {}
     if not metrics_dir.exists():
         return out
@@ -257,13 +273,34 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
         artifact_dir = Path(rec.get('artifact_dir', '.'))
         repeat_index = rec.get('repeat_index')
         metrics_dir = artifact_dir / 'metrics'
+        
+        # Load legacy Prometheus metrics (for backward compatibility)
         metric_files = _load_metric_files(metrics_dir)
-        if not metric_files:
+        
+        # Check for new RWG data sources
+        output_dir_data = artifact_dir / 'output'
+        has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
+        
+        # Skip if no data available (neither legacy nor new)
+        if not metric_files and not has_rwg_data:
+            if os.environ.get('PLOT_DEBUG') == '1':
+                print(f"[plot_runner] skip repeat {repeat_index}: no data (checked metrics_dir and output/)")
             continue
+        
+        if os.environ.get('PLOT_DEBUG') == '1':
+            data_sources = []
+            if metric_files:
+                data_sources.append(f"legacy({len(metric_files)} files)")
+            if has_rwg_data:
+                rwg_files = list(output_dir_data.glob('overall-*.json'))
+                data_sources.append(f"RWG({len(rwg_files)} APIs)")
+            print(f"[plot_runner] repeat {repeat_index} data: {', '.join(data_sources)}")
+        
         out_dir = output_root / rec.get('experiment_name') / rec.get('group_name', rec.get('run_unit_name','')) / f'repeat_{int(repeat_index):03d}'
         # Inject SLOs from record/config if present
         slos = config.get('slos')
-        print(f"[plot_runner] using SLOs from config: {slos}")
+        if os.environ.get('PLOT_DEBUG') == '1':
+            print(f"[plot_runner] using SLOs from config: {list(slos.keys()) if slos else None}")
         ctx = {
             'type': exp_type,
             'experiment_name': rec.get('experiment_name'),
@@ -273,14 +310,18 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             'artifact_dir': artifact_dir,
             'metrics_dir': metrics_dir,
             'output_dir': out_dir,
-            'metric_files': metric_files,
+            'metric_files': metric_files,  # Legacy - for backward compatibility
             'record': rec,
             'slos': slos,
             "bench": config.get("bench")
         }
         for fn in funcs:
             try:
-                fn(ctx)
+                if os.environ.get('PLOT_DEBUG') == '1':
+                    print(f"[plot_runner] calling plugin {fn.__module__}.{fn.__name__} for repeat {repeat_index}")
+                result = fn(ctx)
+                if os.environ.get('PLOT_DEBUG') == '1' and result:
+                    print(f"[plot_runner] plugin generated {len(result)} plots: {[p.name for p in result]}")
             except Exception:
                 if os.environ.get('PLOT_DEBUG') == '1':
                     print(f"[plot_runner] plugin {fn.__module__}.{fn.__name__} failed for repeat {rec.get('repeat_index')} type {exp_type}")

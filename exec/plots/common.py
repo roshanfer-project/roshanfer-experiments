@@ -1,12 +1,12 @@
-"""Common plotting utilities and metric dataframe helpers to avoid duplication.
+"""Common plotting utilities - LEGACY.
 
-This module centralizes:
-  * Metric key ordering constants
-  * Series extraction from Prometheus JSON responses
-  * Generic stacked rate and latency line plotting helpers
+This module contains legacy plotting helpers that will be deprecated.
+New code should use:
+  - plotting_primitives.py: Generic plotting functions
+  - data_loader.py: RWG data loading
+  - aggregation.py: Metric aggregation
 
-Functions here are intentionally lightweight and stateless so they can be
-re-used by both per-repeat plugins and aggregate plotting scripts.
+Legacy functions kept for backward compatibility during migration.
 """
 from __future__ import annotations
 
@@ -23,29 +23,9 @@ except Exception:  # running with top-level package 'exec'
     except Exception as e:  # pragma: no cover
         raise ImportError("Unable to import canvas. Run from repo root or add project root to PYTHONPATH.") from e
 
+# Legacy constants - kept for backward compatibility
 RATE_KEYS_ORDER = ["goodput", "slo_violation", "dropped_in", "dropped"]
 LATENCY_KEYS_ORDER = ["latency_p50", "latency_p95", "latency_p99"]
-
-
-def extract_series(metric_json: dict) -> Tuple[List[float], List[float]]:
-    """Extract (timestamps, values) from a Prometheus range vector JSON.
-
-    Returns empty lists if structure unexpected.
-    """
-    res = metric_json.get('result')
-    if not isinstance(res, list) or not res:
-        return [], []
-    series = res[0]
-    values = series.get('values') or []
-    ts_list: List[float] = []
-    val_list: List[float] = []
-    for ts, val in values:
-        try:
-            ts_list.append(float(ts))
-            val_list.append(float(val))
-        except Exception:
-            continue
-    return ts_list, val_list
 
 def _label_fixer(label: str) -> str:
     if label == 'dropped_in':
@@ -60,7 +40,9 @@ def _label_fixer(label: str) -> str:
 
 
 def plot_rate_stack(df, out_path: Path, time_col: str = 't_rel', value_col: str = 'value_krps') -> Path:
-    """Plot stacked area for rate metrics using canvas only (KRPS expected).
+    """DEPRECATED: Plot stacked area for rate metrics using canvas only (KRPS expected).
+    
+    Use plotting_primitives.plot_stacked_area() for new code.
 
     DataFrame columns required: time_col, value_col, 'metric'.
     """
@@ -166,7 +148,9 @@ def plot_rate_stack(df, out_path: Path, time_col: str = 't_rel', value_col: str 
 
 def plot_latency_lines(df, out_path: Path, time_col: str = 't_rel', value_col: str = 'value', add_slo: bool = True,
                        slo_ms: float = 60.0, log_scale: bool = True, y_min: float = 1.0, y_max: float = 500.0) -> Path:
-    """Plot latency percentile lines using canvas only."""
+    """DEPRECATED: Plot latency percentile lines using canvas only.
+    
+    Use plotting_primitives.plot_line() for new code."""
     if df is None or df.empty:
         return out_path
     # Limit to first 15s of relative time

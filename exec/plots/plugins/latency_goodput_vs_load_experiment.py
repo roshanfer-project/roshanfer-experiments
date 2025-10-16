@@ -1,422 +1,285 @@
 """Experiment-level aggregate plots for latency-and-goodput-vs-load.
 
+REWRITTEN to use new RWG data loading and plotting architecture.
+
 Produces exactly two figures per experiment (spanning all loads):
-  * latency_vs_load.pdf  (p50 & p95 per API with error bars across repeats)
+  * latency_vs_load.pdf  (P95 per API with error bars across repeats)
   * goodput_vs_load.pdf  (goodput per API with error bars across repeats)
 
-Supports up to 3 APIs. X-axis = load * 10 (per instructions).
-Error bars: standard deviation across repeats (0 if single repeat).
+Supports up to 3 APIs. X-axis = load * 10 / 1000 (KRPS).
+Error bars: 95% confidence interval across repeats.
 """
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Dict, List, Optional
-import json
-from pathlib import Path as _Path
-import statistics
 import math
+import os
+
+# Import new RWG data loading and plotting
+try:
+    from ..data_loader import load_experiment_data
+    from ..aggregation import aggregate_by_api
+    from ..plotting_primitives import (
+        SubplotGrid, ACM_COMPACT_HALF, plot_line
+    )
+except ImportError:
+    try:
+        from exec.plots.data_loader import load_experiment_data  # type: ignore
+        from exec.plots.aggregation import aggregate_by_api  # type: ignore
+        from exec.plots.plotting_primitives import (  # type: ignore
+            SubplotGrid, ACM_COMPACT_HALF, plot_line
+        )
+    except ImportError:
+        from data_loader import load_experiment_data  # type: ignore
+        from aggregation import aggregate_by_api  # type: ignore
+        from plotting_primitives import (  # type: ignore
+            SubplotGrid, ACM_COMPACT_HALF, plot_line
+        )
 
 SUPPORTED_TYPES = ['latency-and-goodput-vs-load']
 
-try:
-    from ..common import extract_series
-except Exception:  # pragma: no cover
-    from experiments.exec.plots.common import extract_series  # type: ignore
 
-LAT_KEYS = ('latency_p50','latency_p95')
+def _lookup_slo(slos: Optional[Dict[str, float]], api: str) -> Optional[float]:
+    """Return SLO ms for api using flexible key matching."""
+    if not slos or not api:
+        return None
+    
+    base = api[:-4] if api.endswith('_all') else api
+    candidates = [base, base.replace('-', '_'), base.replace('_', '-')]
+    candidates.extend([c.lower() for c in candidates])
+    
+    seen = []
+    ordered = []
+    for c in candidates:
+        if c not in seen:
+            seen.append(c)
+            ordered.append(c)
+    
+    for key in ordered:
+        if key in slos:
+            return slos[key]
+    
+    return None
 
 
-def _mean_std(values: List[float]):
-    """Return (mean, std) ignoring NaN/None.
-
-    Outcomes:
-      * No valid values -> (None, None)
-      * One valid value -> (mean, 0.0)
-      * >=2 valid values -> (mean, population std)
+def generate_experiment_plots(ctx: Dict) -> List[Path]:
+    """Generate experiment-level plots aggregating across all load points.
+    
+    Loads overall-{api}.json from all units and repeats, aggregates metrics,
+    and plots latency and goodput vs load with error bars.
     """
-    if not values:
-        return None, None
-    filtered = [v for v in values if v is not None and not (isinstance(v, float) and math.isnan(v))]
-    if not filtered:
-        return None, None
-    m = sum(filtered) / len(filtered)
-    if len(filtered) < 2:
-        return m, 0.0
-    try:
-        return m, statistics.pstdev(filtered)
-    except Exception:
-        return m, 0.0
-
-
-def _windowed_mean(ts: List[float], vals: List[float], ignore_first: float = 5.0, last_window: float = 10.0) -> float | None:
-    """Compute mean over filtered window: drop first ignore_first seconds (relative) then keep only
-    samples in the last last_window seconds of the series.
-
-    ts may be absolute epoch timestamps; we compute relative by subtracting min(ts).
-    If no samples remain after filtering return None.
-    """
-    if not ts or not vals:
-        return None
-    if len(ts) != len(vals):
-        return None
-    t0 = min(ts)
-    rel = [t - t0 for t in ts]
-    max_rel = max(rel)
-    # Determine lower bound after applying both filters
-    lower_bound = max(ignore_first, max_rel - last_window)
-    filtered = [v for tr, v in zip(rel, vals) if tr >= lower_bound]
-    if not filtered:
-        return None
-    return sum(filtered) / len(filtered)
-
-
-def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
     if ctx.get('type') not in SUPPORTED_TYPES:
         return []
+    
     apis: List[str] = ctx.get('apis') or []
-    unit_entries = ctx['unit_entries']  # list of {run_unit_name, repeat_metric_files, load_value, ...}
+    unit_entries = ctx['unit_entries']  # list of {run_unit_name, artifact_dirs, load_value, ...}
     out_dir: Path = ctx['output_dir']
+    slos: Optional[Dict[str, float]] = ctx.get('slos')
+    
     out_dir.mkdir(parents=True, exist_ok=True)
-    slos: Dict[str, float] | None = ctx.get('slos')
-    system_name: str = ctx.get('system') or ctx.get('system_name') or 'system'
-    if slos is None:
-        print(f"[generate_experiment_plots] No SLOs defined for context")
-        # Fallback: search for config files upward similar to repeat plugin
-        def _load_global_slos() -> Optional[Dict[str, float]]:
-            candidates_rel = [
-                'experiments/exec/config.json',
-                'experiments/exec/config.sample.json',
-                'config.json',
-                'config.sample.json',
-            ]
-            this_dir = _Path(__file__).resolve().parent
-            search_roots = [this_dir] + list(this_dir.parents)
-            tried = []
-            import os
-            for root in search_roots:
-                for rel in candidates_rel:
-                    cpath = (root / rel).resolve()
-                    if cpath in tried:
-                        continue
-                    tried.append(cpath)
-                    if not cpath.exists():
-                        continue
-                    try:
-                        data = json.loads(cpath.read_text())
-                    except Exception:
-                        continue
-                    if isinstance(data, dict) and isinstance(data.get('slos'), dict):
-                        if os.environ.get('PLOT_DEBUG'):
-                            print(f"[plot-debug] aggregate loaded SLOs from {cpath}: {list(data['slos'].keys())}")
-                        return data['slos']  # type: ignore
-            if os.environ.get('PLOT_DEBUG'):
-                print('[plot-debug] aggregate no SLO config found')
-            return None
-        slos = _load_global_slos()
     produced: List[Path] = []
-    if not unit_entries:
+    
+    if not unit_entries or not apis:
         return produced
+    
     # Sort units by load_value
     unit_entries = [u for u in unit_entries if u.get('load_value') is not None]
     unit_entries.sort(key=lambda u: u['load_value'])
+    
     if not unit_entries:
         return produced
-    # Build per API series: load_x -> values list per repeat (mean over time range of each repeat)
-    latency_data = {api: {k: [] for k in LAT_KEYS} for api in apis}
-    raw_latency_values: List[float] = []  # collect all windowed latency samples for dynamic y-limit
-    goodput_data = {api: [] for api in apis}
+    
+    # Build per-API series: load -> (mean, std, ci) for each metric
     loads = []  # in KRPS
-    for u in unit_entries:
-        load = u['load_value']
-        # Convert offered load: original RPS = load * 10; represent in KRPS
-        x_val = (load * 10) / 1000.0
+    latency_series = {api: {'p95': []} for api in apis}
+    goodput_series = {api: [] for api in apis}
+    
+    for unit_entry in unit_entries:
+        load = unit_entry['load_value']
+        x_val = (load * 10) / 1000.0  # Convert to KRPS
         loads.append(x_val)
-        repeat_metric_files = u['repeat_metric_files']
-        # For each api collect repeat stats
-        for api in apis:
-            # Goodput
-            gp_repeat_vals = []
-            for rf in repeat_metric_files:
-                gp_json = rf.get(f'goodput_{api}_all') or rf.get(f'goodput_{api}')
-                if gp_json:
-                    ts, vals = extract_series(gp_json)
-                    wm = _windowed_mean(ts, vals)
-                    if wm is not None:
-                        gp_repeat_vals.append(wm)
-            goodput_data[api].append(gp_repeat_vals)
-            # Latencies
-            for lk in LAT_KEYS:
-                lat_repeat_vals = []
-                for rf in repeat_metric_files:
-                    lat_json = rf.get(f'{lk}_{api}_all') or rf.get(f'{lk}_{api}')
-                    if lat_json:
-                        ts, vals = extract_series(lat_json)
-                        wm = _windowed_mean(ts, vals)
-                        if wm is not None:
-                            lat_repeat_vals.append(wm)
-                            if lk == 'latency_p95':  # only use p95 samples for scaling
-                                raw_latency_values.append(wm)
-                latency_data[api][lk].append(lat_repeat_vals)
-    # Now compute mean/std arrays aligned with loads
-    try:
-        from experiments.canvas import canvas  # type: ignore
-    except Exception:
-        from canvas import canvas  # type: ignore
-    import matplotlib.pyplot as plt  # type: ignore
-    # Latency figure
-    # Predefine distinct colors for latency percentiles (consistent across APIs)
-    try:
-        lat_colors = {
-            'latency_p50': canvas.color_list[0],
-            'latency_p95': canvas.color_list[1],
-        }
-    except Exception:
-        lat_colors = {
-            'latency_p50': '#1f77b4',
-            'latency_p95': '#ff7f0e',
-        }
-    fig_l, axes_l = canvas.create_canvas(
-        nrows=1, ncols=len(apis), width_in_inches=3.33, aspect_ratio=0.66,
-        line_width=2, font_size=16, legend_size=14, marker_size=5
-    )
-    # Normalize axes_l to a simple list of Axes
-    try:
-        from matplotlib.axes import Axes as _Axes  # type: ignore
-    except Exception:
-        _Axes = object  # fallback
-    if isinstance(axes_l, _Axes):
-        axes_l = [axes_l]
-    else:
+        
+        artifact_dirs = unit_entry.get('artifact_dirs', [])
+        
+        # Load and aggregate data for this unit
         try:
-            # axes_l might be a numpy array; flatten and convert
-            axes_l = list(getattr(axes_l, 'ravel')().tolist())  # type: ignore
-        except Exception:
-            axes_l = list(axes_l) if not isinstance(axes_l, list) else axes_l
-    from matplotlib.ticker import MultipleLocator  # type: ignore
-    global_latency_values = []  # collect all latency means across APIs for dynamic y-limit
-    api_latency_means_map = {}  # store means per api to re-apply after y-max decision if needed
-    # Flexible SLO lookup helper (local)
-    def _lookup_slo(smap: Optional[Dict[str, float]], name: str) -> Optional[float]:
-        if not smap:
-            return None
-        base = name[:-4] if name.endswith('_all') else name
-        cand = [base, base.replace('-', '_'), base.replace('_','-')]
-        cand.extend([c.lower() for c in cand])
-        seen = []
-        ordered = []
-        for c in cand:
-            if c not in seen:
-                seen.append(c)
-                ordered.append(c)
-        for key in ordered:
-            if key in smap:
-                return smap[key]
-        return None
-    for ax, api in zip(axes_l, apis):
-        display_api = api[:-4] if api.endswith('_all') else api
-        # Only plot latency_p95 per request (p50 removed)
-        for lk, marker, style in (('latency_p95','^','--'),):
-            means = []
-            stds = []
-            for rep_lists in latency_data[api][lk]:
-                m, s = _mean_std(rep_lists)
-                if m is None:
-                    means.append(float('nan'))
-                    stds.append(0.0)
+            all_repeats = []
+            for artifact_dir in artifact_dirs:
+                # Load this specific repeat
+                from ..data_loader import load_repeat_data
+                repeat_data = load_repeat_data(artifact_dir)
+                if repeat_data:
+                    all_repeats.append(repeat_data)
+            
+            if not all_repeats:
+                # No data for this load point - add None placeholders
+                for api in apis:
+                    latency_series[api]['p95'].append((None, None, None))
+                    goodput_series[api].append((None, None, None))
+                continue
+            
+            # Aggregate across repeats
+            aggregated = aggregate_by_api(all_repeats)
+            
+            for api in apis:
+                if api in aggregated:
+                    # Latency P95
+                    p95_mean, p95_std, p95_ci = aggregated[api].get('p95_latency', (None, None, None))
+                    latency_series[api]['p95'].append((p95_mean, p95_std, p95_ci))
+                    
+                    # Goodput
+                    gp_mean, gp_std, gp_ci = aggregated[api].get('goodput', (None, None, None))
+                    goodput_series[api].append((gp_mean, gp_std, gp_ci))
                 else:
-                    means.append(m)
-                    stds.append(s)
-            # plot only if at least one finite mean
-            if any(v is not None and not (isinstance(v,float) and math.isnan(v)) for v in means):
-                color = lat_colors.get(lk)
-                # Use explicit marker styling & caps on error bars
-                # Use system name instead of percentile label for p95 line
-                ax.errorbar(loads, means, yerr=stds, fmt=style, marker=marker, label=system_name,
-                            linewidth=2.8, color=color, markersize=6.5, markerfacecolor=color,
-                            markeredgecolor='black', markeredgewidth=0.6, capsize=4, elinewidth=1.4)
-            # accumulate finite means
-            for v in means:
-                if isinstance(v, float) and not math.isnan(v):
-                    global_latency_values.append(v)
-            api_latency_means_map[api] = means
+                    latency_series[api]['p95'].append((None, None, None))
+                    goodput_series[api].append((None, None, None))
+        
+        except Exception as e:
+            if os.environ.get('PLOT_DEBUG'):
+                print(f"[latency_goodput_vs_load_experiment] Error processing unit {load}: {e}")
+            # Add None placeholders
+            for api in apis:
+                latency_series[api]['p95'].append((None, None, None))
+                goodput_series[api].append((None, None, None))
+    
+    # Use ACM compact style
+    style = ACM_COMPACT_HALF
+    
+    # === LATENCY FIGURE ===
+    layout = f"row-{len(apis)}" if len(apis) > 1 else "1x1"
+    grid_lat = SubplotGrid(style, layout=layout)
+    
+    # Track all latency values for dynamic Y-axis
+    all_latency_values = []
+    
+    for idx, api in enumerate(apis):
+        ax = grid_lat.get_ax(0, idx)
+        
+        # Extract data for this API
+        p95_data = latency_series[api]['p95']
+        means = [item[0] for item in p95_data]
+        cis = [item[2] if item[2] is not None else 0.0 for item in p95_data]
+        
+        # Filter out None values
+        valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
+                     if m is not None and not (isinstance(m, float) and math.isnan(m))]
+        
+        if valid_data:
+            valid_loads, valid_means, valid_cis = zip(*valid_data)
+            
+            # Plot with error bars
+            plot_line(
+                ax, valid_loads, valid_means,
+                yerr=valid_cis,
+                label='P95',
+                style=style,
+                color_idx=1,
+                show_markers=True  # Good for sparse load points
+            )
+            
+            all_latency_values.extend(valid_means)
+        
+        # Add SLO line
+        display_api = api.replace('_all', '') if api.endswith('_all') else api
         slo_val = _lookup_slo(slos, display_api)
         if slo_val is not None:
-            ax.axhline(y=slo_val, color='r', linestyle='--', label='SLO')
-        ax.set_xlabel('Offered Load (KRPS)')
-        if ax == axes_l[0]:
-            ax.set_ylabel('P95 Latency (ms)')
+            ax.axhline(y=slo_val, color='r', linestyle='--',
+                      label='SLO', linewidth=style.line_width)
+            all_latency_values.append(slo_val)
+        
+        # Configure axis
+        ax.set_title(display_api, fontsize=style.title_size)
         ax.set_yscale('log')
-        ax.set_title(display_api)
-        # X-axis grid every 2 KRPS
-        ax.xaxis.set_major_locator(MultipleLocator(2))
-        # Guarantee first and last load appear as ticks if locator missed last
-        try:
-            cur_ticks = list(ax.get_xticks())
-            if loads:
-                first_x, last_x = loads[0], loads[-1]
-                changed = False
-                if first_x not in cur_ticks:
-                    cur_ticks.insert(0, first_x)
-                    changed = True
-                if last_x not in cur_ticks:
-                    cur_ticks.append(last_x)
-                    changed = True
-                if changed:
-                    cur_ticks = sorted(set(cur_ticks))
-                    ax.set_xticks(cur_ticks)
-        except Exception:
-            pass
-        ax.grid(True, which='major', axis='both', alpha=0.3)
-    # legend merged at figure level
-        # Add guard space
+        ax.grid(True, alpha=0.3)
+        
+        # Set x-axis limits with padding
         if loads:
             span = loads[-1] - loads[0]
             pad = 0.03 * span if span > 0 else 0.05
             ax.set_xlim(loads[0] - pad, loads[-1] + pad)
-    # Dynamic latency y-max: 5x global max (fallback 500 if no data)
-    # Prefer raw_latency_values (windowed p95 samples) if means were NaN
-    if not global_latency_values and raw_latency_values:
-        global_latency_values = raw_latency_values
-    if global_latency_values:
-        dyn_y_max = max(global_latency_values) * 5.0
-        # Ensure at least slightly above max to avoid clipping
-        dyn_y_max *= 1.05
-        # Clamp lower bound of upper limit
-        if dyn_y_max < 10:
-            dyn_y_max = 10
+    
+    # Dynamic Y-axis: 5x max value
+    if all_latency_values:
+        dyn_y_max = max(all_latency_values) * 5.0 * 1.05
+        dyn_y_max = max(dyn_y_max, 10)  # Minimum 10ms
     else:
         dyn_y_max = 500
-    for ax in axes_l:
-        try:
-            ax.set_ylim(1, dyn_y_max)
-        except Exception:
-            continue
-    try:
-        handles, labels = [], []
-        for ax in axes_l:
-            h,l = ax.get_legend_handles_labels()
-            for hh,ll in zip(h,l):
-                if ll not in labels:
-                    handles.append(hh); labels.append(ll)
-        if handles:
-            if len(apis) > 1:
-                fig_l.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5,1.12),
-                              ncol=max(1,len(labels)), frameon=True, fancybox=True,
-                              framealpha=0.85, edgecolor='#bbbbbb')
-                fig_l.subplots_adjust(top=0.80)
-            else:
-                fig_l.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5,1.12),
-                              ncol=max(1,len(labels)), frameon=True, fancybox=True,
-                              framealpha=0.85, edgecolor='#bbbbbb')
-                fig_l.subplots_adjust(top=0.80)
-    except Exception:
-        pass
-    lat_path = out_dir / 'latency_vs_load.pdf'
-    fig_l.savefig(lat_path, bbox_inches='tight')
-    plt.close(fig_l)
-    produced.append(lat_path)
-    # Goodput figure
-    fig_g, axes_g = canvas.create_canvas(
-        nrows=1, ncols=len(apis), width_in_inches=3.33, aspect_ratio=0.66,
-        line_width=2, font_size=16, legend_size=14, marker_size=5
+    
+    for idx in range(len(apis)):
+        ax = grid_lat.get_ax(0, idx)
+        ax.set_ylim(1, dyn_y_max)
+    
+    # Configure labels
+    grid_lat.configure_labels(
+        pattern="leftmost_y_bottom_x",
+        xlabel="Offered Load (KRPS)",
+        ylabel="P95 Latency (ms)"
     )
-    # Normalize axes_g similarly
-    if isinstance(axes_g, _Axes):
-        axes_g = [axes_g]
-    else:
-        try:
-            axes_g = list(getattr(axes_g, 'ravel')().tolist())  # type: ignore
-        except Exception:
-            axes_g = list(axes_g) if not isinstance(axes_g, list) else axes_g
-    for ax, api in zip(axes_g, apis):
-        display_api = api[:-4] if api.endswith('_all') else api
-        means = []
-        stds = []
-        for rep_lists in goodput_data[api]:
-            m, s = _mean_std(rep_lists)
-            if m is None:
-                means.append(float('nan'))
-                stds.append(0.0)
-            else:
-                means.append(m/1000.0)  # KRPS
-                stds.append((s or 0)/1000.0)
-        if any(v is not None and not (isinstance(v,float) and math.isnan(v)) for v in means):
-            try:
-                gp_color = canvas.color_list[0]
-            except Exception:
-                gp_color = '#1f77b4'
-            # Use system name instead of generic 'goodput'
-            ax.errorbar(
-                loads, means, yerr=stds, fmt='-o', color=gp_color, label=system_name, linewidth=2.4,
-                markersize=6.0, markerfacecolor=gp_color, markeredgecolor='black', markeredgewidth=0.6,
-                capsize=4, elinewidth=1.3
+    
+    # Add legend
+    grid_lat.add_shared_legend(position="top")
+    
+    # Save
+    lat_path = out_dir / 'latency_vs_load.pdf'
+    grid_lat.save(lat_path)
+    produced.append(lat_path)
+    
+    # === GOODPUT FIGURE ===
+    grid_gp = SubplotGrid(style, layout=layout)
+    
+    for idx, api in enumerate(apis):
+        ax = grid_gp.get_ax(0, idx)
+        
+        # Extract data for this API
+        gp_data = goodput_series[api]
+        means = [(item[0] / 1000.0) if item[0] is not None else None for item in gp_data]  # Convert to KRPS
+        cis = [(item[2] / 1000.0) if item[2] is not None else 0.0 for item in gp_data]
+        
+        # Filter out None values
+        valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
+                     if m is not None and not (isinstance(m, float) and math.isnan(m))]
+        
+        if valid_data:
+            valid_loads, valid_means, valid_cis = zip(*valid_data)
+            
+            # Plot with error bars
+            plot_line(
+                ax, valid_loads, valid_means,
+                yerr=valid_cis,
+                label='Goodput',
+                style=style,
+                color_idx=0,
+                show_markers=True  # Good for sparse load points
             )
-        ax.set_xlabel('Offered Load (KRPS)')
-        if ax == axes_g[0]:
-            ax.set_ylabel('Goodput (KRPS)')
-        ax.set_title(display_api)
-        ax.xaxis.set_major_locator(MultipleLocator(2))
-        try:
-            cur_ticks = list(ax.get_xticks())
-            if loads:
-                first_x, last_x = loads[0], loads[-1]
-                changed = False
-                if first_x not in cur_ticks:
-                    cur_ticks.insert(0, first_x)
-                    changed = True
-                if last_x not in cur_ticks:
-                    cur_ticks.append(last_x)
-                    changed = True
-                if changed:
-                    cur_ticks = sorted(set(cur_ticks))
-                    ax.set_xticks(cur_ticks)
-        except Exception:
-            pass
-        # Y grid every 1 KRPS
-        finite_means = [v for v in means if isinstance(v, float) and not math.isnan(v)]
-        if finite_means:
-            max_val = max(finite_means)
-            step = 1.0
-            import math as _m
-            n = int(_m.ceil(max_val / step))
-            yticks = [i * step for i in range(n + 1)]
-            if yticks:
-                ax.set_yticks(yticks)
-        ax.grid(True, which='major', axis='both', alpha=0.3)
-    # legend merged at figure level
+        
+        # Configure axis
+        display_api = api.replace('_all', '') if api.endswith('_all') else api
+        ax.set_title(display_api, fontsize=style.title_size)
+        ax.grid(True, alpha=0.3)
+        
+        # Set x-axis limits with padding
         if loads:
             span = loads[-1] - loads[0]
             pad = 0.03 * span if span > 0 else 0.05
             ax.set_xlim(loads[0] - pad, loads[-1] + pad)
-    try:
-        handles, labels = [], []
-        for ax in axes_g:
-            h,l = ax.get_legend_handles_labels()
-            for hh,ll in zip(h,l):
-                if ll not in labels:
-                    handles.append(hh); labels.append(ll)
-        if handles:
-            if len(apis) > 1:
-                fig_g.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5,1.12),
-                              ncol=max(1,len(labels)), frameon=True, fancybox=True,
-                              framealpha=0.85, edgecolor='#bbbbbb')
-                fig_g.subplots_adjust(top=0.80)
-            else:
-                fig_g.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5,1.12),
-                              ncol=max(1,len(labels)), frameon=True, fancybox=True,
-                              framealpha=0.85, edgecolor='#bbbbbb')
-                fig_g.subplots_adjust(top=0.80)
-    except Exception:
-        pass
+    
+    # Configure labels
+    grid_gp.configure_labels(
+        pattern="leftmost_y_bottom_x",
+        xlabel="Offered Load (KRPS)",
+        ylabel="Goodput (KRPS)"
+    )
+    
+    # Add legend
+    grid_gp.add_shared_legend(position="top")
+    
+    # Save
     goodput_path = out_dir / 'goodput_vs_load.pdf'
-    fig_g.savefig(goodput_path, bbox_inches='tight')
-    plt.close(fig_g)
+    grid_gp.save(goodput_path)
     produced.append(goodput_path)
-    # Prune any per-load subdirectories (created by earlier steps) under experiment directory
-    try:
-        import shutil
-        for child in out_dir.iterdir():
-            if child.is_dir():
-                shutil.rmtree(child)
-    except Exception:
-        pass
+    
+    if os.environ.get('PLOT_DEBUG'):
+        print(f"[latency_goodput_vs_load_experiment] Generated {len(produced)} plots: {[p.name for p in produced]}")
+    
     return produced

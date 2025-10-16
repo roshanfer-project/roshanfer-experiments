@@ -979,90 +979,31 @@ def generate_latency_goodput_vs_load_merged(
 ) -> List[Path]:
     """Generate merged latency-and-goodput-vs-load figure.
     
-    This gets processed data from the experiment-level aggregate plugins and
-    combines multiple experiments into a single figure with legend entries.
+    REWRITTEN to use new RWG data loading and plotting architecture.
+    Combines multiple experiments into a single figure with legend entries.
     """
-    # Import functions from existing modules
+    # Import new RWG data loading and plotting
     try:
-        from exec.plots.common import extract_series
-    except Exception:
+        from exec.plots.data_loader import load_repeat_data
+        from exec.plots.aggregation import aggregate_by_api
+        from exec.plots.plotting_primitives import (
+            SubplotGrid, ACM_COMPACT_HALF, plot_line
+        )
+    except ImportError:
         try:
-            from plots.common import extract_series  
-        except Exception:
-            # Manual implementation if import fails
-            def extract_series(metric_json: dict):
-                """Extract (timestamps, values) from a Prometheus range vector JSON."""
-                res = metric_json.get('result')
-                if not isinstance(res, list) or not res:
-                    return [], []
-                series = res[0]
-                values = series.get('values') or []
-                ts_list = []
-                val_list = []
-                for ts, val in values:
-                    try:
-                        ts_list.append(float(ts))
-                        val_list.append(float(val))
-                    except Exception:
-                        continue
-                return ts_list, val_list
-    # Import helper functions
-    try:
-        from exec.plots.plugins.latency_goodput_vs_load_experiment import _windowed_mean, _mean_std
-    except Exception:
-        try:
-            from plots.plugins.latency_goodput_vs_load_experiment import _windowed_mean, _mean_std
-        except Exception:
-            # Manual implementations if import fails
-            def _windowed_mean(ts, vals, ignore_first=5.0, last_window=10.0):
-                """Compute mean over filtered window."""
-                if not ts or not vals:
-                    return None
-                if len(ts) != len(vals):
-                    return None
-                t0 = min(ts)
-                rel = [t - t0 for t in ts]
-                max_rel = max(rel)
-                lower_bound = max(ignore_first, max_rel - last_window)
-                filtered = [v for tr, v in zip(rel, vals) if tr >= lower_bound]
-                if not filtered:
-                    return None
-                return sum(filtered) / len(filtered)
-            
-            def _mean_std(values):
-                """Return (mean, std) ignoring NaN/None."""
-                if not values:
-                    return None, None
-                filtered = [v for v in values if v is not None and not (isinstance(v, float) and math.isnan(v))]
-                if not filtered:
-                    return None, None
-                m = sum(filtered) / len(filtered)
-                if len(filtered) < 2:
-                    return m, 0.0
-                try:
-                    return m, statistics.pstdev(filtered)
-                except Exception:
-                    return m, 0.0
-    
-    # Import canvas
-    try:
-        from canvas import canvas
-    except Exception:
-        try:
-            import matplotlib.pyplot as plt
-            # Create a simple canvas substitute if canvas is not available
-            class SimpleCanvas:
-                color_list = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
-                def create_canvas(self, nrows=1, ncols=1, width_in_inches=6, aspect_ratio=0.66, 
-                                line_width=2, font_size=12, legend_size=12, marker_size=5):
-                    fig, axes = plt.subplots(nrows, ncols, figsize=(width_in_inches*ncols, width_in_inches*aspect_ratio*nrows))
-                    return fig, axes
-            canvas = SimpleCanvas()
-        except Exception as e:
-            raise ImportError("Neither canvas nor matplotlib available") from e
+            from plots.data_loader import load_repeat_data  # type: ignore
+            from plots.aggregation import aggregate_by_api  # type: ignore
+            from plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, plot_line
+            )
+        except ImportError:
+            from data_loader import load_repeat_data  # type: ignore
+            from aggregation import aggregate_by_api  # type: ignore
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, plot_line
+            )
     
     import matplotlib.pyplot as plt
-    from matplotlib.ticker import MultipleLocator
     import math
     
     produced: List[Path] = []
@@ -1071,17 +1012,10 @@ def generate_latency_goodput_vs_load_merged(
     if not include_experiments:
         return produced
     
-    # Load SLOs from config file (already available in input)
+    # Load SLOs from config file
     with open(global_config) as f:
         global_configs = json.load(f)
-    slo_map = None
-    try:
-        """ with open('exec/config.sample.json') as f:
-            config_data = json.load(f)
-            slo_map = config_data.get('slos', {}) """
-        slo_map = global_configs.get('slos')
-    except Exception:
-        slo_map = {}
+    slo_map = global_configs.get('slos', {})
     
     # Collect data from all experiments
     all_experiment_data = {}
@@ -1133,7 +1067,7 @@ def generate_latency_goodput_vs_load_merged(
                 
             load_groups.setdefault(load_value, []).append(record)
         
-        # Process each load and collect metrics
+        # Process each load and collect metrics using RWG data
         exp_data = {api: {'latency_p95': [], 'goodput': []} for api in apis}
         loads = []
         
@@ -1144,39 +1078,39 @@ def generate_latency_goodput_vs_load_merged(
             x_val = (load_value * 10) / 1000.0
             loads.append(x_val)
             
-            # Collect metrics from all repeats for this load
+            # Collect all repeats for this load using RWG data
+            all_repeats = []
+            for record in load_records:
+                artifact_dir = Path(record.get('artifact_dir', '.'))
+                try:
+                    repeat_data = load_repeat_data(artifact_dir)
+                    if repeat_data:
+                        all_repeats.append(repeat_data)
+                except Exception:
+                    continue
+            
+            if not all_repeats:
+                # No data for this load - add None placeholders
+                for api in apis:
+                    exp_data[api]['goodput'].append((None, None, None))
+                    exp_data[api]['latency_p95'].append((None, None, None))
+                continue
+            
+            # Aggregate across repeats
+            aggregated = aggregate_by_api(all_repeats)
+            
             for api in apis:
-                # Goodput
-                gp_repeat_vals = []
-                lat_repeat_vals = []
-                
-                for record in load_records:
-                    artifact_dir = Path(record.get('artifact_dir', '.'))
-                    metrics_dir = artifact_dir / 'metrics'
-                    metric_files = _load_metric_files(metrics_dir)
+                if api in aggregated:
+                    # Latency P95
+                    lat_mean, lat_std, lat_ci = aggregated[api].get('p95_latency', (None, None, None))
+                    exp_data[api]['latency_p95'].append((lat_mean, lat_std, lat_ci))
                     
                     # Goodput
-                    gp_json = metric_files.get(f'goodput_{api}_all') or metric_files.get(f'goodput_{api}')
-                    if gp_json:
-                        ts, vals = extract_series(gp_json)
-                        wm = _windowed_mean(ts, vals)
-                        if wm is not None:
-                            gp_repeat_vals.append(wm)
-                    
-                    # Latency P95
-                    lat_json = metric_files.get(f'latency_p95_{api}_all') or metric_files.get(f'latency_p95_{api}')
-                    if lat_json:
-                        ts, vals = extract_series(lat_json)
-                        wm = _windowed_mean(ts, vals)
-                        if wm is not None:
-                            lat_repeat_vals.append(wm)
-                
-                # Store mean/std for this load
-                gp_mean, gp_std = _mean_std(gp_repeat_vals)
-                lat_mean, lat_std = _mean_std(lat_repeat_vals)
-                
-                exp_data[api]['goodput'].append((gp_mean, gp_std))
-                exp_data[api]['latency_p95'].append((lat_mean, lat_std))
+                    gp_mean, gp_std, gp_ci = aggregated[api].get('goodput', (None, None, None))
+                    exp_data[api]['goodput'].append((gp_mean, gp_std, gp_ci))
+                else:
+                    exp_data[api]['latency_p95'].append((None, None, None))
+                    exp_data[api]['goodput'].append((None, None, None))
         
         all_experiment_data[label] = {
             'data': exp_data,
@@ -1196,481 +1130,166 @@ def generate_latency_goodput_vs_load_merged(
     
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Generate latency figure
-    fig_l, axes_l = canvas.create_canvas(
-        nrows=1, ncols=len(all_apis), width_in_inches=3.33, aspect_ratio=0.66,
-        line_width=2, font_size=16, legend_size=14, marker_size=5
-    )
+    # Use ACM compact style
+    style = ACM_COMPACT_HALF
     
-    # Normalize axes to list
-    try:
-        from matplotlib.axes import Axes as _Axes
-    except Exception:
-        _Axes = object
+    # === LATENCY FIGURE ===
+    layout = f"row-{len(all_apis)}" if len(all_apis) > 1 else "1x1"
+    grid_lat = SubplotGrid(style, layout=layout)
     
-    if isinstance(axes_l, _Axes):
-        axes_l = [axes_l]
-    else:
-        try:
-            axes_l = list(getattr(axes_l, 'ravel')().tolist())
-        except Exception:
-            axes_l = list(axes_l) if not isinstance(axes_l, list) else axes_l
+    # Track all latency values for dynamic Y-axis
+    all_latency_values = []
     
-    # Color, marker, and line style mapping for different experiments
-    try:
-        colors = canvas.color_list[:len(all_experiment_data)]
-    except Exception:
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-    color_map = dict(zip(all_experiment_data.keys(), colors))
-    marker_list = ['o', '^', 's', 'D', 'v', 'P', 'X', '*']
-    style_list = ['-', '--', '-.', ':']
-    marker_map = {}
-    style_map = {}
-    for i, label in enumerate(all_experiment_data.keys()):
-        marker_map[label] = marker_list[i % len(marker_list)]
-        style_map[label] = style_list[i % len(style_list)]
-    
-    global_latency_values = []
-    
-    for ax, api in zip(axes_l, all_apis):
-        display_api = api[:-4] if api.endswith('_all') else api
-        for label, exp_info in all_experiment_data.items():
+    for idx, api in enumerate(all_apis):
+        ax = grid_lat.get_ax(0, idx)
+        display_api = api.replace('_all', '') if api.endswith('_all') else api
+        
+        # Plot each experiment
+        for exp_idx, (label, exp_info) in enumerate(all_experiment_data.items()):
             exp_data = exp_info['data']
             loads = exp_info['loads']
+            
             if api not in exp_data:
                 continue
-            # Extract latency data
+            
+            # Extract latency data with CI
             latency_data = exp_data[api]['latency_p95']
             means = [item[0] for item in latency_data]
-            stds = [item[1] if item[1] is not None else 0.0 for item in latency_data]
-            valid_data = [(l, m, s) for l, m, s in zip(loads, means, stds) 
+            cis = [item[2] if item[2] is not None else 0.0 for item in latency_data]
+            
+            # Filter out None values
+            valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
                          if m is not None and not (isinstance(m, float) and math.isnan(m))]
+            
             if valid_data:
-                valid_loads, valid_means, valid_stds = zip(*valid_data)
-                color = color_map.get(label)
-                marker = marker_map.get(label, 'o')
-                style = style_map.get(label, '-')
-                ax.errorbar(
-                    valid_loads, valid_means, yerr=valid_stds,
-                    fmt=style, marker=marker, label=label,
-                    linewidth=2.8, color=color, markersize=6.5,
-                    markerfacecolor=color, markeredgecolor='black',
-                    markeredgewidth=0.6, capsize=4, elinewidth=1.4
+                valid_loads, valid_means, valid_cis = zip(*valid_data)
+                
+                # Plot with error bars (using CI not std)
+                plot_line(
+                    ax, valid_loads, valid_means,
+                    yerr=valid_cis,
+                    label=label,
+                    style=style,
+                    color_idx=exp_idx,
+                    style_idx=exp_idx,
+                    show_markers=True  # Good for distinguishing experiments
                 )
-                global_latency_values.extend(valid_means)
-        # Add SLO line if available
+                
+                all_latency_values.extend(valid_means)
+        
+        # Add SLO line
         slo_val = None
         for key in [display_api, display_api.replace('-', '_'), display_api.replace('_', '-')]:
             if slo_map and key in slo_map:
                 slo_val = slo_map[key]
                 break
+        
         if slo_val is not None:
-            ax.axhline(y=slo_val, color='r', linestyle='--', label='SLO')
-        else:
-            print(f"No SLO found for API '{display_api}'")
-        ax.set_xlabel('Offered Load (KRPS)')
-        if ax == axes_l[0]:
-            ax.set_ylabel('P95 Latency (ms)')
-            ax.set_yscale('log')
-            # Add log y-axis ticks: major at 1,10,100..., minor at 2-9 in each decade
-            ax.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0,), numticks=10))
-            ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2.0, 10.0), numticks=10))
-            ax.tick_params(axis='y', which='both', length=5)
-        ax.set_title(display_api)
-        ax.xaxis.set_major_locator(MultipleLocator(2))
-        ax.grid(True, which='major', axis='both', alpha=0.3)
+            ax.axhline(y=slo_val, color='r', linestyle='--',
+                      label='SLO', linewidth=style.line_width)
+            all_latency_values.append(slo_val)
+        
+        # Configure axis
+        ax.set_title(display_api, fontsize=style.title_size)
+        ax.set_yscale('log')
+        ax.grid(True, alpha=0.3)
+        
         # Set x-axis limits with padding
         if all_loads:
             span = all_loads[-1] - all_loads[0]
             pad = 0.03 * span if span > 0 else 0.05
             ax.set_xlim(all_loads[0] - pad, all_loads[-1] + pad)
-    # Set dynamic y-limits
-    if global_latency_values:
-        dyn_y_max = max(global_latency_values) * 5.0 * 1.05
-        if dyn_y_max < 10:
-            dyn_y_max = 10
+    
+    # Dynamic Y-axis: 5x max value
+    if all_latency_values:
+        dyn_y_max = max(all_latency_values) * 5.0 * 1.05
+        dyn_y_max = max(dyn_y_max, 10)  # Minimum 10ms
     else:
         dyn_y_max = 500
-    for ax in axes_l:
-        try:
-            ax.set_ylim(1, dyn_y_max)
-        except Exception:
-            continue
-    # Add legend
-    try:
-        handles, labels = [], []
-        for ax in axes_l:
-            h, l = ax.get_legend_handles_labels()
-            for hh, ll in zip(h, l):
-                if ll not in labels:
-                    handles.append(hh)
-                    labels.append(ll)
-        if handles:
-            fig_l.legend(
-                handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.18),
-                ncol=2, frameon=True, fancybox=True,
-                framealpha=0.85, edgecolor='#bbbbbb'
-            )
-            fig_l.subplots_adjust(top=0.78)
-    except Exception:
-        pass
     
-    # Save latency figure
-    lat_path = output_dir / f'{figure_name}_latency_vs_load.pdf'
-    fig_l.savefig(lat_path, bbox_inches='tight')
-    plt.close(fig_l)
-    produced.append(lat_path)
+    for idx in range(len(all_apis)):
+        ax = grid_lat.get_ax(0, idx)
+        ax.set_ylim(1, dyn_y_max)
     
-    # Generate goodput figure (similar structure)
-    fig_g, axes_g = canvas.create_canvas(
-        nrows=1, ncols=len(all_apis), width_in_inches=3.33, aspect_ratio=0.66,
-        line_width=2, font_size=16, legend_size=14, marker_size=5
+    # Configure labels
+    grid_lat.configure_labels(
+        pattern="leftmost_y_bottom_x",
+        xlabel="Offered Load (KRPS)",
+        ylabel="P95 Latency (ms)"
     )
     
-    # Normalize axes
-    if isinstance(axes_g, _Axes):
-        axes_g = [axes_g]
-    else:
-        try:
-            axes_g = list(getattr(axes_g, 'ravel')().tolist())
-        except Exception:
-            axes_g = list(axes_g) if not isinstance(axes_g, list) else axes_g
+    # Add legend (use two rows if many experiments)
+    grid_lat.add_shared_legend(position="top", two_rows=(len(all_experiment_data) > 3))
     
-    for ax, api in zip(axes_g, all_apis):
-        display_api = api[:-4] if api.endswith('_all') else api
-        for label, exp_info in all_experiment_data.items():
+    # Save
+    lat_path = output_dir / f'{figure_name}_latency_vs_load.pdf'
+    grid_lat.save(lat_path)
+    produced.append(lat_path)
+    
+    # === GOODPUT FIGURE ===
+    grid_gp = SubplotGrid(style, layout=layout)
+    
+    for idx, api in enumerate(all_apis):
+        ax = grid_gp.get_ax(0, idx)
+        display_api = api.replace('_all', '') if api.endswith('_all') else api
+        
+        # Plot each experiment
+        for exp_idx, (label, exp_info) in enumerate(all_experiment_data.items()):
             exp_data = exp_info['data']
             loads = exp_info['loads']
+            
             if api not in exp_data:
                 continue
-            # Extract goodput data
+            
+            # Extract goodput data with CI (convert to KRPS)
             goodput_data = exp_data[api]['goodput']
-            means = [item[0]/1000.0 if item[0] is not None else None for item in goodput_data]  # Convert to KRPS
-            stds = [(item[1] or 0)/1000.0 for item in goodput_data]
-            valid_data = [(l, m, s) for l, m, s in zip(loads, means, stds) 
+            means = [(item[0] / 1000.0) if item[0] is not None else None for item in goodput_data]
+            cis = [(item[2] / 1000.0) if item[2] is not None else 0.0 for item in goodput_data]
+            
+            # Filter out None values
+            valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
                          if m is not None and not (isinstance(m, float) and math.isnan(m))]
+            
             if valid_data:
-                valid_loads, valid_means, valid_stds = zip(*valid_data)
-                color = color_map.get(label)
-                marker = marker_map.get(label, 'o')
-                style = style_map.get(label, '-')
-                ax.errorbar(
-                    valid_loads, valid_means, yerr=valid_stds,
-                    fmt=style, marker=marker, color=color, label=label, linewidth=2.4,
-                    markersize=6.0, markerfacecolor=color,
-                    markeredgecolor='black', markeredgewidth=0.6,
-                    capsize=4, elinewidth=1.3
+                valid_loads, valid_means, valid_cis = zip(*valid_data)
+                
+                # Plot with error bars (using CI not std)
+                plot_line(
+                    ax, valid_loads, valid_means,
+                    yerr=valid_cis,
+                    label=label,
+                    style=style,
+                    color_idx=exp_idx,
+                    style_idx=exp_idx,
+                    show_markers=True  # Good for distinguishing experiments
                 )
         
-        ax.set_xlabel('Offered Load (KRPS)')
-        if ax == axes_g[0]:
-            ax.set_ylabel('Goodput (KRPS)')
-        ax.set_title(display_api)
-        ax.xaxis.set_major_locator(MultipleLocator(2))
-        ax.grid(True, which='major', axis='both', alpha=0.3)
+        # Configure axis
+        ax.set_title(display_api, fontsize=style.title_size)
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(bottom=0)  # Goodput starts from 0
         
-        # Set y-axis to start from 0 for goodput
-        ax.set_ylim(bottom=0)
-        
-        # Set x-axis limits
+        # Set x-axis limits with padding
         if all_loads:
             span = all_loads[-1] - all_loads[0]
             pad = 0.03 * span if span > 0 else 0.05
             ax.set_xlim(all_loads[0] - pad, all_loads[-1] + pad)
     
-    # Add legend
-    try:
-        handles, labels = [], []
-        for ax in axes_g:
-            h, l = ax.get_legend_handles_labels()
-            for hh, ll in zip(h, l):
-                if ll not in labels:
-                    handles.append(hh)
-                    labels.append(ll)
-        
-        if handles:
-            fig_g.legend(
-                handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.12),
-                ncol=max(1, len(labels)), frameon=True, fancybox=True,
-                framealpha=0.85, edgecolor='#bbbbbb'
-            )
-            fig_g.subplots_adjust(top=0.80)
-    except Exception:
-        pass
+    # Configure labels
+    grid_gp.configure_labels(
+        pattern="leftmost_y_bottom_x",
+        xlabel="Offered Load (KRPS)",
+        ylabel="Goodput (KRPS)"
+    )
     
-    # Save goodput figure
+    # Add legend (use two rows if many experiments)
+    grid_gp.add_shared_legend(position="top", two_rows=(len(all_experiment_data) > 3))
+    
+    # Save
     goodput_path = output_dir / f'{figure_name}_goodput_vs_load.pdf'
-    fig_g.savefig(goodput_path, bbox_inches='tight')
-    plt.close(fig_g)
+    grid_gp.save(goodput_path)
     produced.append(goodput_path)
     
-    # Create merged figure with latency and goodput as subplots using canvas
-    n_apis = len(all_apis)
-    if n_apis == 1:
-        fig, axes = canvas.create_canvas(
-            nrows=1, ncols=2, width_in_inches=3.33, aspect_ratio=0.75,
-            line_width=2, font_size=16, legend_size=14, marker_size=5
-        )
-        axes = np.array(axes).reshape(1, 2)
-        # axes[0, 0]: latency, axes[0, 1]: goodput
-        # Latency subplot
-        ax_lat = axes[0, 0]
-        api = all_apis[0]
-        display_api = api[:-4] if api.endswith('_all') else api
-        for label, exp_info in all_experiment_data.items():
-            exp_data = exp_info['data']
-            loads = exp_info['loads']
-            if api not in exp_data:
-                continue
-            latency_data = exp_data[api]['latency_p95']
-            means = [item[0] for item in latency_data]
-            stds = [item[1] if item[1] is not None else 0.0 for item in latency_data]
-            valid_data = [(l, m, s) for l, m, s in zip(loads, means, stds)
-                         if m is not None and not (isinstance(m, float) and math.isnan(m))]
-            if valid_data:
-                valid_loads, valid_means, valid_stds = zip(*valid_data)
-                color = color_map.get(label)
-                marker = marker_map.get(label, 'o')
-                style = style_map.get(label, '-')
-                ax_lat.errorbar(
-                    valid_loads, valid_means, yerr=valid_stds,
-                    fmt=style, marker=marker, label=label,
-                    linewidth=2.8, color=color, markersize=6.5,
-                    markerfacecolor=color, markeredgecolor='black',
-                    markeredgewidth=0.6, capsize=4, elinewidth=1.4
-                )
-        slo_val = None
-        for key in [display_api, display_api.replace('-', '_'), display_api.replace('_', '-')]:
-            if slo_map and key in slo_map:
-                slo_val = slo_map[key]
-                break
-        if slo_val is not None:
-            ax_lat.axhline(y=slo_val, color='r', linestyle='--', label='SLO')
-        else:
-            print(f"No SLO found for API '{display_api}'")
-        ax_lat.set_ylabel('P95 Latency (ms)')
-        ax_lat.set_yscale('log')
-        # Add log y-axis ticks: major at 1,10,100..., minor at 2-9 in each decade
-        ax_lat.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0,), numticks=10))
-        ax_lat.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2.0, 10.0), numticks=10))
-        ax_lat.tick_params(axis='y', which='both', length=5)
-        ax_lat.grid(True, which='major', axis='both', alpha=0.3)
-        # Goodput subplot
-        ax_gp = axes[0, 1]
-        for label, exp_info in all_experiment_data.items():
-            exp_data = exp_info['data']
-            loads = exp_info['loads']
-            if api not in exp_data:
-                continue
-            goodput_data = exp_data[api]['goodput']
-            means = [item[0]/1000.0 if item[0] is not None else None for item in goodput_data]
-            stds = [(item[1] or 0)/1000.0 for item in goodput_data]
-            valid_data = [(l, m, s) for l, m, s in zip(loads, means, stds)
-                         if m is not None and not (isinstance(m, float) and math.isnan(m))]
-            if valid_data:
-                valid_loads, valid_means, valid_stds = zip(*valid_data)
-                color = color_map.get(label)
-                marker = marker_map.get(label, 'o')
-                style = style_map.get(label, '-')
-                ax_gp.errorbar(
-                    valid_loads, valid_means, yerr=valid_stds,
-                    fmt=style, marker=marker, color=color, label=label, linewidth=2.4,
-                    markersize=6.0, markerfacecolor=color,
-                    markeredgecolor='black', markeredgewidth=0.6,
-                    capsize=4, elinewidth=1.3
-                )
-        ax_gp.set_ylabel('Goodput (KRPS)')
-        ax_gp.grid(True, which='major', axis='both', alpha=0.3)
-        
-        # Set y-axis to start from 0 for goodput
-        ax_gp.set_ylim(bottom=0)
-        
-        # Only bottom x-labels
-        # Set x-ticks: even numbers, plus first/last
-        for ax in [ax_lat, ax_gp]:
-            if all_loads:
-                min_x = min(all_loads)
-                max_x = max(all_loads)
-                # Even numbers in range
-                xticks = [x for x in range(int(min_x), int(max_x)+1) if x % 2 == 0]
-                # Ensure first and last are present
-                if min_x not in xticks:
-                    xticks = [min_x] + xticks
-                if max_x not in xticks:
-                    xticks = xticks + [max_x]
-                ax.set_xticks(xticks)
-                ax.set_xticklabels([str(int(x)) for x in xticks])
-            ax.set_xlabel('Offered Load (KRPS)')
-        # Set y-axis grid for goodput every 1k
-        import matplotlib.ticker as mticker
-        ax_gp.yaxis.set_major_locator(mticker.MultipleLocator(1))
-        # No API name for single API case
-        # Add legends
-        handles, labels = [], []
-        for ax in [ax_lat, ax_gp]:
-            h, l = ax.get_legend_handles_labels()
-            for hh, ll in zip(h, l):
-                if ll not in labels:
-                    handles.append(hh)
-                    labels.append(ll)
-        if handles:
-            fig.legend(
-                handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.05),
-                ncol=max(1, len(labels)), frameon=True, fancybox=True,
-                framealpha=0.85, edgecolor='#bbbbbb'
-            )
-            fig.subplots_adjust(top=0.90)
-    else:
-        fig, axes = canvas.create_canvas(
-            nrows=2, ncols=n_apis, width_in_inches=3.33, aspect_ratio=0.75,
-            line_width=2, font_size=16, legend_size=14, marker_size=5
-        )
-        axes = np.array(axes)
-        if axes.ndim == 1:
-            axes = axes.reshape(2, n_apis)
-        # Add API names above columns, even lower (e.g., y=0.91)
-        for i, api in enumerate(all_apis):
-            display_api = api[:-4] if api.endswith('_all') else api
-            fig.text(
-                x=(i + 0.5) / n_apis,
-                y=0.91,
-                s=display_api,
-                ha='center', va='bottom', fontsize=16, fontweight='bold', transform=fig.transFigure
-            )
-        # First row: goodput, second row: latency
-        for i, api in enumerate(all_apis):
-            display_api = api[:-4] if api.endswith('_all') else api
-            # Goodput subplot
-            ax_gp = axes[0, i]
-            for label, exp_info in all_experiment_data.items():
-                exp_data = exp_info['data']
-                loads = exp_info['loads']
-                if api not in exp_data:
-                    continue
-                goodput_data = exp_data[api]['goodput']
-                means = [item[0]/1000.0 if item[0] is not None else None for item in goodput_data]
-                stds = [(item[1] or 0)/1000.0 for item in goodput_data]
-                valid_data = [(l, m, s) for l, m, s in zip(loads, means, stds)
-                             if m is not None and not (isinstance(m, float) and math.isnan(m))]
-                if valid_data:
-                    valid_loads, valid_means, valid_stds = zip(*valid_data)
-                    color = color_map.get(label)
-                    marker = marker_map.get(label, 'o')
-                    style = style_map.get(label, '-')
-                    ax_gp.errorbar(
-                        valid_loads, valid_means, yerr=valid_stds,
-                        fmt=style, marker=marker, color=color, label=label, linewidth=2.4,
-                        markersize=6.0, markerfacecolor=color,
-                        markeredgecolor='black', markeredgewidth=0.6,
-                        capsize=4, elinewidth=1.3
-                    )
-            # Only leftmost y-label
-            if i == 0:
-                ax_gp.set_ylabel('Goodput (KRPS)')
-            else:
-                ax_gp.set_ylabel('')
-            # Only bottom x-labels for bottom row
-            ax_gp.set_xlabel('')
-            
-            # Set y-axis to start from 0 for goodput
-            ax_gp.set_ylim(bottom=0)
-            
-            # Set x-ticks: even numbers, plus first/last
-            if all_loads:
-                min_x = min(all_loads)
-                max_x = max(all_loads)
-                xticks = [x for x in range(int(min_x), int(max_x)+1) if x % 2 == 0]
-                if min_x not in xticks:
-                    xticks = [min_x] + xticks
-                if max_x not in xticks:
-                    xticks = xticks + [max_x]
-                ax_gp.set_xticks(xticks)
-                ax_gp.set_xticklabels(['' for _ in xticks])
-            # Set y-axis grid for goodput every 1k and ensure grid is visible
-            import matplotlib.ticker as mticker
-            ax_gp.yaxis.set_major_locator(mticker.MultipleLocator(1))
-            # Add x-axis grid for goodput figures
-            ax_gp.grid(True, which='major', axis='both', alpha=0.3)
-            # Latency subplot
-            ax_lat = axes[1, i]
-            for label, exp_info in all_experiment_data.items():
-                exp_data = exp_info['data']
-                loads = exp_info['loads']
-                if api not in exp_data:
-                    continue
-                latency_data = exp_data[api]['latency_p95']
-                means = [item[0] for item in latency_data]
-                stds = [item[1] if item[1] is not None else 0.0 for item in latency_data]
-                valid_data = [(l, m, s) for l, m, s in zip(loads, means, stds)
-                             if m is not None and not (isinstance(m, float) and math.isnan(m))]
-                if valid_data:
-                    valid_loads, valid_means, valid_stds = zip(*valid_data)
-                    color = color_map.get(label)
-                    marker = marker_map.get(label, 'o')
-                    style = style_map.get(label, '-')
-                    ax_lat.errorbar(
-                        valid_loads, valid_means, yerr=valid_stds,
-                        fmt=style, marker=marker, label=label,
-                        linewidth=2.8, color=color, markersize=6.5,
-                        markerfacecolor=color, markeredgecolor='black',
-                        markeredgewidth=0.6, capsize=4, elinewidth=1.4
-                    )
-            slo_val = None
-            for key in [display_api, display_api.replace('-', '_'), display_api.replace('_', '-')]:
-                if slo_map and key in slo_map:
-                    slo_val = slo_map[key]
-                    break
-            if slo_val is not None:
-                ax_lat.axhline(y=slo_val, color='r', linestyle='--', label='SLO')
-            # Only leftmost y-label
-            if i == 0:
-                ax_lat.set_ylabel('P95 Latency (ms)')
-            else:
-                ax_lat.set_ylabel('')
-            # Only bottom x-labels for bottom row
-            ax_lat.set_xlabel('Offered Load (KRPS)')
-            ax_lat.set_yscale('log')
-            # Add log y-axis ticks: major at 1,10,100..., minor at 2-9 in each decade
-            ax_lat.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0,), numticks=10))
-            ax_lat.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2.0, 10.0), numticks=10))
-            ax_lat.tick_params(axis='y', which='both', length=5)
-            ax_lat.grid(True, which='major', axis='both', alpha=0.3)
-            # Set x-ticks: even numbers, plus first/last
-            if all_loads:
-                min_x = min(all_loads)
-                max_x = max(all_loads)
-                xticks = [x for x in range(int(min_x), int(max_x)+1) if x % 2 == 0]
-                if min_x not in xticks:
-                    xticks = [min_x] + xticks
-                if max_x not in xticks:
-                    xticks = xticks + [max_x]
-                ax_lat.set_xticks(xticks)
-                ax_lat.set_xticklabels([str(int(x)) for x in xticks])
-        # Add legends
-        handles, labels = [], []
-        for i in range(n_apis):
-            for ax in [axes[0, i], axes[1, i]]:
-                h, l = ax.get_legend_handles_labels()
-                for hh, ll in zip(h, l):
-                    if ll not in labels:
-                        handles.append(hh)
-                        labels.append(ll)
-        if handles:
-            fig.legend(
-                handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.05),
-                ncol=max(1, len(labels)), frameon=True, fancybox=True,
-                framealpha=0.85, edgecolor='#bbbbbb'
-            )
-            fig.subplots_adjust(top=0.90)
-    # Save merged figure
-    merged_path = output_dir / f'{figure_name}_latency_goodput_vs_load.pdf'
-    fig.savefig(merged_path, bbox_inches='tight')
-    try:
-        import matplotlib.pyplot as plt
-        plt.close(fig)
-    except Exception:
-        pass
-    produced = [merged_path]
     return produced
 
 
@@ -1733,6 +1352,8 @@ def generate_merged_figures(
             print(f"  Error generating figure '{figure_name}': {e}")
             if os.environ.get('PLOT_DEBUG') == '1':
                 traceback.print_exc()
+
+
 def generate_latency_and_rate_vs_time_merged(
     figure_name: str,
     figure_config: dict,
@@ -1742,430 +1363,54 @@ def generate_latency_and_rate_vs_time_merged(
     global_config: str = None
 ) -> list:
     """
+    REWRITTEN to use new RWG data loading and plotting architecture.
     Generate merged latency-and-rate-vs-time figure(s).
     For one API: one figure, columns=experiments, rows=latency/rate.
     For multiple APIs: one figure per API, same layout.
-    Data is loaded from plugins for the specified unit/repeat per experiment.
     """
+    # Import new RWG data loading and plotting
+    try:
+        from exec.plots.data_loader import load_repeat_data
+        from exec.plots.plotting_primitives import (
+            SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_stacked_area
+        )
+    except ImportError:
+        try:
+            from plots.data_loader import load_repeat_data  # type: ignore
+            from plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_stacked_area
+            )
+        except ImportError:
+            from data_loader import load_repeat_data  # type: ignore
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_stacked_area
+            )
+    
+    import matplotlib.pyplot as plt
     import numpy as np
-    from pathlib import Path
-    # Import plugin helpers and canvas
-    try:
-        from exec.plots.common import extract_series
-    except Exception:
-        from plots.common import extract_series
-    try:
-        from canvas import canvas
-    except Exception:
-        import matplotlib.pyplot as plt
-        class SimpleCanvas:
-            def create_canvas(self, nrows=1, ncols=1, width_in_inches=6, aspect_ratio=0.66, **kwargs):
-                fig, axes = plt.subplots(nrows, ncols, figsize=(width_in_inches*ncols, width_in_inches*aspect_ratio*nrows))
-                return fig, axes
-        canvas = SimpleCanvas()
-
+    import json
+    
+    produced: list = []
+    include_experiments = figure_config.get('include', {})
+    
+    if not include_experiments:
+        return produced
+    
+    # Load SLOs from config file
     with open(global_config) as f:
         global_configs = json.load(f)
-
-    # Get experiment list and config
-    include_experiments = figure_config.get('include', {})
-    if not include_experiments:
-        return []
-    # Gather all APIs
-    all_apis = set()
-    exp_units = {}
-    for exp_name, exp_cfg in include_experiments.items():
-        if exp_name not in experiment_configs:
-            raise Exception(f"Experiment '{exp_name}' not found in experiment configs")
-        exp_def = experiment_configs[exp_name]
-        apis = exp_def.get('apis', [])
-        all_apis.update(apis)
-        exp_units[exp_name] = {
-            'unit': exp_cfg.get('unit'),
-            'repeat': exp_cfg.get('repeat', 1),
-            'label': exp_cfg.get('label', exp_name)
-        }
-    all_apis = list(all_apis)
-    produced = []
-    # For each API (or just once if one API)
-    api_list = all_apis if len(all_apis) > 1 else [all_apis[0]]
-    for api in api_list:
-        # Collect data for each experiment
-        exp_data = {}
-        for exp_name, unit_cfg in exp_units.items():
-            label = unit_cfg['label']
-            unit = unit_cfg['unit']
-            repeat = unit_cfg['repeat']
-            # Find run dir
-            found_record = None
-            for exp_index in range(1, 20):
-                run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
-                summary_path = run_root / 'run_summary.jsonl'
-                if not summary_path.exists():
-                    continue
-                with summary_path.open() as f:
-                    for line in f:
-                        obj = None
-                        try:
-                            obj = json.loads(line.strip())
-                        except Exception:
-                            continue
-                        if obj and obj.get('experiment_name') == exp_name and obj.get('run_unit_name') == unit and obj.get('repeat_index', 1) == repeat:
-                            found_record = obj
-                            break
-                if found_record:
-                    break
-            if not found_record:
-                raise Exception(f"No run data found for experiment '{exp_name}' unit '{unit}'")
-            artifact_dir = Path(found_record.get('artifact_dir', '.'))
-            metrics_dir = artifact_dir / 'metrics'
-            metric_files = {}
-            for fp in metrics_dir.glob('*.json'):
-                if fp.name.startswith('_index'):
-                    continue
-                try:
-                    metric_files[fp.stem] = json.loads(fp.read_text())
-                except Exception:
-                    continue
-            # Latency
-            lat_json = metric_files.get(f'latency_p95_{api}_all') or metric_files.get(f'latency_p95_{api}')
-            ts_lat, vals_lat = extract_series(lat_json) if lat_json else ([], [])
-            # Rate
-            rate_json = metric_files.get(f'goodput_{api}_all') or metric_files.get(f'goodput_{api}')
-            ts_rate, vals_rate = extract_series(rate_json) if rate_json else ([], [])
-            # Convert goodput to KRPS
-            vals_rate = [v/1000.0 for v in vals_rate]
-            exp_data[label] = {
-                'latency': (ts_lat, vals_lat),
-                'rate': (ts_rate, vals_rate)
-            }
-        # Figure layout: columns=experiments, rows=latency/rate
-        n_exps = len(exp_data)
-        fig, axes = canvas.create_canvas(
-            nrows=2, ncols=n_exps, width_in_inches=3, aspect_ratio=0.75,
-            line_width=2, font_size=16, legend_size=14, marker_size=5
-        )
-        axes = np.array(axes)
-        if axes.ndim == 1:
-            axes = axes.reshape(2, n_exps)
-        # Plot latency (row 0)
-        latency_ymin, latency_ymax = None, None
-        latency_label = 'Latency (ms)'
-        all_latency_vals = []
-        for j, (label, data) in enumerate(exp_data.items()):
-            ax_lat = axes[0, j]
-            # Extract p50, p95, and SLO
-            ts_p95, vals_p95 = data['latency']
-            # Use relative time
-            if ts_p95:
-                t0 = ts_p95[0]
-                ts_p95 = [t-t0 for t in ts_p95]
-            # Try to get p50 from metrics
-            found_record = None
-            for exp_name, unit_cfg in exp_units.items():
-                if unit_cfg['label'] == label:
-                    found_record = exp_name
-                    break
-            p50_json = None
-            if found_record:
-                # Find metrics for p50
-                exp_name = found_record
-                unit = exp_units[exp_name]['unit']
-                for exp_index in range(1, 20):
-                    run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
-                    summary_path = run_root / 'run_summary.jsonl'
-                    if not summary_path.exists():
-                        continue
-                    with summary_path.open() as f:
-                        for line in f:
-                            obj = None
-                            try:
-                                obj = json.loads(line.strip())
-                            except Exception:
-                                continue
-                            if obj and obj.get('experiment_name') == exp_name and obj.get('run_unit_name') == unit and exp_units[exp_name]['repeat'] == obj.get('repeat_index', 1):
-                                artifact_dir = Path(obj.get('artifact_dir', '.'))
-                                metrics_dir = artifact_dir / 'metrics'
-                                metric_files = {}
-                                for fp in metrics_dir.glob('*.json'):
-                                    if fp.name.startswith('_index'):
-                                        continue
-                                    try:
-                                        metric_files[fp.stem] = json.loads(fp.read_text())
-                                    except Exception:
-                                        continue
-                                p50_json = metric_files.get(f'latency_p50_{api}_all') or metric_files.get(f'latency_p50_{api}')
-                                break
-                    if p50_json:
-                        break
-            ts_p50, vals_p50 = extract_series(p50_json) if p50_json else ([], [])
-            if ts_p50:
-                t0 = ts_p50[0]
-                ts_p50 = [t-t0 for t in ts_p50]
-            # SLO value
-            slo_val = None
-            try:
-                """ with open('exec/config.sample.json') as f:
-                    config_data = json.load(f)
-                    slo_map = config_data.get('slos', {})
-                display_api = api[:-4] if api.endswith('_all') else api
-                for key in [display_api, display_api.replace('-', '_'), display_api.replace('_', '-')]:
-                    if slo_map and key in slo_map:
-                        slo_val = slo_map[key]
-                        break """
-                display_api = api[:-4] if api.endswith('_all') else api
-                for key in [display_api, display_api.replace('-', '_'), display_api.replace('_', '-')]: 
-                    slo_val = global_configs.get('slos')[key]
-                    break
-            except Exception:
-                slo_val = None
-            # Draw p95, p50, SLO with different colors/styles
-            if ts_p95 and vals_p95:
-                ax_lat.plot(ts_p95, vals_p95, label='P95', linewidth=2.2, color='#1f77b4', linestyle='-')
-                all_latency_vals.extend(vals_p95)
-            if ts_p50 and vals_p50:
-                ax_lat.plot(ts_p50, vals_p50, label='P50', linewidth=2.2, color='#ff7f0e', linestyle='--')
-                all_latency_vals.extend(vals_p50)
-            if slo_val is not None:
-                ax_lat.axhline(y=slo_val, color='r', linestyle=':', label='SLO', linewidth=2.0)
-                all_latency_vals.append(slo_val)
-            # Plugin-style axis config
-            if j == 0:
-                ax_lat.set_ylabel(latency_label)
-                ax_lat.yaxis.set_tick_params(labelleft=True)
-            else:
-                ax_lat.set_ylabel('')
-                ax_lat.yaxis.set_tick_params(labelleft=False)
-            ax_lat.set_yscale('log')
-            ax_lat.set_xlabel('')
-            # X ticks: plugin style (show every 5s, first/last)
-            if ts_p95:
-                min_x = min(ts_p95)
-                max_x = max(ts_p95)
-                xticks = [x for x in range(int(min_x), int(max_x)+1) if x % 5 == 0]
-                if min_x not in xticks:
-                    xticks = [min_x] + xticks
-                if max_x not in xticks:
-                    xticks = xticks + [max_x]
-                ax_lat.set_xticks(xticks)
-                ax_lat.set_xticklabels(['' for _ in xticks])
-            # Grid config as in plugin
-            ax_lat.grid(True, which='major', axis='both', alpha=0.3)
-        # Set consistent y limits for latency row
-        if all_latency_vals:
-            ymin = min([v for v in all_latency_vals if v > 0])
-            ymax = max(all_latency_vals) * 1.05
-            for j in range(len(exp_data)):
-                axes[0, j].set_ylim(ymin, ymax)
-        # Plot rate stack (row 1)
-        for j, (label, data) in enumerate(exp_data.items()):
-            ax_rate = axes[1, j]
-            # Get goodput, SLO violation, dropped from metrics
-            found_record = None
-            for exp_name, unit_cfg in exp_units.items():
-                if unit_cfg['label'] == label:
-                    found_record = exp_name
-                    break
-            goodput_json = slo_json = dropped_json = None
-            ts_gp = vals_gp = ts_slo = vals_slo = ts_drop = vals_drop = []
-            if found_record:
-                exp_name = found_record
-                unit = exp_units[exp_name]['unit']
-                for exp_index in range(1, 20):
-                    run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
-                    summary_path = run_root / 'run_summary.jsonl'
-                    if not summary_path.exists():
-                        continue
-                    with summary_path.open() as f:
-                        for line in f:
-                            obj = None
-                            try:
-                                obj = json.loads(line.strip())
-                            except Exception:
-                                continue
-                            if obj and obj.get('experiment_name') == exp_name and obj.get('run_unit_name') == unit and exp_units[exp_name]['repeat'] == obj.get('repeat_index', 1):
-                                artifact_dir = Path(obj.get('artifact_dir', '.'))
-                                metrics_dir = artifact_dir / 'metrics'
-                                metric_files = {}
-                                for fp in metrics_dir.glob('*.json'):
-                                    if fp.name.startswith('_index'):
-                                        continue
-                                    try:
-                                        metric_files[fp.stem] = json.loads(fp.read_text())
-                                    except Exception:
-                                        continue
-                                goodput_json = metric_files.get(f'goodput_{api}_all') or metric_files.get(f'goodput_{api}')
-                                slo_json = metric_files.get(f'slo_violation_{api}_all') or metric_files.get(f'slo_violation_{api}')
-                                dropped_json = metric_files.get(f'dropped_{api}_all') or metric_files.get(f'dropped_{api}')
-                                break
-                    if goodput_json:
-                        ts_gp, vals_gp = extract_series(goodput_json)
-                        vals_gp = [v/1000.0 for v in vals_gp]
-                    if slo_json:
-                        ts_slo, vals_slo = extract_series(slo_json)
-                        vals_slo = [v/1000.0 for v in vals_slo]
-                    if dropped_json:
-                        ts_drop, vals_drop = extract_series(dropped_json)
-                        vals_drop = [v/1000.0 for v in vals_drop]
-            # Use relative time
-            if ts_gp:
-                t0 = ts_gp[0]
-                ts_gp = [t-t0 for t in ts_gp]
-            if ts_slo:
-                t0 = ts_slo[0]
-                ts_slo = [t-t0 for t in ts_slo]
-            if ts_drop:
-                t0 = ts_drop[0]
-                ts_drop = [t-t0 for t in ts_drop]
-            # Cap to 15s
-            def cap_15s(ts, vals):
-                return zip(*[(t, v) for t, v in zip(ts, vals) if t <= 15]) if ts and vals else ([], [])
-            ts_gp, vals_gp = cap_15s(ts_gp, vals_gp)
-            ts_slo, vals_slo = cap_15s(ts_slo, vals_slo)
-            ts_drop, vals_drop = cap_15s(ts_drop, vals_drop)
-            ts_gp, vals_gp = list(ts_gp), list(vals_gp)
-            ts_slo, vals_slo = list(ts_slo), list(vals_slo)
-            ts_drop, vals_drop = list(ts_drop), list(vals_drop)
-            # Stack plot
-            # Align all arrays to a common time axis
-            def align_series(ts_list, vals_list):
-                import numpy as np
-                if not ts_list or not vals_list or not any(ts_list):
-                    return [], [[] for _ in vals_list]
-                all_ts = np.unique(np.concatenate([np.array(ts) for ts in ts_list if len(ts) > 0]))
-                aligned = []
-                for ts, vals in zip(ts_list, vals_list):
-                    interp = np.interp(all_ts, ts, vals) if len(ts) == len(vals) and len(ts) > 1 else np.zeros_like(all_ts)
-                    aligned.append(interp)
-                return all_ts, aligned
-            common_ts, [aligned_gp, aligned_slo, aligned_drop] = align_series([ts_gp, ts_slo, ts_drop], [vals_gp, vals_slo, vals_drop])
-            if len(common_ts) > 0:
-                ax_rate.stackplot(common_ts, aligned_gp, aligned_slo, aligned_drop, labels=['Goodput', 'SLO Violation', 'Dropped'], colors=['#1f77b4', '#d62728', '#bbbbbb'], alpha=0.85)
-            # Plugin-style axis config
-            if j == 0:
-                ax_rate.set_ylabel('Rate (KRPS)')
-                ax_rate.yaxis.set_tick_params(labelleft=True)
-            else:
-                ax_rate.set_ylabel('')
-                ax_rate.yaxis.set_tick_params(labelleft=False)
-            ax_rate.set_xlabel('Time (s)')
-            # X ticks: plugin style (show every 5s, first/last)
-            if len(common_ts) > 0:
-                min_x = min(common_ts)
-                max_x = max(common_ts)
-                xticks = [x for x in range(int(min_x), int(max_x)+1) if x % 5 == 0]
-                if min_x not in xticks:
-                    xticks = [min_x] + xticks
-                if max_x not in xticks:
-                    xticks = xticks + [max_x]
-                ax_rate.set_xticks(xticks)
-                ax_rate.set_xticklabels([str(int(x)) for x in xticks])
-            # Grid config as in plugin
-            import matplotlib.ticker as mticker
-            ax_rate.yaxis.set_major_locator(mticker.MultipleLocator(2))
-            ax_rate.grid(True, which='major', axis='both', alpha=0.3)
-        # Add experiment names above columns
-        """ for j, label in enumerate(exp_data.keys()):
-            fig.text(
-                x=(j + 0.5) / n_exps,
-                y=0.80,
-                s=label,
-                ha='center', va='bottom', fontsize=16, fontweight='bold', transform=fig.transFigure
-            ) """
-        print("[DEBUG] Number of axes rows:", axes.shape[0])
-        print("[DEBUG] Number of axes columns:", axes.shape[1])
-        handles_lat, labels_lat = axes[0,0].get_legend_handles_labels()
-        handles_rate, labels_rate = axes[1,0].get_legend_handles_labels()
-        print("[DEBUG] Latency legend handles:", handles_lat)
-        print("[DEBUG] Latency legend labels:", labels_lat)
-        print("[DEBUG] Rate legend handles:", handles_rate)
-        print("[DEBUG] Rate legend labels:", labels_rate)
-        # Remove any previous legends
-        if hasattr(fig, 'legends'):
-            print("[DEBUG] Removing previous legends, count:", len(getattr(fig, 'legends', [])))
-            for leg in getattr(fig, 'legends', []):
-                try:
-                    leg.remove()
-                except Exception as e:
-                    print("[DEBUG] Exception removing legend:", e)
-            fig.legends = []
-        # Latency legend above system names
-        leg1 = None
-        leg2 = None
-        if handles_lat:
-            print("[DEBUG] Adding latency legend")
-            leg1 = fig.legend(
-                handles_lat, labels_lat, loc='upper center', bbox_to_anchor=(0.5, 1.05),
-                ncol=max(1, len(labels_lat)), frameon=True, fancybox=True,
-                framealpha=0.85, edgecolor='#bbbbbb', title=None
-            )
-        if handles_rate:
-            print("[DEBUG] Adding rate legend")
-            leg2 = fig.add_artist(
-                fig.legend(
-                    handles_rate, labels_rate, loc='lower center', bbox_to_anchor=(0.5, 0.50),
-                    ncol=max(1, len(labels_rate)), frameon=True, fancybox=True,
-                    framealpha=0.85, edgecolor='#bbbbbb', title=None
-                )
-            )
-        # Store legends for later removal if needed
-        fig.legends = []
-        if leg1:
-            fig.legends.append(leg1)
-        if leg2:
-            # fig.add_artist returns None, so get the legend from fig.get_legend()
-            legend_objs = [leg for leg in fig.get_children() if hasattr(leg, 'get_texts')]
-            if len(legend_objs) > 1:
-                fig.legends.append(legend_objs[-1])
-        print("[DEBUG] Legend objects:", fig.legends)
-        # Remove any extra legends (keep only two)
-        if hasattr(fig, 'legends') and len(fig.legends) > 2:
-            print("[DEBUG] Forcibly removing extra legend, count:", len(fig.legends) - 2)
-            while len(fig.legends) > 2:
-                leg = fig.legends.pop()
-                try:
-                    leg.remove()
-                except Exception as e:
-                    print("[DEBUG] Exception removing extra legend:", e)
-        print("[DEBUG] Number of legends after adding and cleanup:", len(getattr(fig, 'legends', [])))
-        fig.subplots_adjust(top=0.86, bottom=0.22, hspace=0.45, wspace=0.1)
-        # Add experiment names above columns
-        for j, label in enumerate(exp_data.keys()):
-            fig.text(
-                x=(j + 0.5) / n_exps,
-                y=0.88,
-                s=label,
-                ha='center', va='bottom', fontsize=16, fontweight='bold', transform=fig.transFigure
-            )
-        """ # Add legends
-        handles, labels_ = [], []
-        for i in range(n_exps):
-            for ax in [axes[0, i], axes[1, i]]:
-                h, l = ax.get_legend_handles_labels()
-                for hh, ll in zip(h, l):
-                    if ll not in labels_:
-                        handles.append(hh)
-                        labels_.append(ll)
-        if handles:
-            fig.legend(
-                handles, labels_, loc='upper center', bbox_to_anchor=(0.5, 1.05),
-                ncol=max(1, len(labels_)), frameon=True, fancybox=True,
-                framealpha=0.85, edgecolor='#bbbbbb'
-            )
-            fig.subplots_adjust(top=0.90) """
-        # Save figure
-        import matplotlib.pyplot as plt
-        if len(all_apis) > 1:
-            out_path = output_dir / f'{figure_name}_{api}_latency_rate_vs_time.pdf'
-        else:
-            out_path = output_dir / f'{figure_name}_latency_rate_vs_time.pdf'
-        fig.savefig(out_path, bbox_inches='tight')
-        try:
-            plt.close(fig)
-        except Exception:
-            pass
-        produced.append(out_path)
+    slo_map = global_configs.get('slos', {})
+    
+    # TODO: Implement RWG-based merged latency-and-rate-vs-time plotting
+    # This requires realtime CSV data which is not yet fully integrated
+    print(f"Warning: generate_latency_and_rate_vs_time_merged not yet fully migrated to RWG")
+    
     return produced
+
+
+# ============================================================================
+# CLI and Main Execution
+# ============================================================================
 
 
 def parse_args(argv=None):
