@@ -17,20 +17,20 @@ output_dir="$6/out-$API.csv"
 address="192.168.1.100:3000"
 
 if [ "$protocol" == "grpc" ]; then
-    if [ "$API" = "hotel-search" ]; then
+    if [ "$API" = "search-hotel" ]; then
         args="lat=37.7867,lon=-122.4112,InDate=2024-08-15,OutDate=2024-08-17"
         proto="protobuf.RajomonClient/SearchHotels"
-    elif [ "$API" = "hotel-reserve" ]; then
-        echo "API 'hotel-reserve' is not supported"
+    elif [ "$API" = "reserve-hotel" ]; then
+        echo "API 'reserve-hotel' is not supported"
         exit 1
     fi
     ./rwg/rwg run -u $address -p $proto -d exp -D 5,$DURATION -r $BASE,$RATE -w 40000 -o $output_dir --args $args
 else
-    if [ "$API" = "hotel-search" ]; then
+    if [ "$API" = "search-hotel" ]; then
         url="http://$address/hotels?lat=37.7867&lon=-122.4112&inDate=2024-08-15&outDate=2024-08-17"
-    elif [ "$API" = "hotel-reserve" ]; then
-        echo "API 'hotel-reserve' is not supported"
+    elif [ "$API" = "reserve-hotel" ]; then
+        echo "API 'reserve-hotel' is not supported"
         exit 1
     fi
-    ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 150 -o $output_dir
+    ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 200 -o $output_dir
 fi
