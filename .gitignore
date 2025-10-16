@@ -4,5 +4,6 @@ __pycache__/
 env-setter.env
 /rajomon_tune_run
 *.pdf
-*.json
 *.csv
+experiment_runs/
+generated_plots/
