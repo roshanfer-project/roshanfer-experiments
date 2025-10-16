@@ -1,6 +1,6 @@
 # Run from root
 
-Running the workload generator:
+Running the workload generator (from the root of the project):
 
 ```bash
 ./wrapper/hotel/run.sh grpc 3000 8000 10 hotel-search ./tests/one-api-vs-time
