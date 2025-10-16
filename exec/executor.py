@@ -89,6 +89,7 @@ def _expand_experiment(exp: ExperimentConfig) -> Iterable[RunUnit]:
 			bench=exp.bench,
 			collector_range=exp.collector_range,
 			collector_step=exp.collector_step,
+			collector_freq=exp.collector_freq,
 			repeats=exp.repeat,
 		)
 

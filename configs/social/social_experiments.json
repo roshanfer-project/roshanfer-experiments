@@ -52,7 +52,8 @@
       "system": "sidecar",
       "repeat": 5,
       "collector_step": "100ms",
-      "collector_range": "1s"
+      "collector_range": "1s",
+      "collector_freq": 1000
     },
     {
       "name": "latency-and-rate-vs-time-social-3-sidecar",
@@ -70,7 +71,8 @@
       "system": "sidecar",
       "repeat": 5,
       "collector_step": "100ms",
-      "collector_range": "1s"
+      "collector_range": "1s",
+      "collector_freq": 1000
     },
     {
       "name": "max-queue-social-1-sidecar",
@@ -164,7 +166,8 @@
       "system": "rajomon",
       "repeat": 10,
       "collector_step": "100ms",
-      "collector_range": "1s"
+      "collector_range": "1s",
+      "collector_freq": 1000
     },
     {
       "name": "latency-and-rate-vs-time-social-3-rajomon",
@@ -182,7 +185,8 @@
       "system": "rajomon",
       "repeat": 10,
       "collector_step": "100ms",
-      "collector_range": "1s"
+      "collector_range": "1s",
+      "collector_freq": 1000
     },
     {
       "name": "max-queue-social-1-rajomon",
@@ -315,7 +319,8 @@
       "system": "dagor",
       "repeat": 7,
       "collector_step": "100ms",
-      "collector_range": "1s"
+      "collector_range": "1s",
+      "collector_freq": 1000
     },
     {
       "name": "latency-and-rate-vs-time-social-3-dagor",
@@ -333,7 +338,8 @@
       "system": "dagor",
       "repeat": 7,
       "collector_step": "100ms",
-      "collector_range": "1s"
+      "collector_range": "1s",
+      "collector_freq": 1000
     },
     {
       "name": "max-queue-social-1-dagor",

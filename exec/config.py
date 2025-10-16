@@ -45,8 +45,8 @@ class Config:
     remote_microservice_user: str = ""
     remote_microservice_path: str = ""  # e.g., /home/user/project/bench/hotel/exec
 
-    # --- Workload generator / scripts ---
-    k6_scripts_root: str = "bench/hotel/k6"
+    # --- Workload generator (RWG) ---
+    rwg_binary_path: str = "./rwg/rwg"  # Path to RWG binary
     ssh_binary: str = "ssh"
     docker_compose_binary: str = "docker-compose"
     git_root: str = ".."  # relative path to repo root (optional)
@@ -65,6 +65,8 @@ class Config:
     # Per-experiment metrics (experiment_type -> dict(metric_name -> query template))
     experiment_metrics: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     report: Dict[str, Any] = field(default_factory=dict)
+    # SLO mappings (api_name -> slo_threshold_ms)
+    slos: Dict[str, int] = field(default_factory=dict)
 
     # --- Misc ---
     notes: str = ""
@@ -107,7 +109,7 @@ def load_config(path: Optional[str]) -> Config:
     cfg = replace(cfg, **simple_override_fields)
 
     # Merge nested dict fields individually (shallow merge).
-    for nested_key in ["experiment_defaults", "expansion", "metrics", "experiment_metrics", "report"]:
+    for nested_key in ["experiment_defaults", "expansion", "metrics", "experiment_metrics", "report", "slos"]:
         if nested_key in init_kwargs and isinstance(init_kwargs[nested_key], dict):
             existing = getattr(cfg, nested_key)
             merged = {**existing, **init_kwargs[nested_key]}

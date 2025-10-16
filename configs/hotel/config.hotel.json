@@ -9,13 +9,13 @@
 
   "remote_microservice_host": "192.168.1.100",
   "remote_microservice_user": "farzad",
-  "remote_microservice_path": "/home/farzad/files/ppm/bench/hotel/exec",
-  "k6_scripts_root": "bench/hotel/k6",
+  "remote_microservice_path": "/home/farzad/files/benchmarks/hotel/exec",
+  "rwg_binary_path": "./rwg/rwg",
   "bench": "hotel",
 
   "ssh_binary": "ssh",
   "docker_compose_binary": "docker-compose",
-  "git_root": "../..",
+  "git_root": "..",
 
   "plotting_enabled": true,
   "plot_output_subdir": "plots",
@@ -39,33 +39,6 @@
   },
 
   "metrics": {},
-
-  "experiment_metrics": {
-    "latency-and-goodput-vs-load": {
-      "latency_p50": "histogram_quantile(0.5, sum(rate(ppm_k6_success_req_latency_milliseconds_bucket{api=\"{api}\"}[{rate_interval}])) by (le))",
-      "latency_p95": "histogram_quantile(0.95, sum(rate(ppm_k6_success_req_latency_milliseconds_bucket{api=\"{api}\"}[{rate_interval}])) by (le))",
-      "goodput": "rate(ppm_k6_goodput_counter_total{api=\"{api}\"}[{rate_interval}])"
-    },
-    "latency-and-rate-vs-time": {
-      "latency_p50": "histogram_quantile(0.5, sum(rate(ppm_k6_success_req_latency_milliseconds_bucket{api=\"{api}\"}[{rate_interval}])) by (le))",
-      "latency_p95": "histogram_quantile(0.95, sum(rate(ppm_k6_success_req_latency_milliseconds_bucket{api=\"{api}\"}[{rate_interval}])) by (le))",
-      "goodput": "rate(ppm_k6_goodput_counter_total{api=\"{api}\"}[{rate_interval}])",
-      "dropped": "rate(ppm_k6_dropped_counter_total{api=\"{api}\"}[{rate_interval}])",
-      "slo_violation": "rate(ppm_k6_slo_violation_counter_total{api=\"{api}\"}[{rate_interval}])",
-      "dropped_in": "rate(ppm_failed_rpc_total{api=\"{api}\"}[{rate_interval}])"
-    },
-    "resource-waste": {
-      "accepted_rate": "rate(ppm_accepted_rpc_total{exported_job=\"{service}\", api=\"{api}\"}[{rate_interval}])",
-      "dropped_rate": "rate(ppm_failed_rpc_total{exported_job=\"{service}\", api=\"{api}\"}[{rate_interval}])",
-      "slo_violation_rate": "rate(ppm_k6_slo_violation_counter_total{api=\"{api}\"}[{rate_interval}])"
-    },
-    "max-queue": {
-      "queue_length": "ppm_max_queue{exported_job=\"{service}\", api=\"{api}\"}"
-    },
-    "max-queue-motivation": {
-      "queue_length": "ppm_max_queue{exported_job=\"{service}\", api=\"{api}\"}"
-    }
-  },
 
   "report": {
     "embed_plots": true,
