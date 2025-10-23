@@ -2,9 +2,13 @@ import os
 import sys
 
 import pandas as pd
-from canvas import canvas
 import numpy as np
 from math import ceil
+from pathlib import Path
+
+# Import plotting primitives
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from exec.plots.plotting_primitives import SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_stacked_area, configure_axis_ticks, ACM_QUARTER
 
 
 def read_realtime_data(file_path):
@@ -55,53 +59,41 @@ def main():
     print("Data loaded from realtime.csv")
 
 
-    # Create canvas
-    fig, ax = canvas.create_canvas(width_in_inches=3.33,
-                                   marker_size=1,
-                                   line_width=2,
-                                   font_size=12,
-                                   legend_size=12)
-
-    markers = canvas.marker_list
-    colors = canvas.color_list
+    # Create latency plot using plotting primitives
+    grid = SubplotGrid(ACM_COMPACT_HALF, layout="1x1")
+    ax = grid.get_ax(0, 0)
 
     latency_metrics = [
         "p50_latency",
         "p95_latency",
     ]
 
-    # stack metrics
+    # Plot latency metrics using plot_line
     for i, metric in enumerate(latency_metrics):
-        metric_df = data[['relative_time', metric]]
-        relative_time = metric_df['relative_time']
-        ax.plot(relative_time, 
-                metric_df[metric], 
-                label=name_to_label(metric), 
-                color=colors[i % len(colors)],
-                marker=markers[i % len(markers)])
+        relative_time = data['relative_time']
+        plot_line(ax, relative_time, data[metric], 
+                 label=name_to_label(metric), 
+                 style=grid.style,
+                 color_idx=i)
     
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Latency (ms)")
-    ax.legend(loc='upper left')
-    ax.grid(True, alpha=0.3)
-
-    # Set x-axis ticks (even numbers only)
-    max_time = data['relative_time'].max()
-    ax.set_xticks(np.arange(0, ceil(max_time) + 2, 2))
-    ax.set_xticklabels([str(int(x)) for x in np.arange(0, ceil(max_time) + 2, 2)])
-    ax.set_xlim(0, max_time)
+    # Configure axis with y-axis limits
+    grid.configure_ax(ax,
+                    x_data=data['relative_time'],
+                    x_step=3,
+                    x_type="int",
+                     xlabel="Time (s)", 
+                     ylabel="Latency (ms)",
+                     log_y=True,
+                     ylim=(1, 200))
 
     # draw a horizontal line at y=60
     ax.axhline(y=60, color='r', linestyle='--', label='SLO')
 
-    # make y-axis log scale
-    ax.set_yscale('log')
-
-    # Set y-axis limit
-    ax.set_ylim(1, 500)
+    # Add legend
+    grid.add_shared_legend(position="top", two_rows=False, y_offset=1.05)
 
     # Save plot
-    fig.savefig(f'tests/one-api-vs-time/latency.pdf', bbox_inches='tight')
+    grid.save(Path('tests/one-api-vs-time/latency.pdf'))
 
 
     ########## rates ##########
@@ -117,12 +109,9 @@ def main():
     ]
 
     # ------- Rate plotting (stacked) -------
-    # Create a new canvas for rates
-    fig_r, ax_r = canvas.create_canvas(width_in_inches=3.33,
-                                       marker_size=1,
-                                       line_width=0.5,
-                                       font_size=12,
-                                       legend_size=12)
+    # Create a new grid for rates
+    grid_r = SubplotGrid(ACM_COMPACT_HALF, layout="1x1")
+    ax_r = grid_r.get_ax(0, 0)
 
     # Custom color mapping: bad metrics get warning/error colors
     color_mapping = {
@@ -132,76 +121,63 @@ def main():
         # kept a fallback key in case other names are used elsewhere
         'dropped': '#a5b41f'
     }
-    
-    alpha_mapping = {
-        'goodput': 0.6,
-        'slo_violations': 0.8,   # More opaque for better visibility of bad metric
-        'dropped_requests': 0.8, # More opaque for better visibility of bad metric
-        'dropped': 0.6
-    }
 
     x = data['relative_time'] if 'relative_time' in data.columns else None
     if x is None:
         raise ValueError("Data must contain 'relative_time' column for x-axis.")
     else:
-        # Prepare stacked series: ensure each metric exists and has same length
-        stacked_values = []
-        stacked_labels = []
-        stacked_colors = []
-        stacked_alphas = []
-
+        # Prepare stacked series data for plot_stacked_area
+        y_series = {}
         for metric in stack_metrics:
             if metric in data.columns:
-                vals = data[metric].values.tolist()
+                # Convert to KRPS and use display label as key
+                y_series[name_to_label(metric)] = data[metric].values / 1000.0
             else:
                 raise ValueError(f"Data must contain '{metric}' column for stacking.")
-            stacked_values.append([v / 1000.0 for v in vals])  # convert to KRPS
-            stacked_labels.append(metric)
-            stacked_colors.append(color_mapping.get(metric, None))
-            stacked_alphas.append(alpha_mapping.get(metric, 0.6))
 
-        # Plot stacked areas
-        cumulative = None
-        for i, (values, label, color, alpha) in enumerate(zip(stacked_values, stacked_labels, stacked_colors, stacked_alphas)):
-            if cumulative is None:
-                ax_r.fill_between(x, 0, values, label=name_to_label(label),
-                                  color=color, alpha=alpha)
-                cumulative = values
-            else:
-                new_cumulative = [a + b for a, b in zip(cumulative, values)]
-                ax_r.fill_between(x, cumulative, new_cumulative, label=name_to_label(label),
-                                  color=color, alpha=alpha)
-                cumulative = new_cumulative
+        # Create color map using display labels
+        display_color_map = {}
+        for metric in stack_metrics:
+            display_label = name_to_label(metric)
+            display_color_map[display_label] = color_mapping.get(metric, '#999999')
+
+        # Plot stacked areas using plotting primitives
+        plot_stacked_area(ax_r, x, y_series, 
+                         style=grid_r.style,
+                         color_map=display_color_map)
 
         # Plot total_requests (offered load) as a dashed black line (in KRPS)
         if 'total_requests' in data.columns:
             offered_krps = data['total_requests'] / 1000.0
-            ax_r.plot(x, offered_krps, label=name_to_label('total_requests'), color='k', linestyle='--', linewidth=2)
-
-        ax_r.set_xlabel('Time (s)')
-        ax_r.set_ylabel('Rate (KRPS)')
-        ax_r.legend(loc='upper left')
-        ax_r.grid(True, alpha=0.3)
-
-        # x-axis ticks (even numbers)
-        max_time = data['relative_time'].max()
-        ax_r.set_xticks(np.arange(0, ceil(max_time) + 2, 2))
-        ax_r.set_xticklabels([str(int(t)) for t in np.arange(0, ceil(max_time) + 2, 2)])
-        ax_r.set_xlim(0, max_time)
-
+            plot_line(ax_r, x, offered_krps, 
+                     label=name_to_label('total_requests'), 
+                     style=grid_r.style,
+                     color='k', linestyle='--')
         # y limits: compute maximum across stacked values and offered load
         max_y_value = 0.0
-        for vals in stacked_values:
-            if vals:
-                max_y_value = max(max_y_value, max(vals))
+        for vals in y_series.values():
+            if len(vals) > 0:
+                max_y_value = max(max_y_value, vals.max())
         if 'total_requests' in data.columns:
             max_y_value = max(max_y_value, (data['total_requests'] / 1000.0).max())
 
-        if max_y_value > 0:
-            ax_r.set_ylim(0, max_y_value * 1.2)
+        # Configure axis with automatic tick configuration
+        grid_r.configure_ax(ax_r, 
+                           xlabel='Time (s)', 
+                           ylabel='Rate (KRPS)',
+                           x_data=data['relative_time'],
+                           x_step=3,
+                           x_type="int",
+                           ylim=(0, max_y_value * 1.05),
+                           y_step=2,
+                           y_type="int")
+
+        # Add legend
+        grid_r.add_shared_legend(position="top", two_rows=True, y_offset=1.15)
+
 
         # Save rate plot
-        fig_r.savefig('tests/one-api-vs-time/rate.pdf', bbox_inches='tight')
+        grid_r.save(Path('tests/one-api-vs-time/rate.pdf'))
 
 if __name__ == "__main__":
     main()
