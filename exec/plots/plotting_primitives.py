@@ -86,6 +86,13 @@ class PlotStyle:
     bar_width_fraction: float = 0.8  # Fraction of x-unit
     bar_spacing_fraction: float = 0.9  # Bar width as fraction of allocated space
     
+    # Axis tick configuration
+    x_tick_step: Optional[float] = None  # X-axis tick step (auto if None)
+    y_tick_step: Optional[float] = None  # Y-axis tick step (auto if None)
+    x_tick_type: str = "auto"  # "int", "float", or "auto"
+    y_tick_type: str = "auto"  # "int", "float", or "auto"
+    axis_guard_fraction: float = 0.03  # Padding fraction for professional appearance (default)
+    
     # High-contrast academic colors (optimized for print)
     colors: List[str] = field(default_factory=lambda: [
         '#e41a1c',  # Red (high contrast)
@@ -108,85 +115,9 @@ class PlotStyle:
 
 
 # ACM Presets
+ACM_QUARTER = PlotStyle(width_points=120, font_size=9, legend_size=9, title_size=9)  # 1.665 inches (quarter column)
 ACM_COMPACT_HALF = PlotStyle(width_points=240)  # 3.33 inches (half column)
 ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (full column)
-
-
-def add_legend_to_figure(fig, ax=None, position: str = "top", ncol: Optional[int] = None,
-                         handles=None, labels=None, two_rows: bool = False,
-                         style: Optional[PlotStyle] = None):
-    """Add a legend to any matplotlib figure with ACM styling.
-    
-    Standalone helper for adding legends to figures created outside of SubplotGrid.
-    Supports two-row legend layout for better space utilization.
-    
-    Args:
-        fig: Matplotlib figure object
-        ax: Single axis or list of axes to collect handles from (if handles=None)
-        position: Legend position ("top" or "bottom")
-        ncol: Number of legend columns (auto if None)
-        handles: Legend handles (auto-collected from ax if None)
-        labels: Legend labels (auto-collected from ax if None)
-        two_rows: Force legend into two rows (default: False, uses single row)
-        style: PlotStyle for legend size (uses ACM_COMPACT_HALF if None)
-        
-    Example:
-        >>> fig, ax = plt.subplots(1, 3)
-        >>> # ... plot data ...
-        >>> add_legend_to_figure(fig, ax, position="top", two_rows=True)
-    """
-    import matplotlib.pyplot as plt
-    import math
-    
-    style = style or ACM_COMPACT_HALF
-    
-    if handles is None and ax is not None:
-        # Collect unique handles/labels from axes
-        all_handles, all_labels = [], []
-        axes_list = [ax] if not isinstance(ax, (list, np.ndarray)) else (ax.flatten() if hasattr(ax, 'flatten') else ax)
-        
-        for a in axes_list:
-            h, l = a.get_legend_handles_labels()
-            for hh, ll in zip(h, l):
-                if ll not in all_labels:
-                    all_handles.append(hh)
-                    all_labels.append(ll)
-        handles, labels = all_handles, all_labels
-    
-    if not handles:
-        return
-    
-    # Determine number of columns
-    if ncol is None:
-        if two_rows:
-            # Split into two rows: ceil(n/2) columns per row
-            ncol = math.ceil(len(labels) / 2)
-        else:
-            # Default: single row with all items
-            ncol = len(labels)
-    
-    # Adjust position based on number of rows (two-row needs more space)
-    if position == "top":
-        # Two-row legends need more vertical clearance to avoid overlapping plot
-        y_offset = 1.10 if two_rows else 1.04
-        bbox = (0.5, y_offset)
-        loc = 'upper center'
-    elif position == "bottom":
-        y_offset = -0.08 if two_rows else -0.05
-        bbox = (0.5, y_offset)
-        loc = 'lower center'
-    else:
-        y_offset = 1.10 if two_rows else 1.04
-        bbox = (0.5, y_offset)
-        loc = 'upper center'
-    
-    fig.legend(
-        handles, labels,
-        loc=loc, bbox_to_anchor=bbox,
-        ncol=ncol, frameon=True, fancybox=True,
-        framealpha=0.9, edgecolor='#999999',
-        fontsize=style.legend_size
-    )
 
 
 class SubplotGrid:
@@ -299,7 +230,14 @@ class SubplotGrid:
     def configure_ax(self, ax, xlabel: str = "", ylabel: str = "", title: str = "",
                     show_xlabel: bool = True, show_ylabel: bool = True,
                     show_xticklabels: bool = True, show_yticklabels: bool = True,
-                    grid: bool = True, log_y: bool = False, log_x: bool = False):
+                    grid: bool = True, log_y: bool = False, log_x: bool = False,
+                    x_data=None, y_data=None, 
+                    x_step: Optional[float] = None, y_step: Optional[float] = None,
+                    x_type: str = "auto", y_type: str = "auto",
+                    x_guard: Optional[float] = None, y_guard: Optional[float] = None,
+                    auto_ticks: bool = True,
+                    xlim: Optional[Tuple[float, float]] = None,
+                    ylim: Optional[Tuple[float, float]] = None):
         """Configure individual axis with common settings.
         
         Args:
@@ -314,6 +252,17 @@ class SubplotGrid:
             grid: Whether to show grid
             log_y: Use logarithmic y-axis
             log_x: Use logarithmic x-axis
+            x_data: X-axis data for automatic tick configuration (optional)
+            y_data: Y-axis data for automatic tick configuration (optional)
+            x_step: X-axis tick step (overrides style default)
+            y_step: Y-axis tick step (overrides style default)
+            x_type: X-axis tick type - "int", "float", or "auto"
+            y_type: Y-axis tick type - "int", "float", or "auto"
+            x_guard: X-axis guard fraction (overrides style default)
+            y_guard: Y-axis guard fraction (overrides style default)
+            auto_ticks: Whether to automatically configure ticks (default: True)
+            xlim: X-axis limits as (min, max) tuple (optional, used for both ticks and limits)
+            ylim: Y-axis limits as (min, max) tuple (optional, used for both ticks and limits)
         """
         if xlabel and show_xlabel:
             ax.set_xlabel(xlabel, fontsize=self.style.font_size)
@@ -332,9 +281,30 @@ class SubplotGrid:
         
         if log_y:
             ax.set_yscale('log')
+
+            if ylim is not None:
+                ax.set_ylim(ylim[0], ylim[1])
+        else:
+            if auto_ticks and (y_data is not None or ylim is not None):
+                configure_y_axis_ticks(ax, y_data=y_data, style=self.style,
+                                       y_step=y_step, y_type=y_type,
+                                       y_guard=y_guard, ylim=ylim)
+            elif ylim is not None:
+                ax.set_ylim(ylim[0], ylim[1])
+
         if log_x:
             ax.set_xscale('log')
-    
+        
+        # Configure ticks automatically if requested and data/range is provided
+        if auto_ticks and (x_data is not None or xlim is not None):
+            configure_x_axis_ticks(ax, x_data=x_data, style=self.style,
+                                   x_step=x_step, x_type=x_type,
+                                   x_guard=x_guard, xlim=xlim)
+        else:
+            if xlim is not None:
+                ax.set_xlim(xlim[0], xlim[1])
+        
+       
     def configure_labels(self, pattern: str = "leftmost_y_bottom_x",
                         xlabel: str = "", ylabel: str = ""):
         """Apply common label pattern across all subplots.
@@ -377,7 +347,7 @@ class SubplotGrid:
             )
     
     def add_shared_legend(self, position: str = "top", ncol: Optional[int] = None,
-                         handles=None, labels=None, two_rows: bool = False):
+                         handles=None, labels=None, two_rows: bool = False, y_offset: float = 1.1):
         """Add figure-level legend shared across all subplots.
         
         Args:
@@ -416,7 +386,6 @@ class SubplotGrid:
         # Adjust position based on number of rows (two-row needs more space)
         if position == "top":
             # Two-row legends need more vertical clearance to avoid overlapping plot
-            y_offset = 1.10 if two_rows else 1.04
             bbox = (0.5, y_offset)
             loc = 'upper center'
         elif position == "bottom":
@@ -446,6 +415,164 @@ class SubplotGrid:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.fig.savefig(path, bbox_inches='tight', dpi=self.style.dpi)
         plt.close(self.fig)
+
+
+# ============================================================================
+# Axis Configuration Helpers
+# ============================================================================
+
+def configure_x_axis_ticks(ax, x_data=None, style: Optional[PlotStyle] = None,
+                           x_step: Optional[float] = None, x_type: str = "auto",
+                           x_guard: Optional[float] = None, xlim: Optional[Tuple[float, float]] = None):
+    """Configure x-axis ticks with professional spacing and formatting.
+    
+    Automatically generates tick positions with proper spacing and guards for
+    professional-looking plots. Supports both integer and float formatting.
+    """
+    
+    import math
+    
+    style = style or ACM_COMPACT_HALF
+
+    # Use provided parameters or fall back to style defaults
+    x_step = x_step if x_step is not None else style.x_tick_step
+    x_type = x_type if x_type != "auto" else style.x_tick_type
+    x_guard = x_guard if x_guard is not None else style.axis_guard_fraction
+    
+    # Configure X-axis ticks
+    # Determine x_min and x_max from either x_data or xlim tuple
+    if x_data is not None and len(x_data) > 0:
+        data_x_min, data_x_max = float(np.min(x_data)), float(np.max(x_data))
+        # Use xlim if provided, otherwise use data range
+        if xlim is not None:
+            final_x_min, final_x_max = float(xlim[0]), float(xlim[1])
+        else:
+            final_x_min, final_x_max = data_x_min, data_x_max
+    elif xlim is not None:
+        final_x_min, final_x_max = float(xlim[0]), float(xlim[1])
+    else:
+        final_x_min = final_x_max = None
+    
+    if final_x_min is not None and final_x_max is not None:
+        
+        # Auto-calculate step if not provided
+        if x_step is None:
+            x_range = final_x_max - final_x_min
+            # Use nice step sizes to get roughly 4-6 ticks
+            magnitude = 10 ** math.floor(math.log10(x_range))
+            nice_steps = [1, 2, 5, 10]
+            
+            # Find the step that gives us closest to 5 ticks
+            target_ticks = 5
+            best_step = nice_steps[0] * magnitude
+            best_tick_count = abs(x_range / best_step - target_ticks)
+            
+            for step_multiplier in nice_steps:
+                candidate_step = step_multiplier * magnitude
+                tick_count = x_range / candidate_step
+                error = abs(tick_count - target_ticks)
+                if error < best_tick_count:
+                    best_tick_count = error
+                    best_step = candidate_step
+            
+            x_step = best_step
+        
+        # Generate tick positions
+        tick_start = math.floor(final_x_min / x_step) * x_step
+        tick_end = math.ceil(final_x_max / x_step) * x_step
+        x_ticks = np.arange(tick_start, tick_end + x_step/2, x_step)
+        
+        # Format tick labels
+        if x_type == "int" or (x_type == "auto" and all(abs(t - round(t)) < 1e-9 for t in x_ticks)):
+            x_labels = [str(int(t)) for t in x_ticks]
+        else:
+            x_labels = [f"{t:g}" for t in x_ticks]
+        
+        ax.set_xticks(x_ticks)
+        ax.set_xticklabels(x_labels)
+        
+        # Set limits with guards (only if xlim was not explicitly provided)
+        if xlim is None:
+            x_span = final_x_max - final_x_min
+            x_pad = x_guard * x_span if x_span > 0 else x_guard * x_step
+            ax.set_xlim(final_x_min - x_pad, final_x_max + x_pad)
+
+
+def configure_y_axis_ticks(ax, y_data=None, style: Optional[PlotStyle] = None,
+                           y_step: Optional[float] = None, y_type: str = "auto",
+                           y_guard: Optional[float] = None, ylim: Optional[Tuple[float, float]] = None):
+    """Configure y-axis ticks with professional spacing and formatting.
+    
+    Automatically generates tick positions with proper spacing and guards for
+    professional-looking plots. Supports both integer and float formatting.
+    """
+    
+    import math
+    
+    style = style or ACM_COMPACT_HALF
+    
+    # Use provided parameters or fall back to style defaults
+    y_step = y_step if y_step is not None else style.y_tick_step
+    y_type = y_type if y_type != "auto" else style.y_tick_type
+    y_guard = y_guard if y_guard is not None else style.axis_guard_fraction
+    
+    # Configure Y-axis ticks
+    # Determine y_min and y_max from either y_data or ylim tuple
+    if y_data is not None and len(y_data) > 0:
+        data_y_min, data_y_max = float(np.min(y_data)), float(np.max(y_data))
+        # Use ylim if provided, otherwise use data range
+        if ylim is not None:
+            final_y_min, final_y_max = float(ylim[0]), float(ylim[1])
+        else:
+            final_y_min, final_y_max = data_y_min, data_y_max
+    elif ylim is not None:
+        final_y_min, final_y_max = float(ylim[0]), float(ylim[1])
+    else:
+        final_y_min = final_y_max = None
+    
+    if final_y_min is not None and final_y_max is not None:
+        
+        # Auto-calculate step if not provided
+        if y_step is None:
+            y_range = final_y_max - final_y_min
+            # Use nice step sizes to get roughly 4-6 ticks
+            magnitude = 10 ** math.floor(math.log10(y_range))
+            nice_steps = [1, 2, 5, 10]
+            
+            # Find the step that gives us closest to 5 ticks
+            target_ticks = 5
+            best_step = nice_steps[0] * magnitude
+            best_tick_count = abs(y_range / best_step - target_ticks)
+            
+            for step_multiplier in nice_steps:
+                candidate_step = step_multiplier * magnitude
+                tick_count = y_range / candidate_step
+                error = abs(tick_count - target_ticks)
+                if error < best_tick_count:
+                    best_tick_count = error
+                    best_step = candidate_step
+            
+            y_step = best_step
+        
+        # Generate tick positions
+        tick_start = math.floor(final_y_min / y_step) * y_step
+        tick_end = math.ceil(final_y_max / y_step) * y_step
+        y_ticks = np.arange(tick_start, tick_end + y_step/2, y_step)
+        
+        # Format tick labels
+        if y_type == "int" or (y_type == "auto" and all(abs(t - round(t)) < 1e-9 for t in y_ticks)):
+            y_labels = [str(int(t)) for t in y_ticks]
+        else:
+            y_labels = [f"{t:g}" for t in y_ticks]
+        
+        ax.set_yticks(y_ticks)
+        ax.set_yticklabels(y_labels)
+        
+        # Set limits with guards (only if ylim was not explicitly provided)
+        if ylim is None:
+            y_span = final_y_max - final_y_min
+            y_pad = y_guard * y_span if y_span > 0 else y_guard * y_step
+            ax.set_ylim(final_y_min - y_pad, final_y_max + y_pad)
 
 
 # ============================================================================
