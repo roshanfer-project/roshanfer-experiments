@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Import plotting primitives
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from exec.plots.plotting_primitives import SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_stacked_area, configure_axis_ticks, ACM_QUARTER
+from exec.plots.plotting_primitives import SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_stacked_area, ACM_QUARTER
 
 
 def read_realtime_data(file_path):
