@@ -16,7 +16,7 @@ RATE=$3
 DURATION=$4
 APIS=$5
 output_dir=$6
-address="192.168.1.100:3000"
+address="192.168.1.100"
 
 # Split APIs by comma
 IFS=',' read -ra API_ARRAY <<< "$APIS"
@@ -45,16 +45,21 @@ run_single_api() {
         fi
     else
         if [ "$api" = "compose-post" ]; then
-            url="http://$address/compose"
+            char="t"
+            num="100"
+            repeated_char=$(printf "%0.s$char" $(seq 1 $num))
+            url="http://$address:3000/compose?text=$repeated_char"
+            echo "url: $url"
         elif [ "$api" = "read-home-timeline" ]; then
-            url="http://$address/home"
+            url="http://$address:3008/home"
         elif [ "$api" = "read-user-timeline" ]; then
-            url="http://$address/user"
+            url="http://$address:3009/user"
         else
             echo "Unknown social API: $api"
             return 1
         fi
         ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 150 -o $output_file
+        exit "$?"
     fi
 }
 

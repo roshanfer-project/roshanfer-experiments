@@ -16,7 +16,7 @@ RATE=$3
 DURATION=$4
 APIS=$5
 output_dir=$6
-address="192.168.1.100:3000"
+address="192.168.1.100"
 
 # Split APIs by comma
 IFS=',' read -ra API_ARRAY <<< "$APIS"
@@ -41,17 +41,18 @@ run_single_api() {
             return 1
         fi
         ./rwg/rwg run -u $address -p $proto -d exp -D 5,$DURATION -r $BASE,$RATE -w 40000 -o $output_file --args $args
+        exit "$?"
     else
-        if [ "$api" = "hotel-search" ]; then
-            url="http://$address/hotels?lat=37.7867&lon=-122.4112&inDate=2024-08-15&outDate=2024-08-17"
-        elif [ "$api" = "hotel-reserve" ]; then
-            echo "API 'hotel-reserve' is not supported for HTTP"
-            return 1
+        if [ "$api" = "search-hotel" ]; then
+            url="http://$address:3000/hotels?lat=37.7867&lon=-122.4112&inDate=2024-08-15&outDate=2024-08-17"
+        elif [ "$api" = "reserve-hotel" ]; then
+            url="http://$address:3009/reservation?inDate=2025-05-20&outDate=2025-05-22&hotelId=4&customerName=Alice&username=Cornell_1&password=1111111111&number=1"
         else
             echo "Unknown API: $api"
             return 1
         fi
-        ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 150 -o $output_file
+        ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 500 -o $output_file
+        exit "$?"
     fi
 }
 

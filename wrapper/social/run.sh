@@ -16,7 +16,7 @@ RATE=$3
 DURATION=$4
 API=$5
 output_dir="$6/out-$API.csv"
-address="192.168.1.100:3000"
+address="192.168.1.100"
 
 if [ "$protocol" == "grpc" ]; then
     if [ "$API" = "compose-post" ]; then
@@ -37,14 +37,19 @@ if [ "$protocol" == "grpc" ]; then
     fi
 else
     if [ "$API" = "compose-post" ]; then
-        url="http://$address/compose"
+        char="t"
+        num="100"
+        repeated_char=$(printf "%0.s$char" $(seq 1 $num))
+        url="http://$address:3000/compose?text=$repeated_char"
+        echo "url: $url"
     elif [ "$API" = "read-home-timeline" ]; then
-        url="http://$address/home"
+        url="http://$address:3008/home"
     elif [ "$API" = "read-user-timeline" ]; then
-        url="http://$address/user"
+        url="http://$address:3009/user"
     else
         echo "Unknown social API: $API"
         exit 1
     fi
     ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 150 -o $output_dir
+    exit "$?"
 fi
