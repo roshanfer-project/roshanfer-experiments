@@ -76,8 +76,8 @@ class OverallData:
     num_dropped_requests: int  # count of dropped requests
     errors: float  # requests/sec
     num_errors: int  # count of error responses
-    success: float  # requests/sec (successful requests)
-    num_success: int  # count of successful requests
+    throughput: float  # requests/sec (successful requests)
+    num_throughput: int  # count of successful requests
     p50_latency: float  # milliseconds
     p95_latency: float  # milliseconds
     p99_latency: float  # milliseconds
@@ -124,8 +124,8 @@ class OverallData:
             num_dropped_requests=data['num_dropped_requests'],
             errors=data['errors'],
             num_errors=data['num_errors'],
-            success=data['success'],
-            num_success=data['num_success'],
+            throughput=data.get('throughput', data.get('success', 0.0)),
+            num_throughput=data.get('num_throughput', data.get('num_success', 0)),
             p50_latency=data['p50_latency'],
             p95_latency=data['p95_latency'],
             p99_latency=data['p99_latency'],
