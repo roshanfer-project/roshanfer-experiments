@@ -7,3 +7,4 @@ env-setter.env
 *.csv
 experiment_runs/
 generated_plots/
+exp_runs
