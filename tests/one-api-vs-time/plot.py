@@ -1,6 +1,6 @@
 import os
 import sys
-
+import json
 import pandas as pd
 import numpy as np
 from math import ceil
@@ -31,7 +31,7 @@ def read_realtime_data(file_path):
 
     # Ensure numeric columns are numeric
     for col in ['relative_time', 'goodput', 'slo_violations', 'dropped_requests', 'errors',
-                'p50_latency', 'p95_latency', 'total_requests']:
+                'p50_latency', 'p95_latency', 'p99_latency', 'total_requests']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -41,6 +41,10 @@ def read_realtime_data(file_path):
 
     return df
 
+def read_overall_data(file_path):
+    with open(os.path.join(os.path.dirname(__file__), file_path), 'r') as f:
+        return json.load(f)
+
 def name_to_label(name):
     mapping = {
         "goodput": "Goodput",
@@ -49,6 +53,7 @@ def name_to_label(name):
         "errors": "Errors",
         "p50_latency": "P50 Latency",
         "p95_latency": "P95 Latency",
+        "p99_latency": "P99 Latency",
         "total_requests": "Load"
     }
     return mapping[name]
@@ -58,6 +63,9 @@ def main():
     data = read_realtime_data("realtime.csv")
     print("Data loaded from realtime.csv")
 
+    overall_data = read_overall_data("overall.json")
+    SLO = overall_data["slo_ms"]
+
 
     # Create latency plot using plotting primitives
     grid = SubplotGrid(ACM_COMPACT_HALF, layout="1x1")
@@ -66,6 +74,7 @@ def main():
     latency_metrics = [
         "p50_latency",
         "p95_latency",
+        "p99_latency",
     ]
 
     # Plot latency metrics using plot_line
@@ -87,10 +96,11 @@ def main():
                      ylim=(1, 200))
 
     # draw a horizontal line at y=60
-    ax.axhline(y=60, color='r', linestyle='--', label='SLO')
+    ax.axhline(y=SLO, color='r', linestyle='--', label='SLO')
 
     # Add legend
-    grid.add_shared_legend(position="top", two_rows=False, y_offset=1.05)
+    grid.add_shared_legend(position="top", two_rows=False, y_offset=1.15,
+                        ncol=2)
 
     # Save plot
     grid.save(Path('tests/one-api-vs-time/latency.pdf'))
@@ -169,8 +179,8 @@ def main():
                            x_step=3,
                            x_type="int",
                            ylim=(0, max_y_value * 1.05),
-                           y_step=2,
-                           y_type="int")
+                           y_step=0.5,
+                           y_type="float")
 
         # Add legend
         grid_r.add_shared_legend(position="top", two_rows=True, y_offset=1.15)
