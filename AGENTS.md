@@ -27,7 +27,6 @@ In these scenarios, try to teach the broader concept that lead to the question. 
 # Input and Context
 
 - user prompt
-- the documents described in `docs` directory
 
 
 # Output and Planning
