@@ -95,8 +95,15 @@ def generate_resource_waste_bar_merged(
         found_records = []
         
         # Find all run_summary.jsonl entries for this experiment (all repeats)
-        for exp_index in range(1, 20):
-            run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
+        # Determine roots to scan
+        roots_to_scan = []
+        if experiments_root.name.startswith('exp-'):
+            roots_to_scan.append(experiments_root)
+        else:
+            for exp_index in range(1, 20):
+                roots_to_scan.append(experiments_root / f'exp-{exp_index:03d}')
+        
+        for run_root in roots_to_scan:
             records = _load_summary(run_root)
             for r in records:
                 if r.get('experiment_name') == exp_name:
@@ -1491,8 +1498,15 @@ def generate_latency_vs_throughput_merged(
         # We scan exp-XXX directories
         found_units = {} # unit_name -> list of artifact_dirs
         
-        for exp_index in range(1, 20):
-             run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
+        # Determine roots to scan
+        roots_to_scan = []
+        if experiments_root.name.startswith('exp-'):
+            roots_to_scan.append(experiments_root)
+        else:
+            for exp_index in range(1, 20):
+                roots_to_scan.append(experiments_root / f'exp-{exp_index:03d}')
+        
+        for run_root in roots_to_scan:
              records = _load_summary(run_root)
              for r in records:
                  if r.get('experiment_name') == exp_name:
@@ -1527,9 +1541,20 @@ def generate_latency_vs_throughput_merged(
                 
                 if tp_mean is not None and lat_mean is not None:
                     exp_points.append((tp_mean, lat_mean, lat_ci if lat_ci is not None else 0.0))
+                    if os.environ.get('PLOT_DEBUG') == '1':
+                        print(f"  [DEBUG] Unit: {unit_name}")
+                        print(f"    Samples: {len(unit_throughputs)}")
+                        print(f"    Throughput: {tp_mean:.2f}")
+                        print(f"    Latency: {lat_mean:.2f} ± {lat_ci if lat_ci else 0:.2f}")
 
         # Sort by throughput
         exp_points.sort(key=lambda x: x[0])
+        
+        if os.environ.get('PLOT_DEBUG') == '1':
+            print(f"[DEBUG] Experiment: {exp_name} ({label})")
+            print(f"  Aggregated Points (TP, Lat, CI):")
+            for p in exp_points:
+                print(f"    {p[0]:.2f}, {p[1]:.2f}, {p[2]:.2f}")
         
         if not exp_points:
             continue
@@ -1561,7 +1586,8 @@ def generate_latency_vs_throughput_merged(
         title=f"Latency vs Throughput",
         x_data=all_throughputs,
         y_data=all_latencies,
-        y_step=4,
+        y_step=1,
+        ylim=(0, 6),
         y_type="int",
         x_step=2000,
         grid=True
