@@ -38,7 +38,7 @@ class Config:
     plot_output_subdir: str = "plots"
 
     # --- Retry / reliability ---
-    default_retries: int = 1
+    default_retries: int = 10
 
     # --- Remote execution (microservice host) ---
     remote_microservice_host: str = "localhost"

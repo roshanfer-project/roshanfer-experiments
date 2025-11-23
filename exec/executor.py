@@ -64,7 +64,7 @@ def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
 	return exps
 
 
-def _expand_experiment(exp: ExperimentConfig) -> Iterable[RunUnit]:
+def _expand_experiment(exp: ExperimentConfig, config: Config) -> Iterable[RunUnit]:
 	"""Turn a high-level experiment into concrete RunUnit(s).
 
 	CURRENT IMPLEMENTATION: minimal pass-through producing a single RunUnit.
@@ -75,6 +75,12 @@ def _expand_experiment(exp: ExperimentConfig) -> Iterable[RunUnit]:
 	for load in range(exp.loads.start, exp.loads.end + 1, exp.loads.step):
 		# Distinguish each load variant so repeats for a single load sit under its own folder.
 		variant_name = f"{exp.name}-rate-{load}"
+		
+		# Get warmup and cooldown with priority: experiment -> config defaults -> 0
+		exp_defaults = config.experiment_defaults.get(exp.type, {})
+		warmup = exp.warmup or exp_defaults.get("warmup", 0)
+		cooldown = exp.cooldown or exp_defaults.get("cooldown", 0)
+		
 		yield RunUnit(
 			name=variant_name,
 			type=exp.type,
@@ -85,11 +91,15 @@ def _expand_experiment(exp: ExperimentConfig) -> Iterable[RunUnit]:
 			system=exp.system,
 			apis=exp.apis,
 			services=exp.services,
+			cleanup_args=exp.cleanup_args,
+			execution_args=exp.execution_args,
 			metadata={},
 			bench=exp.bench,
 			collector_range=exp.collector_range,
 			collector_step=exp.collector_step,
 			collector_freq=exp.collector_freq,
+			warmup=warmup,
+			cooldown=cooldown,
 			repeats=exp.repeat,
 		)
 
@@ -168,7 +178,7 @@ def execute(experiments_file: Path, config: Config, only_names: Sequence[str] | 
 	for exp in all_exps:
 		experiment_dir = run_root / _safe(exp.name)
 		_ensure_dir(experiment_dir)
-		for unit in _expand_experiment(exp):
+		for unit in _expand_experiment(exp, config):
 			# Determine repeats for this unit. Priority: unit['repeat'] -> experiment_defaults -> 1
 			repeats = (
 				unit.repeats

@@ -407,16 +407,28 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             unit_entries = []
             for run_unit_name, info in units.items():
                 recs = info['records']
-                # Collect metric files per repeat
+                # Collect metric files per repeat (legacy Prometheus) or RWG data
                 repeat_metric_files = []
                 artifact_dirs = []
                 for r in recs:
                     artifact_dir = Path(r.get('artifact_dir', '.'))
+                    
+                    # Check for legacy Prometheus metrics
                     mdir = artifact_dir / 'metrics'
                     mf = _load_metric_files(mdir)
                     if mf:
                         repeat_metric_files.append(mf)
                         artifact_dirs.append(artifact_dir)
+                    else:
+                        # Check for new RWG data
+                        output_dir_data = artifact_dir / 'output'
+                        has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
+                        if has_rwg_data:
+                            # For RWG data, we don't need repeat_metric_files (plugins load directly)
+                            # Just add empty dict as placeholder to indicate data exists
+                            repeat_metric_files.append({})
+                            artifact_dirs.append(artifact_dir)
+                
                 if not repeat_metric_files:
                     continue
                 # derive load value

@@ -35,6 +35,10 @@ class Runner:
 		remote_cmd = f"cd {self.config.remote_microservice_path} && go run main.go"
 		if unit.system != "":
 			remote_cmd += f" --{unit.system}"
+		
+		# Add configurable execution arguments
+		if unit.execution_args:
+			remote_cmd += " " + " ".join(unit.execution_args)
 
 		check_cmd = f"ssh {self.config.remote_microservice_user}@{self.config.remote_microservice_host} 'cat /tmp/{unit.bench.upper()}.ready'"
 		
@@ -43,7 +47,7 @@ class Runner:
 			stdout=subprocess.DEVNULL,
 			stderr=subprocess.DEVNULL
 		)
-		time.sleep(15)
+		time.sleep(10)
 		
 		ready = False
 		for _ in range(self.config.default_retries):
@@ -51,17 +55,20 @@ class Runner:
 			if result.returncode == 0:
 				ready = True
 				break
-			time.sleep(2)
+			time.sleep(1)
 
 		if ready is False:
 			raise RuntimeError(f"Microservice did not become ready after retries, result={result}")
-
-		time.sleep(5)
 
 		return run_remote_cmd
 
 	def _clear_microservice(self, unit: RunUnit) -> None:
 		remote_cmd = f"cd {self.config.remote_microservice_path} && ./clean.sh"
+		
+		# Add configurable cleanup arguments
+		if unit.cleanup_args:
+			remote_cmd += " " + " ".join(unit.cleanup_args)
+		
 		subprocess.run(
 			["ssh", f"{self.config.remote_microservice_user}@{self.config.remote_microservice_host}", remote_cmd],
 			check=True,

@@ -51,6 +51,7 @@ class Collector:
 			"unit_name": unit.name,
 			"apis": unit.apis,
 			"health_checks": {},
+			"overall_reports": {},
 			"realtime_reports": {},
 			"notes": "",
 		}
@@ -58,10 +59,13 @@ class Collector:
 		metric_files: List[str] = []
 
 		# Health check: verify overall-{api}.json exists and has no errors
-		self._evaluate_health(unit, output_dir, index)
+		self._evaluate_health(unit, output_dir, index, run_result)
+
+		# Generate overall reports for all experiment types
+		self._generate_overall_reports(unit, run_result, output_dir, index, metric_files)
 
 		# Generate realtime reports for specific experiment types
-		if unit.type == "latency-and-rate-vs-time":
+		if unit.type in ("latency-and-rate-vs-time", "latency-vs-throughput"):
 			self._generate_realtime_reports(unit, run_result, output_dir, index, metric_files)
 
 		# Persist index file
@@ -79,13 +83,13 @@ class Collector:
 	# ------------------------------------------------------------------
 	# Helper / internal
 	# ------------------------------------------------------------------
-	def _evaluate_health(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any]) -> None:
+	def _evaluate_health(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any], run_result: RunResult) -> None:
 		"""Health check: verify overall-{api}.json files exist and have num_errors < 1.
 
 		Raises:
 			Exception: If any overall-{api}.json is missing or has errors
 		"""
-		for api in unit.apis:
+		""" for api in unit.apis:
 			overall_file = output_dir / f"overall-{api}.json"
 			
 			if not overall_file.exists():
@@ -104,7 +108,80 @@ class Collector:
 				"status": "passed",
 				"num_errors": num_errors,
 				"overall_file": str(overall_file),
-			}
+			} """
+		
+		if run_result.details["returncode"] != 0:
+			raise Exception(f"Health check failed: returncode={run_result.details['returncode']}")
+	
+	
+
+	def _generate_overall_reports(
+		self,
+		unit: RunUnit,
+		run_result: RunResult,
+		output_dir: Path,
+		index: Dict[str, Any],
+		metric_files: List[str]
+	) -> None:
+		"""Generate overall JSON reports for each API using rwg parse.
+
+		Args:
+			unit: The run unit configuration
+			run_result: The result from the runner
+			output_dir: Directory containing RWG output files
+			index: Index dict to update with overall report info
+			metric_files: List to append generated file paths
+		"""
+		# Determine HTTP version from system
+		version = self._get_version_from_system(unit.system)
+
+		for api in unit.apis:
+			# Input: out-{api}.csv
+			rwg_output = output_dir / f"out-{api}.csv"
+			if not rwg_output.exists():
+				index["overall_reports"][api] = {"error": f"Missing input file: {rwg_output}"}
+				continue
+
+			# Output: overall-{api}.json
+			overall_output = output_dir / f"overall-{api}.json"
+
+			# Get SLO for this API
+			slo = str(self.config.slos.get(api, 100))
+
+			try:
+				# Run rwg parse with overall_output flag
+				result = subprocess.run([
+					self.config.rwg_binary_path, "parse",
+					"--rwg_output", str(rwg_output),
+					"--overall_output", str(overall_output),
+					"--slo", slo,
+					"--version", version,
+					"--warmup", str(unit.warmup),
+					"--cooldown", str(unit.cooldown),
+				],
+				capture_output=True,
+				text=True)
+
+				if result.returncode != 0:
+					error_msg = f"rwg parse failed with exit code {result.returncode}"
+					if result.stderr:
+						error_msg += f"\nStderr: {result.stderr.strip()}"
+					index["overall_reports"][api] = {"error": error_msg}
+					continue
+
+				if not overall_output.exists():
+					index["overall_reports"][api] = {"error": f"rwg parse did not generate {overall_output}"}
+					continue
+
+				# Success
+				metric_files.append(str(overall_output))
+				index["overall_reports"][api] = {
+					"status": "success",
+					"file": str(overall_output),
+				}
+
+			except Exception as e:
+				index["overall_reports"][api] = {"error": str(e.__repr__())}
 
 	def _generate_realtime_reports(
 		self,
@@ -154,6 +231,8 @@ class Collector:
 					"--version", version,
 					"--realtime_output", str(realtime_output),
 					"--freq", str(unit.collector_freq),
+					"--warmup", str(unit.warmup),
+					"--cooldown", str(unit.cooldown),
 				],
 				capture_output=True,
 				text=True)

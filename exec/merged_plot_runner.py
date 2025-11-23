@@ -1295,16 +1295,16 @@ def generate_latency_goodput_vs_load_merged(
 
 def generate_merged_figures(
     merged_config_path: Path,
-    experiments_config_path: Path,
+    experiments_file_path: Path,
     experiments_root: Path,
     output_dir: Path,
     experiment_index: str = None,
-    experiment_config: str = None
+    global_config_path: str = None
 ) -> None:
     """Generate all merged figures based on configuration."""
     # Load configurations
     merged_config = load_merged_config(merged_config_path)
-    experiment_configs = load_experiment_configs(experiments_config_path)
+    experiment_configs = load_experiment_configs(experiments_file_path)
     figures = merged_config.get('figures', {})
     
     # If experiment_index is set, use only that experiment run directory
@@ -1325,25 +1325,31 @@ def generate_merged_figures(
             if figure_type == 'latency-and-goodput-vs-load':
                 produced = generate_latency_goodput_vs_load_merged(
                     figure_name, figure_config, experiment_configs,
-                    experiments_root, output_dir, experiment_config
+                    experiments_root, output_dir, global_config_path
                 )
                 print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
             elif figure_type == 'latency-and-rate-vs-time':
                 produced = generate_latency_and_rate_vs_time_merged(
                     figure_name, figure_config, experiment_configs,
-                    experiments_root, output_dir, experiment_config
+                    experiments_root, output_dir, global_config_path
                 )
                 print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
             elif figure_type == 'max-queue':
                 produced = generate_max_queue_merged(
                     figure_name, figure_config, experiment_configs,
-                    experiments_root, output_dir, experiment_config
+                    experiments_root, output_dir, global_config_path
                 )
                 print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
             elif figure_type == 'resource-waste-bar':
                 produced = generate_resource_waste_bar_merged(
                     figure_name, figure_config, experiment_configs,
-                    experiments_root, output_dir, experiment_config
+                    experiments_root, output_dir, global_config_path
+                )
+                print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
+            elif figure_type == 'latency-vs-throughput':
+                produced = generate_latency_vs_throughput_merged(
+                    figure_name, figure_config, experiment_configs,
+                    experiments_root, output_dir, global_config_path
                 )
                 print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
             else:
@@ -1408,6 +1414,171 @@ def generate_latency_and_rate_vs_time_merged(
     return produced
 
 
+def generate_latency_vs_throughput_merged(
+    figure_name: str,
+    figure_config: dict,
+    experiment_configs: dict,
+    experiments_root: Path,
+    output_dir: Path,
+    global_config: str = None
+) -> list:
+    """
+    Generate merged latency-vs-throughput figure.
+    Plots lines for multiple experiments on the same axes.
+    """
+    # Import new RWG data loading and plotting
+    try:
+        from exec.plots.data_loader import load_repeat_data
+        from exec.plots.aggregation import aggregate_overall_metric
+        from exec.plots.plotting_primitives import (
+            SubplotGrid, ACM_COMPACT_HALF, plot_line
+        )
+    except ImportError:
+        try:
+            from plots.data_loader import load_repeat_data  # type: ignore
+            from plots.aggregation import aggregate_overall_metric  # type: ignore
+            from plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, plot_line
+            )
+        except ImportError:
+            from data_loader import load_repeat_data  # type: ignore
+            from aggregation import aggregate_overall_metric  # type: ignore
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, plot_line
+            )
+
+    include_experiments = figure_config.get('include', {})
+    if not include_experiments:
+        return []
+
+    produced = []
+    
+    # Use ACM compact style
+    style = ACM_COMPACT_HALF
+    grid = SubplotGrid(style, layout="1x1")
+    ax = grid.get_ax(0, 0)
+    
+    color_idx = 0
+    
+    # Track global min/max for axis configuration
+    all_throughputs = []
+    all_latencies = []
+
+    for exp_name, exp_cfg in include_experiments.items():
+        label = exp_cfg.get('label', exp_name)
+        
+        if exp_name not in experiment_configs:
+            print(f"Warning: Experiment '{exp_name}' not found in configs")
+            continue
+            
+        exp_def = experiment_configs[exp_name]
+        apis = exp_def.get('apis', [])
+        if not apis:
+            continue
+        api = apis[0] # Support single API for now
+
+        # Collect data for this experiment
+        load_levels = []
+        throughput_means = []
+        latency_means = []
+        latency_cis = []
+        
+        # Find all repeats for this experiment
+        # We need to group by load level (which is encoded in unit name usually)
+        # But here we can just iterate over all units found for this experiment
+        
+        # 1. Find all units for this experiment
+        # We scan exp-XXX directories
+        found_units = {} # unit_name -> list of artifact_dirs
+        
+        for exp_index in range(1, 20):
+             run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
+             records = _load_summary(run_root)
+             for r in records:
+                 if r.get('experiment_name') == exp_name:
+                     unit_name = r.get('run_unit_name')
+                     if unit_name not in found_units:
+                         found_units[unit_name] = []
+                     found_units[unit_name].append(Path(r.get('artifact_dir')))
+
+        # 2. Process each unit (load level)
+        # We need to sort units by load. Assuming load is in the name or we can infer it.
+        # For now, let's try to extract load from unit name if possible, or just use the order.
+        # Actually, we can just collect (throughput, latency) pairs and sort by throughput.
+        
+        exp_points = [] # list of (throughput_mean, latency_mean, latency_ci)
+
+        for unit_name, artifact_dirs in found_units.items():
+            unit_throughputs = []
+            unit_latencies = []
+            
+            for artifact_dir in artifact_dirs:
+                repeat_data = load_repeat_data(artifact_dir)
+                if repeat_data and api in repeat_data:
+                    _, realtime = repeat_data[api]
+                    if realtime is not None:
+                         if 'throughput_rate' in realtime.df.columns and 'p99_latency' in realtime.df.columns:
+                            unit_throughputs.extend(realtime.df['throughput_rate'].tolist())
+                            unit_latencies.extend(realtime.df['p99_latency'].tolist())
+            
+            if unit_throughputs and unit_latencies:
+                tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
+                lat_mean, _, lat_ci = aggregate_overall_metric(unit_latencies)
+                
+                if tp_mean is not None and lat_mean is not None:
+                    exp_points.append((tp_mean, lat_mean, lat_ci if lat_ci is not None else 0.0))
+
+        # Sort by throughput
+        exp_points.sort(key=lambda x: x[0])
+        
+        if not exp_points:
+            continue
+            
+        # Unzip
+        tps = [p[0] for p in exp_points]
+        lats = [p[1] for p in exp_points]
+        cis = [p[2] for p in exp_points]
+        
+        all_throughputs.extend(tps)
+        all_latencies.extend(lats)
+
+        # Plot line for this experiment
+        plot_line(
+            ax, tps, lats,
+            yerr=cis,
+            label=label,
+            style=style,
+            color_idx=color_idx,
+            show_markers=True
+        )
+        color_idx += 1
+
+    # Configure axis
+    grid.configure_ax(
+        ax,
+        xlabel="Throughput (RPS)",
+        ylabel="P99 Latency (ms)",
+        title=f"Latency vs Throughput",
+        x_data=all_throughputs,
+        y_data=all_latencies,
+        y_step=4,
+        y_type="int",
+        x_step=2000,
+        grid=True
+    )
+
+    # Add legend
+    grid.add_shared_legend(position="top")
+
+    # Save
+    output_dir.mkdir(parents=True, exist_ok=True)
+    line_path = output_dir / f'{figure_name}_latency_vs_throughput.pdf'
+    grid.save(line_path)
+    produced.append(line_path)
+    
+    return produced
+
+
 # ============================================================================
 # CLI and Main Execution
 # ============================================================================
@@ -1417,7 +1588,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description='Generate merged experiment plots')
     parser.add_argument('--merged-config', type=Path, required=True,
                        help='Path to merged.yaml configuration file')
-    parser.add_argument('--experiments-config', type=Path, required=True,
+    parser.add_argument('--experiments-file', type=Path, required=True,
                        help='Path to experiments.json configuration file')
     parser.add_argument('--experiments-root', type=Path, default=Path('experiment_runs'),
                        help='Root directory containing experiment runs')
@@ -1425,7 +1596,7 @@ def parse_args(argv=None):
                        help='Output directory for merged plots')
     parser.add_argument('--experiment-index', type=str, default=None,
                        help='Experiment index (e.g., 001) to use. If set, only that experiment run will be used.')
-    parser.add_argument('--experiment-config', required=True)
+    parser.add_argument('--config', required=True, help='Path to global config.json')
     return parser.parse_args(argv)
 
 
@@ -1434,11 +1605,11 @@ def main(argv=None):
     try:
         generate_merged_figures(
             args.merged_config,
-            args.experiments_config, 
+            args.experiments_file, 
             args.experiments_root,
             args.output_dir,
             experiment_index=args.experiment_index,
-            experiment_config=args.experiment_config
+            global_config_path=args.config
         )
     except Exception as e:
         print(f"Error: {e}")

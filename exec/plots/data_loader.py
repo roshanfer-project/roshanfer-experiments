@@ -51,7 +51,7 @@ class RealtimeData:
         df = pd.read_csv(csv_path)
         
         # Validate expected columns
-        expected_cols = {'relative_time', 'goodput', 'p50_latency', 'p95_latency'}
+        expected_cols = {'relative_time', 'throughput_rate', 'p50_latency', 'p95_latency', 'p99_latency'}
         if not expected_cols.issubset(set(df.columns)):
             missing = expected_cols - set(df.columns)
             raise ValueError(f"Realtime CSV missing expected columns: {missing}")
@@ -76,8 +76,11 @@ class OverallData:
     num_dropped_requests: int  # count of dropped requests
     errors: float  # requests/sec
     num_errors: int  # count of error responses
+    success: float  # requests/sec (successful requests)
+    num_success: int  # count of successful requests
     p50_latency: float  # milliseconds
     p95_latency: float  # milliseconds
+    p99_latency: float  # milliseconds
     total_requests: int
     duration_seconds: float
     start_time: str  # ISO timestamp
@@ -121,8 +124,11 @@ class OverallData:
             num_dropped_requests=data['num_dropped_requests'],
             errors=data['errors'],
             num_errors=data['num_errors'],
+            success=data['success'],
+            num_success=data['num_success'],
             p50_latency=data['p50_latency'],
             p95_latency=data['p95_latency'],
+            p99_latency=data['p99_latency'],
             total_requests=data['total_requests'],
             duration_seconds=data['duration_seconds'],
             start_time=data['start_time'],

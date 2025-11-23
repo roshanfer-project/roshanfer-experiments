@@ -45,7 +45,11 @@ class ExperimentConfig:
     collector_step: str = ""
     collector_range: str = ""
     collector_freq: int = 0
+    warmup: int = 0
+    cooldown: int = 0
     services: List[str] = field(default_factory=list)
+    cleanup_args: List[str] = field(default_factory=list)
+    execution_args: List[str] = field(default_factory=list)
     params: Dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
@@ -69,7 +73,11 @@ class ExperimentConfig:
             collector_step=str(merged.get("collector_step", "")),
             collector_range=str(merged.get("collector_range", "")),
             collector_freq=int(merged.get("collector_freq", 0) or 0),
+            warmup=int(merged.get("warmup", 0) or 0),
+            cooldown=int(merged.get("cooldown", 0) or 0),
             services=list(merged.get("services", [])),
+            cleanup_args=list(merged.get("cleanup_args", [])),
+            execution_args=list(merged.get("execution_args", [])),
             params=merged,  # store everything for downstream flexibility
         )
 
@@ -104,7 +112,11 @@ class RunUnit:
     collector_step: str = ""
     collector_range: str = ""
     collector_freq: int = 0
+    warmup: int = 0
+    cooldown: int = 0
     services: List[str] = field(default_factory=list)
+    cleanup_args: List[str] = field(default_factory=list)
+    execution_args: List[str] = field(default_factory=list)
     params: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     repeats: int = 1
