@@ -289,6 +289,7 @@ class SubplotGrid:
                 configure_y_axis_ticks(ax, y_data=y_data, style=self.style,
                                        y_step=y_step, y_type=y_type,
                                        y_guard=y_guard, ylim=ylim)
+                ax.set_ylim(ylim[0], ylim[1])
             elif ylim is not None:
                 ax.set_ylim(ylim[0], ylim[1])
 
