@@ -1529,11 +1529,16 @@ def generate_latency_vs_throughput_merged(
             for artifact_dir in artifact_dirs:
                 repeat_data = load_repeat_data(artifact_dir)
                 if repeat_data and api in repeat_data:
-                    _, realtime = repeat_data[api]
-                    if realtime is not None:
-                         if 'throughput_rate' in realtime.df.columns and 'p99_latency' in realtime.df.columns:
-                            unit_throughputs.extend(realtime.df['throughput_rate'].tolist())
-                            unit_latencies.extend(realtime.df['p99_latency'].tolist())
+                    overall, _ = repeat_data[api]
+                    if overall is not None:
+                         unit_throughputs.append(overall.throughput)
+                         unit_latencies.append(overall.p99_latency)
+                    else:
+                        if os.environ.get('PLOT_DEBUG') == '1':
+                            print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
+                else:
+                    if os.environ.get('PLOT_DEBUG') == '1':
+                        print(f"    [DEBUG] No data for {api} in {artifact_dir}")
             
             if unit_throughputs and unit_latencies:
                 tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
@@ -1574,6 +1579,7 @@ def generate_latency_vs_throughput_merged(
             label=label,
             style=style,
             color_idx=color_idx,
+            style_idx=color_idx,
             show_markers=True
         )
         color_idx += 1
@@ -1586,10 +1592,10 @@ def generate_latency_vs_throughput_merged(
         title=f"Latency vs Throughput",
         x_data=all_throughputs,
         y_data=all_latencies,
-        y_step=1,
-        ylim=(0, 6),
+        y_step=5,
+        ylim=(0, 50),
         y_type="int",
-        x_step=2000,
+        x_step=1000,
         grid=True
     )
 

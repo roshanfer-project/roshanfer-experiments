@@ -30,7 +30,7 @@ class Runner:
 	def __init__(self, config: Config):
 		self.config = config
 	
-	def _prepare_microservice(self, unit: RunUnit) -> subprocess.Popen[bytes]:
+	def _prepare_microservice(self, unit: RunUnit, stdout_file: Any, stderr_file: Any) -> subprocess.Popen[bytes]:
 		# Implement environment prep (e.g., docker-compose up, ensuring pods healthy, etc.)
 		remote_cmd = f"cd {self.config.remote_microservice_path} && go run main.go"
 		if unit.system != "":
@@ -44,8 +44,8 @@ class Runner:
 		
 		run_remote_cmd = subprocess.Popen(
 			["ssh", f"{self.config.remote_microservice_user}@{self.config.remote_microservice_host}", remote_cmd],
-			stdout=subprocess.DEVNULL,
-			stderr=subprocess.DEVNULL
+			stdout=stdout_file,
+			stderr=stderr_file
 		)
 		time.sleep(10)
 		
@@ -123,7 +123,11 @@ class Runner:
 		
 		self._clear_microservice(unit)
 		time.sleep(1)
-		microservice_cmd = self._prepare_microservice(unit)
+
+		stdout_file = (raw_dir / "microservice_stdout.txt").open("w")
+		stderr_file = (raw_dir / "microservice_stderr.txt").open("w")
+
+		microservice_cmd = self._prepare_microservice(unit, stdout_file, stderr_file)
 
 		# Use RWG for workload generation instead of K6 scripts
 		details: dict[str, Any] = {"started_at": start}
@@ -198,6 +202,8 @@ class Runner:
 		
 		time.sleep(1)
 		microservice_cmd.terminate()
+		stdout_file.close()
+		stderr_file.close()
 
 		details["ended_at"] = time.time()
 		details["duration_sec"] = details["ended_at"] - start
