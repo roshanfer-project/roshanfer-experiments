@@ -1,0 +1,44 @@
+{
+    "experiments": [
+        {
+            "name": "latency-vs-throughput-hotel-plain",
+            "type": "latency-vs-throughput",
+            "script": "run.sh",
+            "loads": {
+                "start": 1000,
+                "end": 6000,
+                "step": 500
+            },
+            "base_rate": 1000,
+            "duration_sec": 5,
+            "bench": "hotel",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "plain",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "name": "latency-vs-throughput-hotel-sidecar",
+            "type": "latency-vs-throughput",
+            "script": "run.sh",
+            "loads": {
+                "start": 1000,
+                "end": 6000,
+                "step": 500
+            },
+            "base_rate": 1000,
+            "duration_sec": 5,
+            "bench": "hotel",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        }
+    ]
+}

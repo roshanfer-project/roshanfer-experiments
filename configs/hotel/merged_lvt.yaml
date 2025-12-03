@@ -1,0 +1,10 @@
+figures:
+  latency-vs-throughput-hotel:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-hotel-sidecar:
+        label: Roshanfer
+      latency-vs-throughput-hotel-plain:
+        label: Plain
+      latency-vs-throughput-hotel-rajomon:
+        label: Rajomon
