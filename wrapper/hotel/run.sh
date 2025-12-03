@@ -20,11 +20,12 @@ if [ "$protocol" == "grpc" ]; then
     if [ "$API" = "search-hotel" ]; then
         args="lat=37.7867,lon=-122.4112,InDate=2024-08-15,OutDate=2024-08-17"
         proto="protobuf.RajomonClient/SearchHotels"
+        url="$address:3000"
     elif [ "$API" = "reserve-hotel" ]; then
         echo "API 'reserve-hotel' is not supported"
         exit 1
     fi
-    ./rwg/rwg run -u $address -p $proto -d exp -D 5,$DURATION -r $BASE,$RATE -w 40000 -o $output_dir --args $args
+    ./rwg/rwg run -u $url -p $proto -d exp -D 2,$DURATION -r $BASE,$RATE -w 40000 -o $output_dir --args $args
     exit "$?"
 else
     if [ "$API" = "search-hotel" ]; then
@@ -35,6 +36,6 @@ else
         echo "Unknown hotel API: $API"
         exit 1
     fi
-    ./rwg/rwg run --url $url -d exp -D 5,$DURATION -r $BASE,$RATE -w 500 -o $output_dir
+    ./rwg/rwg run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 3000 -o $output_dir -t 15
     exit "$?"
 fi
