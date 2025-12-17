@@ -6,3 +6,5 @@ figures:
         label: Roshanfer
       latency-vs-throughput-chain2-plain:
         label: Plain
+      latency-vs-throughput-chain2-envoy:
+        label: Envoy

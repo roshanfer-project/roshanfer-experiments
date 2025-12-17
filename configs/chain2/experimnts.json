@@ -6,7 +6,7 @@
       "script": "run.sh",
       "loads": {
         "start": 1000,
-        "end": 8000,
+        "end": 10000,
         "step": 500
       },
       "base_rate": 1000,
@@ -33,7 +33,7 @@
       "script": "run.sh",
       "loads": {
         "start": 1000,
-        "end": 8000,
+        "end": 10000,
         "step": 500
       },
       "base_rate": 1000,

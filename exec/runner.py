@@ -83,7 +83,7 @@ class Runner:
 
 	def _get_version_from_system(self, system: str) -> str:
 		"""Determine HTTP version based on system type."""
-		if system in ("plain", "sidecar"):
+		if system in ("plain", "sidecar", "envoy"):
 			return "1"
 		else:
 			return "2"

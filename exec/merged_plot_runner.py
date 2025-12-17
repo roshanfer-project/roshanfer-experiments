@@ -1438,7 +1438,7 @@ def generate_latency_vs_throughput_merged(
         from exec.plots.data_loader import load_repeat_data
         from exec.plots.aggregation import aggregate_overall_metric
         from exec.plots.plotting_primitives import (
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
     except ImportError:
         try:
@@ -1462,14 +1462,16 @@ def generate_latency_vs_throughput_merged(
     
     # Use ACM compact style
     style = ACM_COMPACT_HALF
-    grid = SubplotGrid(style, layout="1x1")
-    ax = grid.get_ax(0, 0)
+    grid = SubplotGrid(style, layout="2x1")
+    ax_p99 = grid.get_ax(0, 0)
+    ax_p95 = grid.get_ax(1, 0)
     
     color_idx = 0
     
     # Track global min/max for axis configuration
     all_throughputs = []
-    all_latencies = []
+    all_latencies_p99 = []
+    all_latencies_p95 = []
 
     for exp_name, exp_cfg in include_experiments.items():
         label = exp_cfg.get('label', exp_name)
@@ -1485,14 +1487,7 @@ def generate_latency_vs_throughput_merged(
         api = apis[0] # Support single API for now
 
         # Collect data for this experiment
-        load_levels = []
-        throughput_means = []
-        latency_means = []
-        latency_cis = []
-        
-        # Find all repeats for this experiment
-        # We need to group by load level (which is encoded in unit name usually)
-        # But here we can just iterate over all units found for this experiment
+        # ... (data collection logic remains similar)
         
         # 1. Find all units for this experiment
         # We scan exp-XXX directories
@@ -1516,15 +1511,12 @@ def generate_latency_vs_throughput_merged(
                      found_units[unit_name].append(Path(r.get('artifact_dir')))
 
         # 2. Process each unit (load level)
-        # We need to sort units by load. Assuming load is in the name or we can infer it.
-        # For now, let's try to extract load from unit name if possible, or just use the order.
-        # Actually, we can just collect (throughput, latency) pairs and sort by throughput.
-        
-        exp_points = [] # list of (throughput_mean, latency_mean, latency_ci)
+        exp_points = [] # list of dicts
 
         for unit_name, artifact_dirs in found_units.items():
             unit_throughputs = []
-            unit_latencies = []
+            unit_p99_latencies = []
+            unit_p95_latencies = []
             
             for artifact_dir in artifact_dirs:
                 repeat_data = load_repeat_data(artifact_dir)
@@ -1532,7 +1524,8 @@ def generate_latency_vs_throughput_merged(
                     overall, _ = repeat_data[api]
                     if overall is not None:
                          unit_throughputs.append(overall.throughput)
-                         unit_latencies.append(overall.p99_latency)
+                         unit_p99_latencies.append(overall.p99_latency)
+                         unit_p95_latencies.append(overall.p95_latency)
                     else:
                         if os.environ.get('PLOT_DEBUG') == '1':
                             print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
@@ -1540,67 +1533,104 @@ def generate_latency_vs_throughput_merged(
                     if os.environ.get('PLOT_DEBUG') == '1':
                         print(f"    [DEBUG] No data for {api} in {artifact_dir}")
             
-            if unit_throughputs and unit_latencies:
+            if unit_throughputs and unit_p99_latencies:
                 tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
-                lat_mean, _, lat_ci = aggregate_overall_metric(unit_latencies)
+                p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
+                p95_mean, _, p95_ci = aggregate_overall_metric(unit_p95_latencies)
                 
-                if tp_mean is not None and lat_mean is not None:
-                    exp_points.append((tp_mean, lat_mean, lat_ci if lat_ci is not None else 0.0))
+                if tp_mean is not None and p99_mean is not None:
+                    exp_points.append({
+                        'tp': tp_mean,
+                        'p99': p99_mean,
+                        'p99_ci': p99_ci if p99_ci is not None else 0.0,
+                        'p95': p95_mean,
+                        'p95_ci': p95_ci if p95_ci is not None else 0.0
+                    })
                     if os.environ.get('PLOT_DEBUG') == '1':
                         print(f"  [DEBUG] Unit: {unit_name}")
                         print(f"    Samples: {len(unit_throughputs)}")
                         print(f"    Throughput: {tp_mean:.2f}")
-                        print(f"    Latency: {lat_mean:.2f} ± {lat_ci if lat_ci else 0:.2f}")
+                        print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
+                        print(f"    P95: {p95_mean:.2f} ± {p95_ci if p95_ci else 0:.2f}")
 
         # Sort by throughput
-        exp_points.sort(key=lambda x: x[0])
+        exp_points.sort(key=lambda x: x['tp'])
         
         if os.environ.get('PLOT_DEBUG') == '1':
             print(f"[DEBUG] Experiment: {exp_name} ({label})")
-            print(f"  Aggregated Points (TP, Lat, CI):")
+            print(f"  Aggregated Points (TP, P99, P95):")
             for p in exp_points:
-                print(f"    {p[0]:.2f}, {p[1]:.2f}, {p[2]:.2f}")
+                print(f"    {p['tp']:.2f}, {p['p99']:.2f}, {p['p95']:.2f}")
         
         if not exp_points:
             continue
             
         # Unzip
-        tps = [p[0] for p in exp_points]
-        lats = [p[1] for p in exp_points]
-        cis = [p[2] for p in exp_points]
+        tps = [p['tp'] for p in exp_points]
+        lats_p99 = [p['p99'] for p in exp_points]
+        cis_p99 = [p['p99_ci'] for p in exp_points]
+        lats_p95 = [p['p95'] for p in exp_points]
+        cis_p95 = [p['p95_ci'] for p in exp_points]
         
         all_throughputs.extend(tps)
-        all_latencies.extend(lats)
+        all_latencies_p99.extend(lats_p99)
+        all_latencies_p95.extend(lats_p95)
 
-        # Plot line for this experiment
+        # Plot P99 line (Left Subplot)
         plot_line(
-            ax, tps, lats,
-            yerr=cis,
+            ax_p99, tps, lats_p99,
+            yerr=cis_p99,
             label=label,
             style=style,
             color_idx=color_idx,
             style_idx=color_idx,
+            marker='o',
             show_markers=True
         )
+
+        # Plot P95 line (Right Subplot)
+        plot_line(
+            ax_p95, tps, lats_p95,
+            yerr=cis_p95,
+            label=label,
+            style=style,
+            color_idx=color_idx,
+            style_idx=color_idx,
+            marker='x',
+            show_markers=True
+        )
+        
         color_idx += 1
 
-    # Configure axis
+    # Configure P99 axis (Left)
     grid.configure_ax(
-        ax,
-        xlabel="Throughput (RPS)",
+        ax_p99,
         ylabel="P99 Latency (ms)",
-        title=f"Latency vs Throughput",
+        y_data=all_latencies_p99,
+        y_step=10,
+        ylim=(0, 100),
+        y_type="int",
+        grid=True,
+        show_xticklabels=False,
+        show_xlabel=False
+    )
+
+    # Configure P95 axis (Right)
+    grid.configure_ax(
+        ax_p95,
+        xlabel="Throughput (RPS)",
+        ylabel="P95 Latency (ms)",
         x_data=all_throughputs,
-        y_data=all_latencies,
-        y_step=5,
-        ylim=(0, 50),
+        y_data=all_latencies_p95,
+        y_step=10,
+        ylim=(0, 100),
         y_type="int",
         x_step=1000,
         grid=True
     )
 
-    # Add legend
-    grid.add_shared_legend(position="top")
+    # Add shared legend
+    grid.add_shared_legend(position="top", y_offset=1)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 {
   "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
   "output_base_dir": "./exp_runs",
-  "experiment_index": "021",
+  "experiment_index": "chain1-5core-tight-500us-rwg-sqpoll",
   "prometheus_url": "http://192.168.1.100:9091",
   "raw_artifact_subdir": "raw",
   "metrics_subdir": "metrics",
