@@ -1,16 +1,16 @@
 {
   "experiments": [
     {
-      "name": "latency-vs-throughput-chain1-plain",
+      "name": "latency-vs-throughput-chain3-plain",
       "type": "latency-vs-throughput",
       "script": "run.sh",
       "loads": {
         "start": 1000,
-        "end": 5000,
+        "end": 4500,
         "step": 500
       },
       "base_rate": 1000,
-      "duration_sec": 5,
+      "duration_sec": 10,
       "bench": "test",
       "apis": [
         "app"
@@ -20,24 +20,24 @@
       "collector_freq": 200,
       "warmup": 2,
       "cleanup_args": [
-        "test1"
+        "chain3"
       ],
       "execution_args": [
         "--test",
-        "test1"
+        "chain3"
       ]
     },
     {
-      "name": "latency-vs-throughput-chain1-sidecar",
+      "name": "latency-vs-throughput-chain3-sidecar",
       "type": "latency-vs-throughput",
       "script": "run.sh",
       "loads": {
         "start": 1000,
-        "end": 5000,
+        "end": 4500,
         "step": 500
       },
       "base_rate": 1000,
-      "duration_sec": 5,
+      "duration_sec": 10,
       "bench": "test",
       "apis": [
         "app"
@@ -47,11 +47,11 @@
       "collector_freq": 200,
       "warmup": 2,
       "cleanup_args": [
-        "test1"
+        "chain3"
       ],
       "execution_args": [
         "--test",
-        "test1"
+        "chain3"
       ]
     }
   ]

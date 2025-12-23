@@ -1,7 +1,7 @@
 {
   "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
   "output_base_dir": "./exp_runs",
-  "experiment_index": "chain2-4-5-tight-ing-q-fix",
+  "experiment_index": "fanout-325-tight",
   "prometheus_url": "http://192.168.1.100:9091",
   "raw_artifact_subdir": "raw",
   "metrics_subdir": "metrics",

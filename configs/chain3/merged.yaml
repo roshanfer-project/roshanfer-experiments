@@ -1,0 +1,8 @@
+figures:
+  latency-vs-throughput-chain3:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-chain3-sidecar:
+        label: Roshanfer
+      latency-vs-throughput-chain3-plain:
+        label: Plain
