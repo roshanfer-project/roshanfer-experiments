@@ -22,6 +22,8 @@ if [ "$protocol" == "grpc" ]; then
 else
     if [ "$API" = "app" ]; then
         url="http://$address:3000/app"
+    elif [ "$API" = "app2" ]; then
+        url="http://$address:3008/app2"
     else
         echo "Unknown test API: $API"
         exit 1
