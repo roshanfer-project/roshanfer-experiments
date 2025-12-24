@@ -6,5 +6,3 @@ figures:
         label: Roshanfer
       latency-vs-throughput-hotel-plain:
         label: Plain
-      latency-vs-throughput-hotel-rajomon:
-        label: Rajomon

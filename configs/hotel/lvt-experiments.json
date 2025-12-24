@@ -6,17 +6,17 @@
             "script": "run.sh",
             "loads": {
                 "start": 1000,
-                "end": 6000,
+                "end": 4500,
                 "step": 500
             },
             "base_rate": 1000,
-            "duration_sec": 5,
+            "duration_sec": 10,
             "bench": "hotel",
             "apis": [
                 "search-hotel"
             ],
             "system": "plain",
-            "repeat": 1,
+            "repeat": 3,
             "collector_freq": 200,
             "warmup": 2
         },
@@ -26,17 +26,17 @@
             "script": "run.sh",
             "loads": {
                 "start": 1000,
-                "end": 6000,
+                "end": 4500,
                 "step": 500
             },
             "base_rate": 1000,
-            "duration_sec": 5,
+            "duration_sec": 10,
             "bench": "hotel",
             "apis": [
                 "search-hotel"
             ],
             "system": "sidecar",
-            "repeat": 1,
+            "repeat": 3,
             "collector_freq": 200,
             "warmup": 2
         }
