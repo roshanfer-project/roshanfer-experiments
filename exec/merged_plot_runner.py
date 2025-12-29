@@ -1460,37 +1460,48 @@ def generate_latency_vs_throughput_merged(
 
     produced = []
     
+    # 1. Collect all unique APIs across all included experiments
+    all_apis = set()
+    for exp_name in include_experiments.keys():
+        if exp_name not in experiment_configs:
+            continue
+        exp_def = experiment_configs[exp_name]
+        apis = exp_def.get('apis', [])
+        all_apis.update(apis)
+    
+    all_apis = sorted(list(all_apis))
+    if not all_apis:
+        print("Warning: No APIs found in any included experiments")
+        return []
+
+    n_apis = len(all_apis)
+
     # Use ACM compact style
     style = ACM_COMPACT_HALF
-    grid = SubplotGrid(style, layout="2x1")
-    ax_p99 = grid.get_ax(0, 0)
-    ax_p95 = grid.get_ax(1, 0)
+    # Layout: 2 rows (P99, P95), N columns (one per API)
+    grid = SubplotGrid(style, layout=f"2x{n_apis}")
     
-    color_idx = 0
+    # Data structure: data[api][exp_label] = {'tps': [], 'p99': [], ...}
+    plot_data = {api: {} for api in all_apis}
     
-    # Track global min/max for axis configuration
-    all_throughputs = []
-    all_latencies_p99 = []
-    all_latencies_p95 = []
+    # Track global min/max for axis configuration per API
+    # limits[api] = {'max_tp': 0, 'max_lat': 0}
+    api_limits = {api: {'max_tp': 0, 'max_p99': 0, 'max_p95': 0} for api in all_apis}
 
-    for exp_name, exp_cfg in include_experiments.items():
+    color_idx_map = {} # label -> color_idx
+
+    for exp_idx, (exp_name, exp_cfg) in enumerate(include_experiments.items()):
         label = exp_cfg.get('label', exp_name)
+        color_idx_map[label] = exp_idx
         
         if exp_name not in experiment_configs:
             print(f"Warning: Experiment '{exp_name}' not found in configs")
             continue
             
         exp_def = experiment_configs[exp_name]
-        apis = exp_def.get('apis', [])
-        if not apis:
-            continue
-        api = apis[0] # Support single API for now
-
-        # Collect data for this experiment
-        # ... (data collection logic remains similar)
+        exp_apis = exp_def.get('apis', [])
         
         # 1. Find all units for this experiment
-        # We scan exp-XXX directories
         found_units = {} # unit_name -> list of artifact_dirs
         
         # Determine roots to scan
@@ -1510,127 +1521,161 @@ def generate_latency_vs_throughput_merged(
                          found_units[unit_name] = []
                      found_units[unit_name].append(Path(r.get('artifact_dir')))
 
-        # 2. Process each unit (load level)
-        exp_points = [] # list of dicts
+        # 2. Process each unit (load level) for EACH API
+        # We need to collect points separately for each API because they might be in different files or keys
+        
+        for api in exp_apis:
+            if api not in all_apis: 
+                continue # Should be there, but good to be safe
 
-        for unit_name, artifact_dirs in found_units.items():
-            unit_throughputs = []
-            unit_p99_latencies = []
-            unit_p95_latencies = []
-            
-            for artifact_dir in artifact_dirs:
-                repeat_data = load_repeat_data(artifact_dir)
-                if repeat_data and api in repeat_data:
-                    overall, _ = repeat_data[api]
-                    if overall is not None:
-                         unit_throughputs.append(overall.throughput)
-                         unit_p99_latencies.append(overall.p99_latency)
-                         unit_p95_latencies.append(overall.p95_latency)
+            exp_points = [] # list of dicts for this API
+
+            for unit_name, artifact_dirs in found_units.items():
+                unit_throughputs = []
+                unit_p99_latencies = []
+                unit_p95_latencies = []
+                
+                for artifact_dir in artifact_dirs:
+                    repeat_data = load_repeat_data(artifact_dir)
+                    if repeat_data and api in repeat_data:
+                        overall, _ = repeat_data[api]
+                        if overall is not None:
+                             unit_throughputs.append(overall.throughput)
+                             unit_p99_latencies.append(overall.p99_latency)
+                             unit_p95_latencies.append(overall.p95_latency)
+                        else:
+                            if os.environ.get('PLOT_DEBUG') == '1':
+                                print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
                     else:
                         if os.environ.get('PLOT_DEBUG') == '1':
-                            print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
-                else:
-                    if os.environ.get('PLOT_DEBUG') == '1':
-                        print(f"    [DEBUG] No data for {api} in {artifact_dir}")
-            
-            if unit_throughputs and unit_p99_latencies:
-                tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
-                p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
-                p95_mean, _, p95_ci = aggregate_overall_metric(unit_p95_latencies)
+                            print(f"    [DEBUG] No data for {api} in {artifact_dir}")
                 
-                if tp_mean is not None and p99_mean is not None:
-                    exp_points.append({
-                        'tp': tp_mean,
-                        'p99': p99_mean,
-                        'p99_ci': p99_ci if p99_ci is not None else 0.0,
-                        'p95': p95_mean,
-                        'p95_ci': p95_ci if p95_ci is not None else 0.0
-                    })
-                    if os.environ.get('PLOT_DEBUG') == '1':
-                        print(f"  [DEBUG] Unit: {unit_name}")
-                        print(f"    Samples: {len(unit_throughputs)}")
-                        print(f"    Throughput: {tp_mean:.2f}")
-                        print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
-                        print(f"    P95: {p95_mean:.2f} ± {p95_ci if p95_ci else 0:.2f}")
+                if unit_throughputs and unit_p99_latencies:
+                    tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
+                    p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
+                    p95_mean, _, p95_ci = aggregate_overall_metric(unit_p95_latencies)
+                    
+                    if tp_mean is not None and p99_mean is not None:
+                        exp_points.append({
+                            'tp': tp_mean,
+                            'p99': p99_mean,
+                            'p99_ci': p99_ci if p99_ci is not None else 0.0,
+                            'p95': p95_mean,
+                            'p95_ci': p95_ci if p95_ci is not None else 0.0
+                        })
+                        if os.environ.get('PLOT_DEBUG') == '1':
+                            print(f"  [DEBUG] Unit: {unit_name}")
+                            print(f"    Samples: {len(unit_throughputs)}")
+                            print(f"    Throughput: {tp_mean:.2f}")
+                            print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
+                            print(f"    P95: {p95_mean:.2f} ± {p95_ci if p95_ci else 0:.2f}")
 
-        # Sort by throughput
-        exp_points.sort(key=lambda x: x['tp'])
-        
-        if os.environ.get('PLOT_DEBUG') == '1':
-            print(f"[DEBUG] Experiment: {exp_name} ({label})")
-            print(f"  Aggregated Points (TP, P99, P95):")
-            for p in exp_points:
-                print(f"    {p['tp']:.2f}, {p['p99']:.2f}, {p['p95']:.2f}")
-        
-        if not exp_points:
-            continue
+            # Sort by throughput per API
+            exp_points.sort(key=lambda x: x['tp'])
             
-        # Unzip
-        tps = [p['tp'] for p in exp_points]
-        lats_p99 = [p['p99'] for p in exp_points]
-        cis_p99 = [p['p99_ci'] for p in exp_points]
-        lats_p95 = [p['p95'] for p in exp_points]
-        cis_p95 = [p['p95_ci'] for p in exp_points]
-        
-        all_throughputs.extend(tps)
-        all_latencies_p99.extend(lats_p99)
-        all_latencies_p95.extend(lats_p95)
+            if os.environ.get('PLOT_DEBUG') == '1':
+                print(f"[DEBUG] Experiment: {exp_name} ({label}) API: {api}")
+                print(f"  Aggregated Points (TP, P99, P95):")
+                for p in exp_points:
+                    print(f"    {p['tp']:.2f}, {p['p99']:.2f}, {p['p95']:.2f}")
 
-        # Plot P99 line (Left Subplot)
-        plot_line(
-            ax_p99, tps, lats_p99,
-            yerr=cis_p99,
-            label=label,
-            style=style,
-            color_idx=color_idx,
-            style_idx=color_idx,
-            marker='o',
-            show_markers=True
+            if not exp_points:
+                continue
+
+            # Store aggregated data to be plotted later
+            plot_data[api][label] = {
+                'tps': [p['tp'] for p in exp_points],
+                'p99': [p['p99'] for p in exp_points],
+                'p99_ci': [p['p99_ci'] for p in exp_points],
+                'p95': [p['p95'] for p in exp_points],
+                'p95_ci': [p['p95_ci'] for p in exp_points]
+            }
+            
+            # Update limits
+            if exp_points:
+                max_tp = max(p['tp'] for p in exp_points)
+                max_p99 = max(p['p99'] + (p['p99_ci'] or 0) for p in exp_points)
+                max_p95 = max(p['p95'] + (p['p95_ci'] or 0) for p in exp_points)
+                
+                if max_tp > api_limits[api]['max_tp']: api_limits[api]['max_tp'] = max_tp
+                if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
+                if max_p95 > api_limits[api]['max_p95']: api_limits[api]['max_p95'] = max_p95
+
+    # 3. Plotting Loop
+    for api_idx, api in enumerate(all_apis):
+        ax_p99 = grid.get_ax(0, api_idx)
+        ax_p95 = grid.get_ax(1, api_idx)
+        
+        # Set titles for columns (API names)
+        ax_p99.set_title(api, fontsize=style.title_size)
+
+        for label, data in plot_data[api].items():
+            color_idx = color_idx_map.get(label, 0)
+            
+            # Plot P99 line (Row 0)
+            plot_line(
+                ax_p99, data['tps'], data['p99'],
+                yerr=data['p99_ci'],
+                label=label,
+                style=style,
+                color_idx=color_idx,
+                style_idx=color_idx,
+                marker='o',
+                show_markers=True
+            )
+
+            # Plot P95 line (Row 1)
+            plot_line(
+                ax_p95, data['tps'], data['p95'],
+                yerr=data['p95_ci'],
+                label=label,
+                style=style,
+                color_idx=color_idx,
+                style_idx=color_idx,
+                marker='x',
+                show_markers=True
+            )
+            
+        # Configure axes per column
+        limits = api_limits[api]
+        max_lat = max(limits['max_p99'], limits['max_p95'])
+        # Round up to nearest 10
+        y_max = math.ceil(max_lat / 10.0) * 10
+        if y_max < 10: y_max = 10
+        
+        max_tp = limits['max_tp']
+        x_max = math.ceil(max_tp / 100.0) * 100 if max_tp > 0 else 1000
+
+        # Configure P99 axis (Row 0)
+        grid.configure_ax(
+            ax_p99,
+            ylabel="P99 Latency (ms)" if api_idx == 0 else "",
+            y_data=None, # We set manual limits
+            ylim=(0, 50),
+            y_type='int',
+            y_step=5,
+            grid=True,
+            show_xticklabels=False,
+            show_xlabel=False,
+            show_yticklabels=(api_idx == 0)
         )
 
-        # Plot P95 line (Right Subplot)
-        plot_line(
-            ax_p95, tps, lats_p95,
-            yerr=cis_p95,
-            label=label,
-            style=style,
-            color_idx=color_idx,
-            style_idx=color_idx,
-            marker='x',
-            show_markers=True
+        # Configure P95 axis (Row 1)
+        grid.configure_ax(
+            ax_p95,
+            xlabel="Throughput (RPS)",
+            ylabel="P95 Latency (ms)" if api_idx == 0 else "",
+            y_data=None, # We set manual limits
+            ylim=(0, 50),
+            y_type='int',
+            y_step=5,
+            grid=True,
+            show_yticklabels=(api_idx == 0)
         )
-        
-        color_idx += 1
-
-    # Configure P99 axis (Left)
-    grid.configure_ax(
-        ax_p99,
-        ylabel="P99 Latency (ms)",
-        y_data=all_latencies_p99,
-        y_step=10,
-        ylim=(0, 100),
-        y_type="int",
-        grid=True,
-        show_xticklabels=False,
-        show_xlabel=False
-    )
-
-    # Configure P95 axis (Right)
-    grid.configure_ax(
-        ax_p95,
-        xlabel="Throughput (RPS)",
-        ylabel="P95 Latency (ms)",
-        x_data=all_throughputs,
-        y_data=all_latencies_p95,
-        y_step=10,
-        ylim=(0, 100),
-        y_type="int",
-        x_step=1000,
-        grid=True
-    )
 
     # Add shared legend
-    grid.add_shared_legend(position="top", y_offset=1)
+    # For many columns, legend needs to span effectively
+    grid.add_shared_legend(position="top", y_offset=1.0)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
