@@ -10,7 +10,7 @@
         "step": 500
       },
       "base_rate": 1000,
-      "duration_sec": 5,
+      "duration_sec": 10,
       "bench": "test",
       "apis": [
         "app"
@@ -37,7 +37,7 @@
         "step": 500
       },
       "base_rate": 1000,
-      "duration_sec": 5,
+      "duration_sec": 10,
       "bench": "test",
       "apis": [
         "app"
