@@ -98,7 +98,7 @@ class Runner:
 		if len(unit.apis) == 1:
 			wrapper_script = f"./wrapper/{unit.bench}/run.sh"
 		else:
-			wrapper_script = f"./wrapper/{unit.bench}/run-multi-api.sh"
+			wrapper_script = f"./wrapper/{unit.bench}/{unit.script}"
 		
 		# Build command arguments
 		cmd = [wrapper_script, protocol, str(unit.base), str(unit.rate), str(unit.duration)]
