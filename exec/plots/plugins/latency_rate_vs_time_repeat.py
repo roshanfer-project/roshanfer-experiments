@@ -183,7 +183,7 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     grid.configure_ax(ax, xlabel='Time (s)', ylabel='Rate (KRPS)', grid=True)
     
     # Add legend
-    grid.add_shared_legend(position="top", two_rows=True)
+    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
     
     # Save
     grid.save(out_path)
@@ -254,7 +254,7 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     ax.set_ylim(1, 500)
     
     # Add legend
-    grid.add_shared_legend(position="top", two_rows=True)
+    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
     
     # Save
     grid.save(out_path)
