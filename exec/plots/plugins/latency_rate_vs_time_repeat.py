@@ -218,7 +218,7 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
     grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Rate (KRPS)")
     
     # Add shared legend
-    grid.add_shared_legend(position="top", two_rows=True)
+    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
     
     # Save
     grid.save(out_path)
@@ -304,7 +304,7 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
     grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Latency (ms)")
     
     # Add shared legend
-    grid.add_shared_legend(position="top", two_rows=True)
+    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
     
     # Save
     grid.save(out_path)
