@@ -1,7 +1,7 @@
 {
   "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
   "output_base_dir": "./exp_runs",
-  "experiment_index": "chain1-2api-ing-limit-1000-C100",
+  "experiment_index": "chain1-vs-time-2api-g15-td-cal",
   "prometheus_url": "http://192.168.1.100:9091",
   "raw_artifact_subdir": "raw",
   "metrics_subdir": "metrics",
@@ -29,7 +29,8 @@
     }
   },
   "slos": {
-    "app": 60
+    "app": 14,
+    "app2": 9
   },
   "metrics": {},
   "report": {
