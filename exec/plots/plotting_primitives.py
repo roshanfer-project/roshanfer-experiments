@@ -115,7 +115,7 @@ class PlotStyle:
 
 
 # ACM Presets
-ACM_QUARTER = PlotStyle(width_points=120, font_size=9, legend_size=9, title_size=9)  # 1.665 inches (quarter column)
+ACM_QUARTER = PlotStyle(width_points=120)  # 1.665 inches (quarter column)
 ACM_COMPACT_HALF = PlotStyle(width_points=240)  # 3.33 inches (half column)
 ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (full column)
 
@@ -170,7 +170,7 @@ class SubplotGrid:
         import matplotlib.gridspec as gridspec
         
         total_width = self.style.width_inches * self.ncols
-        total_height = total_width * self.style.aspect_ratio * self.nrows
+        total_height = self.style.width_inches * self.style.aspect_ratio * self.nrows
         
         self.fig = plt.figure(figsize=(total_width, total_height), dpi=self.style.dpi)
         
