@@ -242,9 +242,9 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     if 'p50_latency' in df.columns:
         plot_line(ax, x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
     
-    # Plot P95
-    if 'p95_latency' in df.columns:
-        plot_line(ax, x, df['p95_latency'].values, label='P95', style=style, color_idx=1)
+    # Plot P99
+    if 'p99_latency' in df.columns:
+        plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
     
     # Add SLO line
     ax.axhline(y=slo_ms, color='r', linestyle='--', label='SLO', linewidth=style.line_width)
@@ -283,9 +283,9 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         if 'p50_latency' in df.columns:
             plot_line(ax, x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
         
-        # Plot P95
-        if 'p95_latency' in df.columns:
-            plot_line(ax, x, df['p95_latency'].values, label='P95', style=style, color_idx=1)
+        # Plot P99
+        if 'p99_latency' in df.columns:
+            plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
         
         # Add SLO line
         slo_ms = _lookup_slo(slos, api_name)
