@@ -37,6 +37,8 @@ run_single_api() {
             url="http://$address:3000/app"
         elif [ "$api" = "app2" ]; then
             url="http://$address:3000/app2"
+        elif [ "$api" = "app3" ]; then
+            url="http://$address:3000/app3"
         else
             echo "Unknown test API: $api"
             exit 1

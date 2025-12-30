@@ -24,6 +24,8 @@ else
         url="http://$address:3000/app"
     elif [ "$API" = "app2" ]; then
         url="http://$address:3008/app2"
+    elif [ "$API" = "app3" ]; then
+        url="http://$address:3009/app3"
     else
         echo "Unknown test API: $API"
         exit 1
