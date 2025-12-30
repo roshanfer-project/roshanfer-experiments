@@ -5,8 +5,8 @@
             "type": "latency-and-rate-vs-time",
             "script": "run.sh",
             "loads": {
-                "start": 5000,
-                "end": 5000,
+                "start": 8000,
+                "end": 8000,
                 "step": 1000
             },
             "base_rate": 1000,
