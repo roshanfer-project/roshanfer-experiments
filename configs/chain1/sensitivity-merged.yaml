@@ -1,0 +1,24 @@
+figures:
+  latency-vs-throughput-chain1:
+    type: latency-vs-throughput
+    include:
+#      latency-vs-throughput-chain1-sidecar-10:
+#        label: Roshanfer-10
+      latency-vs-throughput-chain1-sidecar-12:
+        label: Roshanfer-12
+#      latency-vs-throughput-chain1-sidecar-14:
+#        label: Roshanfer-14
+#      latency-vs-throughput-chain1-sidecar-15:
+#        label: Roshanfer-15
+      latency-vs-throughput-chain1-sidecar-16:
+        label: Roshanfer-16
+#      latency-vs-throughput-chain1-sidecar-18:
+#        label: Roshanfer-18
+      latency-vs-throughput-chain1-sidecar-20:
+        label: Roshanfer-20
+#      latency-vs-throughput-chain1-sidecar-25:
+#        label: Roshanfer-25
+#      latency-vs-throughput-chain1-sidecar-30:
+#        label: Roshanfer-30
+      latency-vs-throughput-chain1-plain:
+        label: Plain

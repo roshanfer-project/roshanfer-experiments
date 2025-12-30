@@ -1,0 +1,281 @@
+{
+    "experiments": [
+        {
+            "name": "latency-vs-throughput-chain1-plain",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api-plain.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "plain",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-10",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-10.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-12",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-12.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-14",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-14.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-16",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-16.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-15",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-15.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-20",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-20.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-25",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-25.yaml"
+            ]
+        },
+        {
+            "name": "latency-vs-throughput-chain1-sidecar-30",
+            "type": "latency-vs-throughput",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 300,
+                "end": 1500,
+                "step": 300
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1",
+                "-o",
+                "APP_CONFIG=app-30.yaml"
+            ]
+        }
+    ]
+}

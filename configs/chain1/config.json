@@ -1,7 +1,7 @@
 {
   "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
   "output_base_dir": "./exp_runs",
-  "experiment_index": "chain1-2api-th-final-20",
+  "experiment_index": "chain1-sen-3api",
   "prometheus_url": "http://192.168.1.100:9091",
   "raw_artifact_subdir": "raw",
   "metrics_subdir": "metrics",
@@ -30,7 +30,8 @@
   },
   "slos": {
     "app": 14,
-    "app2": 9
+    "app2": 9,
+    "app3": 18
   },
   "metrics": {},
   "report": {
