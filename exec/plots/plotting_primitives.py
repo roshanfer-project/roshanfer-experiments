@@ -271,10 +271,6 @@ class SubplotGrid:
         if title:
             ax.set_title(title, fontsize=self.style.title_size, pad=4)
         
-        if not show_xticklabels:
-            ax.set_xticklabels([])
-        if not show_yticklabels:
-            ax.set_yticklabels([])
         
         if grid:
             ax.grid(True, alpha=0.3, linewidth=0.5)
@@ -304,6 +300,12 @@ class SubplotGrid:
         else:
             if xlim is not None:
                 ax.set_xlim(xlim[0], xlim[1])
+        
+        # Apply tick label visibility settings LAST to override any auto-configuration
+        if not show_xticklabels:
+            ax.set_xticklabels([])
+        if not show_yticklabels:
+            ax.set_yticklabels([])
         
        
     def configure_labels(self, pattern: str = "leftmost_y_bottom_x",
