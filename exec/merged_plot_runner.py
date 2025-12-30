@@ -1438,7 +1438,7 @@ def generate_latency_vs_throughput_merged(
         from exec.plots.data_loader import load_repeat_data
         from exec.plots.aggregation import aggregate_overall_metric
         from exec.plots.plotting_primitives import (
-            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, PlotStyle, plot_line
         )
     except ImportError:
         try:
@@ -1477,7 +1477,7 @@ def generate_latency_vs_throughput_merged(
     n_apis = len(all_apis)
 
     # Use ACM compact style
-    style = ACM_COMPACT_HALF
+    style = PlotStyle(width_points=180)
     # Layout: 2 rows (P99, P95), N columns (one per API)
     grid = SubplotGrid(style, layout=f"2x{n_apis}")
     
@@ -1626,7 +1626,6 @@ def generate_latency_vs_throughput_merged(
                 style=style,
                 color_idx=color_idx,
                 style_idx=color_idx,
-                marker='o',
                 show_markers=True
             )
 
@@ -1638,7 +1637,6 @@ def generate_latency_vs_throughput_merged(
                 style=style,
                 color_idx=color_idx,
                 style_idx=color_idx,
-                marker='x',
                 show_markers=True
             )
         
@@ -1679,9 +1677,9 @@ def generate_latency_vs_throughput_merged(
             ax_p99,
             ylabel="P99 Latency (ms)" if api_idx == 0 else "",
             y_data=None, # We set manual limits
-            ylim=(0, 50),
+            ylim=(0, 20),
             y_type='int',
-            y_step=5,
+            y_step=2,
             grid=True,
             show_xticklabels=False,
             show_xlabel=False,
@@ -1695,16 +1693,16 @@ def generate_latency_vs_throughput_merged(
             xlabel="Throughput (RPS)",
             ylabel="P95 Latency (ms)" if api_idx == 0 else "",
             y_data=None, # We set manual limits
-            ylim=(0, 50),
+            ylim=(0, 20),
             y_type='int',
-            y_step=5,
+            y_step=2,
             grid=True,
             show_yticklabels=(api_idx == 0)
         )
 
     # Add shared legend
     # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top", y_offset=1.0)
+    grid.add_shared_legend(position="top", y_offset=1.1, two_rows=True)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
