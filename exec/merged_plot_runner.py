@@ -1602,6 +1602,12 @@ def generate_latency_vs_throughput_merged(
                 if max_p95 > api_limits[api]['max_p95']: api_limits[api]['max_p95'] = max_p95
 
     # 3. Plotting Loop
+    # Load SLOs from config file
+    with open(global_config) as f:
+        global_configs = json.load(f)
+    slo_map = global_configs.get('slos', {})
+
+    # 3. Plotting Loop
     for api_idx, api in enumerate(all_apis):
         ax_p99 = grid.get_ax(0, api_idx)
         ax_p95 = grid.get_ax(1, api_idx)
@@ -1635,6 +1641,28 @@ def generate_latency_vs_throughput_merged(
                 marker='x',
                 show_markers=True
             )
+        
+        # Add SLO line
+        slo_val = None
+        # Try various forms of the API name to match keys in config
+        possible_keys = [api, api.replace('-', '_'), api.replace('_', '-')]
+        # Also try removing suffix like '_all' just in case
+        if api.endswith('_all'):
+            base = api.replace('_all', '')
+            possible_keys.extend([base, base.replace('-', '_'), base.replace('_', '-')])
+            
+        for key in possible_keys:
+            if slo_map and key in slo_map:
+                slo_val = slo_map[key]
+                break
+        
+        if slo_val is not None:
+            # Plot SLO on P99
+            ax_p99.axhline(y=slo_val, color='r', linestyle='--',
+                       label='SLO', linewidth=style.line_width)
+            # Plot SLO on P95
+            ax_p95.axhline(y=slo_val, color='r', linestyle='--',
+                       label='SLO', linewidth=style.line_width)
             
         # Configure axes per column
         limits = api_limits[api]
@@ -1657,6 +1685,7 @@ def generate_latency_vs_throughput_merged(
             grid=True,
             show_xticklabels=False,
             show_xlabel=False,
+            show_ylabel=(api_idx == 0),
             show_yticklabels=(api_idx == 0)
         )
 
