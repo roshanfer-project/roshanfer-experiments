@@ -196,10 +196,37 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
     
     grid = SubplotGrid(style, layout=layout)
     
+    # 1. Pre-calculate data and global Y max for consistent scaling
+    prepared_data = {}
+    global_max_y = 0.0
+    
+    for api_name, realtime in api_realtime.items():
+        y_series = _prepare_rate_data_for_stack(realtime)
+        if not y_series:
+            continue
+        prepared_data[api_name] = y_series
+        
+        # Calculate max height of stack
+        # y_series values are numpy arrays of same length
+        first_arr = next(iter(y_series.values()))
+        total = np.zeros_like(first_arr)
+        for arr in y_series.values():
+            total += arr
+        
+        # Determine max rate for this API
+        current_max = np.max(total) if len(total) > 0 else 0.0
+        if current_max > global_max_y:
+            global_max_y = current_max
+            
+    # Apply margin to global max
+    if global_max_y == 0:
+        global_max_y = 1.0 # Default fallback
+    ylim_max = global_max_y * 1.1
+
     for idx, (api_name, realtime) in enumerate(sorted(api_realtime.items())):
         ax = grid.get_ax(0, idx)
         
-        y_series = _prepare_rate_data_for_stack(realtime)
+        y_series = prepared_data.get(api_name)
         if not y_series:
             continue
         
@@ -213,6 +240,9 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
         # Add subplot title (API name)
         display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
         ax.set_title(display_api, fontsize=style.title_size)
+
+        # Set consistent Y-limit for accurate visual comparison
+        ax.set_ylim(0, ylim_max)
     
     # Configure labels (leftmost gets Y-label, bottom row gets X-labels)
     grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Rate (KRPS)")
@@ -242,9 +272,13 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     if 'p50_latency' in df.columns:
         plot_line(ax, x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
     
-    # Plot P99
+    # Plot P95
+    if 'p95_latency' in df.columns:
+        plot_line(ax, x, df['p95_latency'].values, label='P95', style=style, color_idx=1)
+    
+    """ # Plot P99
     if 'p99_latency' in df.columns:
-        plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
+        plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=2) """
     
     # Add SLO line
     ax.axhline(y=slo_ms, color='r', linestyle='--', label='SLO', linewidth=style.line_width)
@@ -282,10 +316,14 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         # Plot P50
         if 'p50_latency' in df.columns:
             plot_line(ax, x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
+
+        # Plot P95
+        if 'p95_latency' in df.columns:
+            plot_line(ax, x, df['p95_latency'].values, label='P95', style=style, color_idx=1)
         
-        # Plot P99
+        """ # Plot P99
         if 'p99_latency' in df.columns:
-            plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
+            plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=2) """
         
         # Add SLO line
         slo_ms = _lookup_slo(slos, api_name)
