@@ -52,6 +52,34 @@
                 "--test",
                 "test1"
             ]
+        },
+        {
+            "name": "latency-and-rate-vs-time-chain1-sidecar-3api",
+            "type": "latency-and-rate-vs-time",
+            "script": "run-multi-api.sh",
+            "loads": {
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
+            },
+            "base_rate": 300,
+            "duration_sec": 10,
+            "bench": "test",
+            "apis": [
+                "app",
+                "app2",
+                "app3"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "cleanup_args": [
+                "test1"
+            ],
+            "execution_args": [
+                "--test",
+                "test1"
+            ]
         }
     ]
 }
