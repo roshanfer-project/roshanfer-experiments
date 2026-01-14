@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Go version to install
-GO_VERSION="1.25"
+GO_VERSION="1.25.5"
 OS="linux"
 ARCH="amd64"
 
