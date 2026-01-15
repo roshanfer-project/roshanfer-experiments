@@ -40,15 +40,14 @@ class Config:
     # --- Retry / reliability ---
     default_retries: int = 10
 
-    # --- Remote execution (microservice host) ---
-    remote_microservice_host: str = "localhost"
-    remote_microservice_user: str = ""
-    remote_microservice_path: str = ""  # e.g., /home/user/project/bench/hotel/exec
+    # --- Remote execution (CloudLab Infrastructure) ---
+    hosts_file: str = "hosts.txt"
+    provisioning_script: str = "benchmarks/provisioning/provision.sh"
+    k8s_script: str = "benchmarks/k8s/create.sh"
 
     # --- Workload generator (RWG) ---
     rwg_binary_path: str = "./rwg/rwg"  # Path to RWG binary
     ssh_binary: str = "ssh"
-    docker_compose_binary: str = "docker-compose"
     git_root: str = ".."  # relative path to repo root (optional)
 
     # --- Feature toggles ---

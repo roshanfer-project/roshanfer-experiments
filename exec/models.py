@@ -120,6 +120,8 @@ class RunUnit:
     params: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     repeats: int = 1
+    generator_hosts: List[str] = field(default_factory=list)
+    deployment_hosts: List[str] = field(default_factory=list)
 
     def base_name(self) -> str:
         return self.name

@@ -1,12 +1,9 @@
 """Runner: executes a concrete RunUnit and produces raw artifacts.
 
 Responsibilities:
-1. Prepare environment for the run (start load generator, etc.).
-2. Execute the run with provided parameters.
-3. Persist raw outputs under unit_dir / config.raw_artifact_subdir.
-
-Complex domain-specific logic (service orchestration, container mgmt, etc.) is left
-to you and marked as TODO.
+1. Deploy System (via deploy_system)
+2. Execute Workload (via run) - Remote RWG execution
+3. Teardown System (via teardown_system)
 """
 
 from __future__ import annotations
@@ -16,214 +13,203 @@ import json
 import os
 from pathlib import Path
 import traceback
-from typing import Any
+from typing import Any, Dict, List, Optional
 import subprocess
-import sys
 import time
+import shutil
 
 from .config import Config
 from .models import RunUnit, RunResult
-from .extractor import extract_detailed_metrics_from_output
 
 
 class Runner:
-	def __init__(self, config: Config):
-		self.config = config
-	
-	def _prepare_microservice(self, unit: RunUnit, stdout_file: Any, stderr_file: Any) -> subprocess.Popen[bytes]:
-		# Implement environment prep (e.g., docker-compose up, ensuring pods healthy, etc.)
-		remote_cmd = f"cd {self.config.remote_microservice_path} && go run main.go"
-		if unit.system != "":
-			remote_cmd += f" --{unit.system}"
-		
-		# Add configurable execution arguments
-		if unit.execution_args:
-			remote_cmd += " " + " ".join(unit.execution_args)
+    def __init__(self, config: Config):
+        self.config = config
 
-		check_cmd = f"ssh {self.config.remote_microservice_user}@{self.config.remote_microservice_host} 'cat /tmp/{unit.bench.upper()}.ready'"
-		
-		run_remote_cmd = subprocess.Popen(
-			["ssh", f"{self.config.remote_microservice_user}@{self.config.remote_microservice_host}", remote_cmd],
-			stdout=stdout_file,
-			stderr=stderr_file
-		)
-		time.sleep(10)
-		
-		ready = False
-		for _ in range(self.config.default_retries):
-			result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
-			if result.returncode == 0:
-				ready = True
-				break
-			time.sleep(1)
+    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str]) -> None:
+        """
+        Deploys the system using benchmarks/<bench>/deploy.sh.
+        Injection: tuning_params as Environment Variables.
+        Helpers: Passes DEPLOYMENT_HOSTS as comma-separated env var.
+        """
+        script_path = Path("benchmarks") / bench / "deploy.sh"
+        if not script_path.exists():
+            raise FileNotFoundError(f"Deploy script not found: {script_path}")
 
-		if ready is False:
-			raise RuntimeError(f"Microservice did not become ready after retries, result={result}")
+        logging_msg = f"Deploying {system} on {bench}..."
+        print(logging_msg)
 
-		return run_remote_cmd
+        # Prepare Environment
+        env = os.environ.copy()
+        # Inject Tuning Params
+        for k, v in tuning_params.items():
+            env[str(k).upper()] = str(v)
+        
+        env["SYSTEM"] = system
+        env["DEPLOYMENT_HOSTS"] = ",".join(deployment_hosts)
 
-	def _clear_microservice(self, unit: RunUnit) -> None:
-		remote_cmd = f"cd {self.config.remote_microservice_path} && ./clean.sh"
-		
-		# Add configurable cleanup arguments
-		if unit.cleanup_args:
-			remote_cmd += " " + " ".join(unit.cleanup_args)
-		
-		subprocess.run(
-			["ssh", f"{self.config.remote_microservice_user}@{self.config.remote_microservice_host}", remote_cmd],
-			check=True,
-			stdout=subprocess.DEVNULL,
-			stderr=subprocess.DEVNULL
-		)
+        # Run Deploy Script
+        try:
+            subprocess.run([str(script_path)], env=env, check=True)
+            print(f"Deployment of {system} successful.")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Deployment failed for {system}: {e}")
 
-	def _api_list(self, apis: list[str]) -> str:
-		if len(apis) > 1:
-			return ",".join(apis)
-		return apis[0]
+    def teardown_system(self, bench: str, system: str) -> None:
+        """
+        Teardowns the system using benchmarks/<bench>/teardown.sh or clean.sh
+        """
+        # Try teardown.sh first, then clean.sh, or assume deploy handles cleanup? 
+        # Typically good to have explicit teardown.
+        script_path = Path("benchmarks") / bench / "teardown.sh"
+        if not script_path.exists():
+            # Fallback
+            script_path = Path("benchmarks") / bench / "clean.sh"
+            if not script_path.exists():
+                print(f"No teardown/clean script found for {bench}, skipping explicit teardown.")
+                return
 
-	def _get_version_from_system(self, system: str) -> str:
-		"""Determine HTTP version based on system type."""
-		if system in ("plain", "sidecar", "envoy"):
-			return "1"
-		else:
-			return "2"
+        print(f"Tearing down {system} on {bench}...")
+        try:
+            subprocess.run([str(script_path)], env={"SYSTEM": system}, check=False) # Don't error on cleanup
+        except Exception as e:
+            print(f"Teardown warning: {e}")
 
-	def _get_slo_for_api(self, api: str) -> str:
-		"""Get SLO threshold for API from config, with fallback to default."""
-		return str(self.config.slos.get(api, 100))
+    def run(self, unit: RunUnit, unit_dir: Path) -> RunResult:
+        """
+        Runs the workload generator (RWG) remotely on generator hosts.
+        One RWG instance per API, assigned to distinct generator hosts.
+        """
+        start = time.time()
+        raw_dir = unit_dir / self.config.raw_artifact_subdir
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = unit_dir / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-	def _build_wrapper_command(self, unit: RunUnit, protocol: str, output_dir: str) -> list[str]:
-		"""Build wrapper script command for workload generation."""
-		# Determine which wrapper script to use
-		if len(unit.apis) == 1:
-			wrapper_script = f"./wrapper/{unit.bench}/run.sh"
-		else:
-			wrapper_script = f"./wrapper/{unit.bench}/{unit.script}"
-		
-		# Build command arguments
-		cmd = [wrapper_script, protocol, str(unit.base), str(unit.rate), str(unit.duration)]
-		
-		# Add API(s) - single API or comma-separated list
-		if len(unit.apis) == 1:
-			cmd.append(unit.apis[0])
-		else:
-			cmd.append(",".join(unit.apis))
-		
-		# Add output directory
-		cmd.append(output_dir)
-		
-		return cmd
+        details: dict[str, Any] = {"started_at": start}
+        status = "success"
+        start_timestamp = ""
+        end_timestamp = ""
+        
+        # Determine protocol and version
+        http_type = "http" if unit.system in ("sidecar", "sidecar-queue", "plain", "envoy") else "grpc"
+        
+        active_processes = []
+        
+        try:
+            # Persist unit params for reference
+            (raw_dir / "unit_runner.json").write_text(json.dumps(unit.to_dict(), indent=2))
+            
+            # Launch RWG for each API on assigned generator host
+            if len(unit.apis) > len(unit.generator_hosts):
+                raise ValueError(f"Not enough generator hosts ({len(unit.generator_hosts)}) for {len(unit.apis)} APIs")
 
-	def run(self, unit: RunUnit, unit_dir: Path) -> RunResult:
-		start = time.time()
-		raw_dir = unit_dir / self.config.raw_artifact_subdir
-		raw_dir.mkdir(parents=True, exist_ok=True)
-		output_dir = unit_dir / "output"
-		output_dir.mkdir(parents=True, exist_ok=True)
-		
-		self._clear_microservice(unit)
-		time.sleep(1)
+            for idx, api in enumerate(unit.apis):
+                host = unit.generator_hosts[idx]
+                
+                # Construct Remote RWG Command
+                # We assume 'rwg' is built and in the path or we use config.rwg_binary_path relative to repo root on remote?
+                # The provisioner builds rwg in `~/roshanfer-experments/rwg`.
+                # We should use strict paths.
+                remote_repo_path = "~/roshanfer-experments" # Assumption from provisioner logic
+                remote_rwg_path = f"{remote_repo_path}/rwg/rwg"
+                
+                # Command construction
+                # Protocol logic? RWG takes specific args.
+                # Previous runner used "./wrapper/{bench}/run.sh".
+                # User wants "SSH -> Run rwg (remote)".
+                # We need to construct the RWG arguments directly.
+                # wrapper/hotel/run.sh: ./rwg/rwg -u http://... -d ...
+                # We should replicate the wrapper logic or call the wrapper remotely?
+                # User said: "Execute RWG (Rust Workload Generator) or similar on Generator hosts."
+                # Calling wrapper is safer if it encapsulates API-specific URL headers.
+                # wrapper scripts are in `wrapper/{bench}/{script}`.
+                
+                remote_wrapper_path = f"{remote_repo_path}/wrapper/{unit.bench}"
+                wrapper_script_name = unit.script if unit.script else "run.sh" 
+                # Note: unit.script might be full path "experiments/latency-vs-load/run.py" or just filename?
+                # In current config, exp.script is often "experiments/latency-vs-load/run.py".
+                # But `build_wrapper_command` used `wrapper/{unit.bench}/{unit.script}` if multiple apis, or `run.sh` if single.
+                # Just use `run.sh` for now as generic wrapper if custom script not provided.
+                if "/" in str(unit.script):
+                     # Likely a local python orchestrator script, not the remote wrapper.
+                     # Default to run.sh for the remote wrapper
+                     wrapper_cmd = "./run.sh"
+                else:
+                     wrapper_cmd = f"./{unit.script}" if unit.script else "./run.sh"
 
-		stdout_file = (raw_dir / "microservice_stdout.txt").open("w")
-		stderr_file = (raw_dir / "microservice_stderr.txt").open("w")
+                # Command: cd wrapper/{bench} && {wrapper_cmd} {protocol} {base} {rate} {duration} {api} {output_dir}
+                # Output dir on remote? No, usually wrapper writes to local given path.
+                # We need to specify a remote temp output dir, then pull it.
+                remote_out_dir = f"/tmp/rwg_out_{unit.safe_name()}_{idx}"
+                
+                cmd_str = (
+                    f"cd {remote_wrapper_path} && "
+                    f"mkdir -p {remote_out_dir} && "
+                    f"{wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
+                )
+                
+                # Add extra execution args
+                if unit.execution_args:
+                    cmd_str += " " + " ".join(unit.execution_args)
 
-		microservice_cmd = self._prepare_microservice(unit, stdout_file, stderr_file)
+                ssh_cmd = ["ssh", host, cmd_str]
+                
+                print(f"Starting load on {host} for {api}...")
+                proc = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                active_processes.append((api, host, proc, remote_out_dir))
 
-		# Use RWG for workload generation instead of K6 scripts
-		details: dict[str, Any] = {"started_at": start}
-		status = "success"
-		start_timestamp = ""
-		end_timestamp = ""
-		
-		try:
-			params_path = raw_dir / "unit_runner.json"
-			with params_path.open("w") as f:
-				json.dump(unit.to_dict(), f, indent=2)
-			
-			# Determine protocol and version
-			http_type = "http" if unit.system in ("sidecar", "sidecar-queue", "plain", "envoy") else "grpc"
-			version = self._get_version_from_system(unit.system)
-			
-			# Build wrapper script command
-			cmd = self._build_wrapper_command(unit, http_type, str(output_dir))
-			
-			# Execute wrapper script
-			cmd_path = os.path.join(os.path.dirname(__file__), self.config.git_root)
-			result = subprocess.run(cmd, capture_output=True, text=True, cwd=cmd_path)
-			details["returncode"] = result.returncode
-			details["stdout_tail"] = result.stdout[-10_000:]
-			details["stderr_tail"] = result.stderr[-10_000:]
-			(raw_dir / "wrapper_stdout.txt").write_text(result.stdout)
-			(raw_dir / "wrapper_stderr.txt").write_text(result.stderr)
-			
-			if result.returncode != 0:
-				status = "error"
-			else:
-				# Extract metrics from RWG output files (one per API)
-				combined_metrics = {}
-				api_metrics = {}
-				
-				for api in unit.apis:
-					output_file = output_dir / f"out-{api}.csv"
-					if os.path.exists(str(output_file)):
-						try:
-							# Get SLO for this specific API
-							slo = self._get_slo_for_api(api)
-							metrics = extract_detailed_metrics_from_output(str(output_file), slo, version, self.config.rwg_binary_path)
-							api_metrics[api] = metrics
-							
-							# Aggregate metrics (sum goodput, max latency, sum errors)
-							if not combined_metrics:
-								combined_metrics = metrics.copy()
-							else:
-								combined_metrics["goodput"] = combined_metrics.get("goodput", 0) + metrics.get("goodput", 0)
-								combined_metrics["p95_latency"] = max(combined_metrics.get("p95_latency", 0), metrics.get("p95_latency", 0))
-								combined_metrics["num_errors"] = combined_metrics.get("num_errors", 0) + metrics.get("num_errors", 0)
-						except Exception as e:
-							details[f"metrics_extraction_error_{api}"] = str(e)
-					else:
-						details[f"missing_output_file_{api}"] = str(output_file)
-				
-				# Store both individual API metrics and combined metrics
-				details["api_metrics"] = api_metrics
-				details["rwg_metrics"] = combined_metrics
-				details["goodput"] = combined_metrics.get("goodput", 0)
-				details["p95_latency"] = combined_metrics.get("p95_latency", 0)
-				details["num_errors"] = combined_metrics.get("num_errors", 0)
+            # Wait for all
+            start_timestamp = datetime.now().isoformat()
+            
+            for api, host, proc, remote_out_dir in active_processes:
+                stdout, stderr = proc.communicate()
+                
+                # Save logs
+                (raw_dir / f"wrapper_stdout_{api}_{host}.txt").write_text(stdout)
+                (raw_dir / f"wrapper_stderr_{api}_{host}.txt").write_text(stderr)
+                
+                if proc.returncode != 0:
+                    status = "error"
+                    details[f"error_{api}"] = f"RWG failed on {host} code={proc.returncode}"
+                    print(f"Error on {host}: {stderr}")
+                else:
+                    # Pull output
+                    # Remote: {remote_out_dir}/out-{api}.csv and overall-{api}.json ?
+                    # Wrapper usually produces out.csv or out-{api}.csv?
+                    # `runner.py` previously expected `out-{api}.csv`.
+                    # We will SCP everything from remote_out_dir to local output_dir.
+                    scp_cmd = ["scp", f"{host}:{remote_out_dir}/*", str(output_dir)]
+                    subprocess.run(scp_cmd, check=True)
+                    
+                    # Cleanup remote
+                    subprocess.run(["ssh", host, f"rm -rf {remote_out_dir}"], check=False)
 
-			# Record timestamps (RWG handles timing internally)
-			start_timestamp = datetime.fromtimestamp(start)
-			end_timestamp = datetime.fromtimestamp(time.time())
+            end_timestamp = datetime.now().isoformat()
+            
+            # Logic to extract/merge metrics from the pulled files?
+            # Result Collector handles aggregation, but Runner usually returns some summary stats?
+            # Old runner did extraction here. We can leave that to Collector or do it here.
+            # Plan says "Runner runs load", "Collector collects".
+            # The files are now in `output_dir`.
+            
+        except Exception as e:
+            status = "error"
+            details["exception"] = str(e)
+            details["traceback"] = traceback.format_exc()
+            print(f"Runner Exception: {e}")
+        
+        details["ended_at"] = time.time()
+        details["duration_sec"] = details["ended_at"] - start
+        
+        (raw_dir / "run_details.json").write_text(json.dumps(details, indent=2))
 
-		except Exception as e:  # noqa: BLE001
-			status = "error"
-			details["exception"] = str(e.__repr__())
-			details["traceback"] = traceback.format_exc()
-		
-		time.sleep(1)
-		microservice_cmd.terminate()
-		stdout_file.close()
-		stderr_file.close()
-
-		details["ended_at"] = time.time()
-		details["duration_sec"] = details["ended_at"] - start
-		# Persist run metadata
-		(raw_dir / "run_details.json").write_text(json.dumps(details, indent=2))
-		
-		# Determine output file path(s) - for multiple APIs, we have multiple files
-		if len(unit.apis) == 1:
-			output_file_path = str(output_dir / f"out-{unit.apis[0]}.csv")
-		else:
-			# For multiple APIs, store the directory path since we have multiple output files
-			output_file_path = str(output_dir)
-		
-		return RunResult(
-			unit_name=unit.name,
-			status=status,
-			raw_artifact_dir=str(raw_dir),
-			details=details,
-			start_timestamp=start_timestamp,
-			end_timestamp=end_timestamp,
-			output_file=output_file_path
-		)
-
+        return RunResult(
+            unit_name=unit.name,
+            status=status,
+            raw_artifact_dir=str(raw_dir),
+            details=details,
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+            output_file=str(output_dir) # directory
+        )

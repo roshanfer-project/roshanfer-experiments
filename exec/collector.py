@@ -1,267 +1,124 @@
 """Collector module.
 
-Scaffolding to collect metrics after a RunUnit execution. The design goals:
-1. Parameterized entirely by Config (no hard-coded IPs / queries here).
-2. Append-only: every collect writes new files; never overwrites previous runs.
-3. Simple health checks based on RWG output files.
-
-High-level flow in collect():
-  a. Validate that overall-{api}.json files exist for each API
-  b. Check num_errors >= 1 (raise exception if health check fails)
-  c. For "latency-and-rate-vs-time" experiments: generate realtime CSV reports
-  d. Build a lightweight summary index
+Responsibilities:
+1. Collect Generic Service Logs (via collect_logs.sh).
+2. Parse RWG Output (CSV -> JSON) locally (using rwg binary).
+3. Organize Metrics for Plotting (ensure JSONs in metrics/).
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict
-from pathlib import Path
-from typing import Dict, List, Any
 import json
 import subprocess
+import shutil
 import os
+from pathlib import Path
+from typing import Any, Dict, List
 
 from .config import Config
 from .models import RunUnit, RunResult, CollectorResult
 
 
 class Collector:
-	"""Collects metrics for a completed run.
+    def __init__(self, config: Config):
+        self.config = config
 
-	Attributes:
-		config: Global configuration.
-	"""
+    def collect(self, unit: RunUnit, run_result: RunResult, unit_dir: Path) -> CollectorResult:
+        output_dir = unit_dir / "output"
+        raw_dir = unit_dir / self.config.raw_artifact_subdir
+        metrics_dir = unit_dir / self.config.metrics_subdir
+        
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        raw_dir.mkdir(parents=True, exist_ok=True)
 
-	def __init__(self, config: Config):
-		self.config = config
+        index: Dict[str, Any] = {
+            "unit_name": unit.name,
+            "apis": unit.apis,
+            "reports": {},
+            "notes": "",
+        }
+        metric_files: List[str] = []
 
-	# ------------------------------------------------------------------
-	# Public API
-	# ------------------------------------------------------------------
-	def collect(self, unit: RunUnit, run_result: RunResult, unit_dir: Path) -> CollectorResult:
-		"""Collect metrics for a single run unit.
+        # 1. Collect Service Logs
+        self._collect_service_logs(unit, raw_dir)
 
-		Returns a CollectorResult listing produced metric files.
-		Raises exceptions on health check failures.
-		"""
-		output_dir = unit_dir / "output"
-		
-		# Build index for summary
-		index: Dict[str, Any] = {
-			"unit_name": unit.name,
-			"apis": unit.apis,
-			"health_checks": {},
-			"overall_reports": {},
-			"realtime_reports": {},
-			"notes": "",
-		}
+        # 2. Generate/Validate JSON Reports from CSV (Local processing)
+        # We assume Runner has already pulled out-{api}.csv to output_dir
+        self._generate_reports(unit, output_dir, index, metric_files)
 
-		metric_files: List[str] = []
+        # 3. Copy/Link Metrics for Plot Runner
+        self._copy_metrics_for_plotting(output_dir, metrics_dir)
 
-		# Health check: verify overall-{api}.json exists and has no errors
-		self._evaluate_health(unit, output_dir, index, run_result)
+        # Persist Index
+        (metrics_dir / "_index.json").write_text(json.dumps(index, indent=2))
 
-		# Generate overall reports for all experiment types
-		self._generate_overall_reports(unit, run_result, output_dir, index, metric_files)
+        return CollectorResult(
+            unit_name=unit.name,
+            metrics_dir=str(metrics_dir),
+            metrics_files=metric_files,
+            notes="",
+        )
 
-		# Generate realtime reports for specific experiment types
-		if unit.type in ("latency-and-rate-vs-time", "latency-vs-throughput"):
-			self._generate_realtime_reports(unit, run_result, output_dir, index, metric_files)
+    def _collect_service_logs(self, unit: RunUnit, raw_dir: Path):
+        """Invoke benchmarks/<bench>/collect_logs.sh to gather logs."""
+        script_path = Path("benchmarks") / unit.bench / "collect_logs.sh"
+        if not script_path.exists():
+            print(f"No collect_logs.sh for {unit.bench}, skipping service log collection.")
+            return
 
-		# Persist index file
-		metrics_dir = unit_dir / self.config.metrics_subdir
-		metrics_dir.mkdir(parents=True, exist_ok=True)
-		(metrics_dir / "_index.json").write_text(json.dumps(index, indent=2))
+        # Pass context
+        env = os.environ.copy()
+        env["DEPLOYMENT_HOSTS"] = ",".join(unit.deployment_hosts)
+        env["OUTPUT_DIR"] = str(raw_dir / "service_logs")
+        env["SYSTEM"] = unit.system
+        
+        # Create subfolder
+        (raw_dir / "service_logs").mkdir(parents=True, exist_ok=True)
 
-		return CollectorResult(
-			unit_name=unit.name,
-			metrics_dir=str(metrics_dir),
-			metrics_files=metric_files,
-			notes="",
-		)
+        try:
+            print(f"Collecting service logs for {unit.bench}...")
+            subprocess.run([str(script_path)], env=env, check=False)
+        except Exception as e:
+            print(f"Failed to collect logs: {e}")
 
-	# ------------------------------------------------------------------
-	# Helper / internal
-	# ------------------------------------------------------------------
-	def _evaluate_health(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any], run_result: RunResult) -> None:
-		"""Health check: verify overall-{api}.json files exist and have num_errors < 1.
+    def _generate_reports(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any], metric_files: List[str]):
+        """Runs `rwg parse` to generate overall.json and realtime.csv."""
+        version = "1" if unit.system in ("plain", "sidecar", "envoy") else "2"
+        # Determine version more robustly if needed, but this matches legacy.
 
-		Raises:
-			Exception: If any overall-{api}.json is missing or has errors
-		"""
-		""" for api in unit.apis:
-			overall_file = output_dir / f"overall-{api}.json"
-			
-			if not overall_file.exists():
-				raise Exception(f"Health check failed: overall-{api}.json not found at {overall_file}")
-			
-			# Load and check for errors
-			with open(overall_file, "r") as f:
-				data = json.load(f)
-			
-			num_errors = data.get("num_errors", 0)
-			if num_errors >= 1:
-				raise Exception(f"Health check failed for {api}: num_errors={num_errors} (expected < 1)")
-			
-			# Record success
-			index["health_checks"][api] = {
-				"status": "passed",
-				"num_errors": num_errors,
-				"overall_file": str(overall_file),
-			} """
-		
-		if run_result.details["returncode"] != 0:
-			raise Exception(f"Health check failed: returncode={run_result.details['returncode']}")
-	
-	
+        for api in unit.apis:
+            rwg_output = output_dir / f"out-{api}.csv"
+            if not rwg_output.exists():
+                index["reports"][api] = {"status": "missing_csv", "file": str(rwg_output)}
+                continue
+            
+            # Overall Report
+            overall_json = output_dir / f"overall-{api}.json"
+            slo = str(self.config.slos.get(api, 100))
+            
+            cmd = [
+                self.config.rwg_binary_path, "parse",
+                "--rwg_output", str(rwg_output),
+                "--overall_output", str(overall_json),
+                "--slo", slo,
+                "--version", version,
+                "--warmup", str(unit.warmup),
+                "--cooldown", str(unit.cooldown),
+            ]
+            
+            # Realtime (if needed)
+            if unit.collector_freq > 0:
+                realtime_csv = output_dir / f"realtime-{api}.csv"
+                cmd.extend(["--realtime_output", str(realtime_csv), "--freq", str(unit.collector_freq)])
 
-	def _generate_overall_reports(
-		self,
-		unit: RunUnit,
-		run_result: RunResult,
-		output_dir: Path,
-		index: Dict[str, Any],
-		metric_files: List[str]
-	) -> None:
-		"""Generate overall JSON reports for each API using rwg parse.
+            try:
+                subprocess.run(cmd, capture_output=True, check=True)
+                metric_files.append(str(overall_json))
+                index["reports"][api] = {"status": "success", "file": str(overall_json)}
+            except subprocess.CalledProcessError as e:
+                index["reports"][api] = {"status": "error", "msg": str(e)}
 
-		Args:
-			unit: The run unit configuration
-			run_result: The result from the runner
-			output_dir: Directory containing RWG output files
-			index: Index dict to update with overall report info
-			metric_files: List to append generated file paths
-		"""
-		# Determine HTTP version from system
-		version = self._get_version_from_system(unit.system)
-
-		for api in unit.apis:
-			# Input: out-{api}.csv
-			rwg_output = output_dir / f"out-{api}.csv"
-			if not rwg_output.exists():
-				index["overall_reports"][api] = {"error": f"Missing input file: {rwg_output}"}
-				continue
-
-			# Output: overall-{api}.json
-			overall_output = output_dir / f"overall-{api}.json"
-
-			# Get SLO for this API
-			slo = str(self.config.slos.get(api, 100))
-
-			try:
-				# Run rwg parse with overall_output flag
-				result = subprocess.run([
-					self.config.rwg_binary_path, "parse",
-					"--rwg_output", str(rwg_output),
-					"--overall_output", str(overall_output),
-					"--slo", slo,
-					"--version", version,
-					"--warmup", str(unit.warmup),
-					"--cooldown", str(unit.cooldown),
-				],
-				capture_output=True,
-				text=True)
-
-				if result.returncode != 0:
-					error_msg = f"rwg parse failed with exit code {result.returncode}"
-					if result.stderr:
-						error_msg += f"\nStderr: {result.stderr.strip()}"
-					index["overall_reports"][api] = {"error": error_msg}
-					continue
-
-				if not overall_output.exists():
-					index["overall_reports"][api] = {"error": f"rwg parse did not generate {overall_output}"}
-					continue
-
-				# Success
-				metric_files.append(str(overall_output))
-				index["overall_reports"][api] = {
-					"status": "success",
-					"file": str(overall_output),
-				}
-
-			except Exception as e:
-				index["overall_reports"][api] = {"error": str(e.__repr__())}
-
-	def _generate_realtime_reports(
-		self,
-		unit: RunUnit,
-		run_result: RunResult,
-		output_dir: Path,
-		index: Dict[str, Any],
-		metric_files: List[str]
-	) -> None:
-		"""Generate realtime CSV reports for each API using rwg parse.
-
-		Args:
-			unit: The run unit configuration
-			run_result: The result from the runner
-			output_dir: Directory containing RWG output files
-			index: Index dict to update with realtime report info
-			metric_files: List to append generated file paths
-		"""
-		# Validate collector_freq is set
-		if unit.collector_freq <= 0:
-			raise Exception(
-				f"collector_freq must be set for experiment type '{unit.type}' but got {unit.collector_freq}"
-			)
-
-		# Determine HTTP version from system
-		version = self._get_version_from_system(unit.system)
-
-		for api in unit.apis:
-			# Input: out-{api}.csv
-			rwg_output = output_dir / f"out-{api}.csv"
-			if not rwg_output.exists():
-				index["realtime_reports"][api] = {"error": f"Missing input file: {rwg_output}"}
-				continue
-
-			# Output: realtime-{api}.csv
-			realtime_output = output_dir / f"realtime-{api}.csv"
-
-			# Get SLO for this API
-			slo = str(self.config.slos.get(api, 100))
-
-			try:
-				# Run rwg parse with realtime_output flag
-				result = subprocess.run([
-					self.config.rwg_binary_path, "parse",
-					"--rwg_output", str(rwg_output),
-					"--slo", slo,
-					"--version", version,
-					"--realtime_output", str(realtime_output),
-					"--freq", str(unit.collector_freq),
-					"--warmup", str(unit.warmup),
-					"--cooldown", str(unit.cooldown),
-				],
-				capture_output=True,
-				text=True)
-
-				if result.returncode != 0:
-					error_msg = f"rwg parse failed with exit code {result.returncode}"
-					if result.stderr:
-						error_msg += f"\nStderr: {result.stderr.strip()}"
-					index["realtime_reports"][api] = {"error": error_msg}
-					continue
-
-				if not realtime_output.exists():
-					index["realtime_reports"][api] = {"error": f"rwg parse did not generate {realtime_output}"}
-					continue
-
-				# Success
-				metric_files.append(str(realtime_output))
-				index["realtime_reports"][api] = {
-					"status": "success",
-					"file": str(realtime_output),
-					"freq_ms": unit.collector_freq,
-				}
-
-			except Exception as e:
-				index["realtime_reports"][api] = {"error": str(e.__repr__())}
-
-	def _get_version_from_system(self, system: str) -> str:
-		"""Determine HTTP version based on system type."""
-		if system in ("plain", "sidecar", "envoy"):
-			return "1"
-		else:
-			return "2"
+    def _copy_metrics_for_plotting(self, output_dir: Path, metrics_dir: Path):
+        """Copy overall-*.json from output_dir to metrics_dir so plot runner finds them."""
+        for f in output_dir.glob("overall-*.json"):
+            shutil.copy(f, metrics_dir / f.name)

@@ -1,6 +1,27 @@
 # Exec - Experiment Execution and Plotting
 
-Framework for running experiments and generating plots.
+Framework for running experiments and generating plots, designed for CloudLab environments.
+
+## Architecture
+
+The execution framework orchestrates experiments across a set of remote hosts ("CloudLab nodes").
+It follows a **Tune -> Deploy -> Run -> Collect** cycle.
+
+1.  **Partition**: Hosts are split into **Generators** and **Deployment** nodes.
+2.  **Tune**: System-specific tuners find optimal parameters (e.g., resource limits).
+3.  **Deploy**: The system is deployed ONCE per benchmark/system.
+4.  **Run**: Workload generators run remotely on generator nodes.
+5.  **Collect**: Logs and metrics are pulled to the local machine.
+
+## Prerequisites
+
+1.  **Hosts File**: Create `hosts.txt` with a list of SSH-accessible hosts (one per line).
+    ```text
+    user@node1.cloudlab.us
+    user@node2.cloudlab.us
+    ...
+    ```
+2.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent.
 
 ## Running Experiments
 
@@ -17,6 +38,26 @@ python -m exec.executor \
 - `--only-types "type1"`: Run specific types.
 - `--name-contains "substring"`: Filter by name.
 
+## Tuning
+
+The orchestrator automatically looks for a tuner script in `tuner/<system>_tuner.py` or `exec/<system>_tuner.py`.
+If found, it runs the tuner before deploying the system.
+Results are saved to `exp_runs/exp-<id>/tuning/<system>.json`.
+
+To create a new tuner, copy `exec/tuner_template.py` to `exec/<system>_tuner.py` and implement your optimization logic.
+
+## Config (`config.json`)
+
+Ensure your config includes:
+```json
+{
+  "hosts_file": "hosts.txt",
+  "provisioning_script": "benchmarks/provisioning/provision.sh",
+  "experiment_index": "001",
+  "output_base_dir": "experiment_runs"
+}
+```
+
 ## Generating Merged Plots
 
 Generate combined plots (e.g., comparing multiple experiments) defined in a YAML file:
@@ -31,38 +72,21 @@ python -m exec.merged_plot_runner \
   --experiment-index 001
 ```
 
-## Generating Individual Plots
-
-Generate plots for a single experiment run (e.g., time series, per-repeat metrics):
-
-```bash
-python -m exec.plot_runner \
-  --experiment-index 001 \
-  --config-file configs/chain1/config.json \
-  --experiments-root exp_runs \
-  --output-dir generated_plots
-```
-
-**Options:**
-- `--experiment-name "name"`: Generate for a specific experiment only.
-
-## Supported Plot Types
-
-- `latency-vs-throughput`: P99 Latency vs Throughput with 95% CI.
-- `latency-and-rate-vs-time`: Time series of latency and rate.
-- `resource-waste-bar`: Resource usage comparison.
-- `max-queue`: Max queue length comparison.
-
 ## Directory Structure
 
 ```
-exp_runs/
+experiment_runs/
 └── exp-001/
     ├── run_summary.jsonl
+    ├── tuning/
+    │   └── <system>.json
     └── experiment_name/
         └── unit_name/
             └── repeat_000/
-                └── output/
-                    ├── overall-{api}.json
-                    └── realtime-{api}.csv
+                ├── output/            # CSV results and parsed JSON
+                │   ├── overall-{api}.json
+                │   └── realtime-{api}.csv
+                ├── metrics/           # JSON copies for Plotting
+                ├── raw/               # Service Logs & Raw Output
+                └── run_details.json
 ```
