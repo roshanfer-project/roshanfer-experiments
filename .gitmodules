@@ -1,3 +1,6 @@
 [submodule "rwg"]
 	path = rwg
 	url = git@github.com:farzad1132/rwg.git
+[submodule "benchmarks"]
+	path = benchmarks
+	url = git@github.com:farzad1132/benchmarks.git
