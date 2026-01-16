@@ -152,10 +152,45 @@ class Runner:
                 # We need to specify a remote temp output dir, then pull it.
                 remote_out_dir = f"/tmp/rwg_out_{unit.safe_name()}_{idx}"
                 
+                target_addr = "node0"
+                if unit.deployment_hosts:
+                    # Resolve node alias from hosts.txt
+                    # We need to find the index of this host in the master hosts file.
+                    try:
+                        hosts_path = Path(self.config.hosts_file)
+                        all_hosts = []
+                        if hosts_path.exists():
+                            with hosts_path.open() as f:
+                                for line in f:
+                                    line = line.strip()
+                                    if line and not line.startswith("#"):
+                                        all_hosts.append(line)
+                        
+                        deploy_host_raw = unit.deployment_hosts[0]
+                        # We need to match exact string from hosts.txt
+                        # unit.deployment_hosts comes from InfraBuilder which reads the same file, 
+                        # so strings should be identical.
+                        
+                        if deploy_host_raw in all_hosts:
+                            idx = all_hosts.index(deploy_host_raw)
+                            target_addr = f"node{idx}"
+                        else:
+                            print(f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback.")
+                            # Fallback: keep previous logic or default?
+                            # Previous logic:
+                            raw = deploy_host_raw
+                            if "@" in raw:
+                                raw = raw.split("@")[1]
+                            target_addr = raw.split(".")[0]
+                            
+                    except Exception as e:
+                         print(f"Warning: Could not resolve node alias: {e}")
+                         target_addr = "node0"
+
                 cmd_str = (
                     f"cd {remote_wrapper_path} && "
                     f"mkdir -p {remote_out_dir} && "
-                    f"RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
+                    f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
                 )
                 
                 # Add extra execution args
