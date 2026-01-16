@@ -14,7 +14,8 @@ RATE=$3
 DURATION=$4
 API=$5
 output_dir="$6/out-$API.csv"
-address="192.168.1.100"
+output_dir="$6/out-$API.csv"
+address="${TARGET_ADDR:-192.168.1.100}"
 
 if [ "$protocol" == "grpc" ]; then
     echo "GRPC is not supported for test API"
