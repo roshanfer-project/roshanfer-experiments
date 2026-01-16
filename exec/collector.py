@@ -97,7 +97,8 @@ class Collector:
             overall_json = output_dir / f"overall-{api}.json"
             slo = str(self.config.slos.get(api, 100))
             
-            cmd = [
+            # 1. Overall Report
+            cmd_overall = [
                 self.config.rwg_binary_path, "parse",
                 "--rwg_output", str(rwg_output),
                 "--overall_output", str(overall_json),
@@ -106,18 +107,41 @@ class Collector:
                 "--warmup", str(unit.warmup),
                 "--cooldown", str(unit.cooldown),
             ]
-            
-            # Realtime (if needed)
-            if unit.collector_freq > 0:
-                realtime_csv = output_dir / f"realtime-{api}.csv"
-                cmd.extend(["--realtime_output", str(realtime_csv), "--freq", str(unit.collector_freq)])
+
+            # 2. Realtime Report
+            freq = unit.collector_freq if unit.collector_freq > 0 else 100 # Default 100ms
+            realtime_csv = output_dir / f"realtime-{api}.csv"
+            cmd_realtime = [
+                self.config.rwg_binary_path, "parse",
+                "--rwg_output", str(rwg_output),
+                "--realtime_output", str(realtime_csv), 
+                "--freq", str(freq),
+                "--slo", slo,
+                "--version", version,
+                "--warmup", str(unit.warmup),
+                "--cooldown", str(unit.cooldown),
+            ]
 
             try:
-                subprocess.run(cmd, capture_output=True, check=True)
+                # Use venv for python execution
+                env = os.environ.copy()
+                venv_bin = str((Path("rwg") / ".venv" / "bin").resolve())
+                env["PATH"] = f"{venv_bin}:{env.get('PATH', '')}"
+                
+                # Execute Overall
+                subprocess.run(cmd_overall, capture_output=True, check=True, env=env)
                 metric_files.append(str(overall_json))
+                
+                # Execute Realtime
+                subprocess.run(cmd_realtime, capture_output=True, check=True, env=env)
+                
                 index["reports"][api] = {"status": "success", "file": str(overall_json)}
             except subprocess.CalledProcessError as e:
-                index["reports"][api] = {"status": "error", "msg": str(e)}
+                stderr = e.stderr.decode('utf-8') if e.stderr else 'No stderr'
+                stdout = e.stdout.decode('utf-8') if e.stdout else 'No stdout'
+                err_msg = f"RWG parse failed (code {e.returncode}).\nStderr: {stderr}\nStdout: {stdout}"
+                logging.error(err_msg)
+                index["reports"][api] = {"status": "error", "msg": err_msg}
 
     def _copy_metrics_for_plotting(self, output_dir: Path, metrics_dir: Path):
         """Copy overall-*.json from output_dir to metrics_dir so plot runner finds them."""
