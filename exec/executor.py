@@ -12,6 +12,7 @@ import shutil
 from pathlib import Path
 import sys
 import time
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Sequence, Tuple
 import subprocess
@@ -172,6 +173,18 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     logs_dir = run_root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     
+    # Configure Global Logging
+    log_file = logs_dir / f"executor_{_timestamp()}.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    logging.info(f"Execution started. Logs at {logs_dir}")
+    
     # 2. Infrastructure Setup
     infra = InfraBuilder(Path(config.hosts_file))
     max_apis = _get_max_apis_needed(all_exps)
@@ -275,8 +288,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         run_results.append(res)
                         
         except Exception as e:
-            print(f"System {system} loop aborted: {e}")
-            tb.print_exc()
+            logging.error(f"System {system} loop aborted: {e}", exc_info=True)
         finally:
             # D. Teardown
             td_log = logs_dir / f"teardown_{system}_{_timestamp()}.log"
