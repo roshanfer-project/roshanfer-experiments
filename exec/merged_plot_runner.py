@@ -954,8 +954,22 @@ def _load_summary(run_root: Path) -> List[Dict]:
                 obj = json.loads(line)
             except Exception:
                 continue
-            if obj.get('status') != 'success':
+            
+            # Check nested run_result status
+            run_result = obj.get('run_result', {})
+            if run_result.get('status') != 'success':
                 continue
+                
+            # Flatten or use run_result for artifact_dir lookups later
+            # The code usually expects 'artifact_dir' at top level or we need to adapt usage
+            # Adapting usage: let's populate top-level fields needed by consumers
+            if 'raw_artifact_dir' in run_result:
+                obj['artifact_dir'] = Path(run_result['raw_artifact_dir']).parent
+            
+            # Map 'experiment' to 'experiment_name' if needed
+            if 'experiment' in obj and 'experiment_name' not in obj:
+                obj['experiment_name'] = obj['experiment']
+            
             records.append(obj)
     return records
 
@@ -1058,7 +1072,7 @@ def generate_latency_goodput_vs_load_merged(
         # Group by load
         load_groups = {}
         for record in records:
-            run_unit_name = record.get('run_unit_name', '')
+            run_unit_name = record.get('unit', record.get('run_unit_name', ''))
             
             # Extract load from run_unit_name (pattern: rate-XXX)
             import re
@@ -1516,7 +1530,7 @@ def generate_latency_vs_throughput_merged(
              records = _load_summary(run_root)
              for r in records:
                  if r.get('experiment_name') == exp_name:
-                     unit_name = r.get('run_unit_name')
+                     unit_name = r.get('unit', r.get('run_unit_name'))
                      if unit_name not in found_units:
                          found_units[unit_name] = []
                      found_units[unit_name].append(Path(r.get('artifact_dir')))
