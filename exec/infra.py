@@ -79,10 +79,6 @@ class InfraBuilder:
             env = os.environ.copy()
             env["HOSTS_FILE"] = str(self.hosts_file.resolve())
             
-            env["HOSTS_FILE"] = str(self.hosts_file.resolve())
-            
-            env["HOSTS_FILE"] = str(self.hosts_file.resolve())
-            
             run_with_logging([str(provision_script)], env=env, log_path=log_path)
             logging.info("Provisioning completed successfully.")
         except subprocess.CalledProcessError as e:
@@ -109,12 +105,6 @@ class InfraBuilder:
             tmp_hosts_path = tmp.name
             
         try:
-            env = os.environ.copy()
-            env["HOSTS_FILE"] = tmp_hosts_path
-            
-            env = os.environ.copy()
-            env["HOSTS_FILE"] = tmp_hosts_path
-            
             env = os.environ.copy()
             env["HOSTS_FILE"] = tmp_hosts_path
             

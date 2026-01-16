@@ -14,6 +14,7 @@ import shutil
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+import logging
 
 from .config import Config
 from .models import RunUnit, RunResult, CollectorResult
@@ -63,7 +64,7 @@ class Collector:
         """Invoke benchmarks/<bench>/collect_logs.sh to gather logs."""
         script_path = Path("benchmarks") / unit.bench / "collect_logs.sh"
         if not script_path.exists():
-            print(f"No collect_logs.sh for {unit.bench}, skipping service log collection.")
+            logging.warning(f"No collect_logs.sh for {unit.bench}, skipping service log collection.")
             return
 
         # Pass context
@@ -76,10 +77,10 @@ class Collector:
         (raw_dir / "service_logs").mkdir(parents=True, exist_ok=True)
 
         try:
-            print(f"Collecting service logs for {unit.bench}...")
+            logging.info(f"Collecting service logs for {unit.bench}...")
             subprocess.run([str(script_path)], env=env, check=False)
         except Exception as e:
-            print(f"Failed to collect logs: {e}")
+            logging.error(f"Failed to collect logs: {e}")
 
     def _generate_reports(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any], metric_files: List[str]):
         """Runs `rwg parse` to generate overall.json and realtime.csv."""

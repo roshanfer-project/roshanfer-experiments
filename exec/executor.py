@@ -111,7 +111,7 @@ def _run_tuner(system: str, bench: str, tuning_dir: Path, config_path: Path) -> 
             break
             
     if not target_script:
-        print(f"No tuner found for {system}, skipping.")
+        logging.warning(f"No tuner found for {system}, skipping.")
         return {}
 
     output_file = tuning_dir / f"{system}.json"
@@ -125,13 +125,14 @@ def _run_tuner(system: str, bench: str, tuning_dir: Path, config_path: Path) -> 
     ]
 
     try:
-        print(f"Running tuner for {system}...")
+        logging.info(f"Running tuner for {system}...")
         subprocess.run(cmd, check=True)
         if output_file.exists():
             return json.loads(output_file.read_text())
+
     except Exception as e:
 
-        print(f"Tuner failed for {system}: {e}")
+        logging.warning(f"Tuner failed for {system}: {e}")
     
     return {}
 
@@ -162,7 +163,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             all_exps = [e for e in all_exps if sub in e.name]
 
     if not all_exps:
-        print("No experiments found matching filters.")
+        logging.warning("No experiments found matching filters.")
         return 0
 
     # 1. Prepare Output Root (Moved before Infra for logging)
@@ -202,7 +203,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
              infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
              
     except Exception as e:
-        print(f"Infra failure: {e}")
+        logging.error(f"Infra failure: {e}")
         return 1
 
     # 3. Initialize Runner & Collector
@@ -223,7 +224,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
 
     # 4. Orchestration Loop
     for system, system_exps in by_system.items():
-        print(f"=== Process System: {system} ===")
+        logging.info(f"=== Process System: {system} ===")
         
         # A. Tuning
         # Assuming all exps for a system use same benchmark? 
@@ -239,13 +240,13 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             deploy_log = logs_dir / f"deploy_{system}_{_timestamp()}.log"
             runner.deploy_system(bench, system, deploy_params, deployment, log_path=deploy_log)
         except Exception as e:
-            print(f"Skipping system {system} due to deploy failure: {e}")
+            logging.error(f"Skipping system {system} due to deploy failure: {e}")
             continue
 
         # C. Run Experiments
         try:
             for exp in system_exps:
-                print(f"  Running Experiment: {exp.name}")
+                logging.info(f"  Running Experiment: {exp.name}")
                 exp_dir = run_root / _safe_name(exp.name)
                 exp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -267,7 +268,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         
                         # Failure Handling: Redeploy loop
                         if res.status == "error":
-                            print(f"    Repeat {r} failed. Collecting logs and redeploying...")
+                            logging.warning(f"    Repeat {r} failed. Collecting logs and redeploying...")
                             collector.collect(unit, res, repeat_dir)
                             
                             td_log = logs_dir / f"teardown_{system}_redeploy_{_timestamp()}.log"
@@ -275,11 +276,11 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             try:
                                 dp_log = logs_dir / f"deploy_{system}_redeploy_{_timestamp()}.log"
                                 runner.deploy_system(bench, system, deploy_params, deployment, log_path=dp_log)
-                                print("    Redeploy successful. Retrying repeat...")
+                                logging.info("    Redeploy successful. Retrying repeat...")
                                 # Retry once
                                 res = runner.run(unit, repeat_dir)
                             except Exception as re_e:
-                                print(f"    Redeploy failed: {re_e}. Aborting this system.")
+                                logging.error(f"    Redeploy failed: {re_e}. Aborting this system.")
                                 raise re_e
 
                         # Collect
@@ -296,7 +297,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
 
     # 5. Report
     # report_module.generate_report(...) # Optional
-    print(f"Execution finished. Results in {run_root}")
+    logging.info(f"Execution finished. Results in {run_root}")
     return 0
 
 def _safe_name(s: str) -> str:

@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Optional
 import subprocess
 import time
 import shutil
+import logging
+
 
 from .config import Config
 from .models import RunUnit, RunResult
@@ -38,7 +40,7 @@ class Runner:
             raise FileNotFoundError(f"Deploy script not found: {script_path}")
 
         logging_msg = f"Deploying {system} on {bench}..."
-        print(logging_msg)
+        logging.info(logging_msg)
 
         # Always ensure clean slate
         pre_teardown_log = None
@@ -59,7 +61,7 @@ class Runner:
         # Run Deploy Script
         try:
             run_with_logging([str(script_path)], env=env, log_path=log_path)
-            print(f"Deployment of {system} successful.")
+            logging.info(f"Deployment of {system} successful.")
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Deployment failed for {system}: {e}")
 
@@ -73,14 +75,13 @@ class Runner:
         if not script_path.exists():
             raise FileNotFoundError(f"Destroy script not found: {script_path}")
 
-        print(f"Tearing down {system} on {bench}...")
-        print(f"Tearing down {system} on {bench}...")
+        logging.info(f"Tearing down {system} on {bench}...")
         try:
             env = os.environ.copy()
             env["SYSTEM"] = system
             run_with_logging([str(script_path)], env=env, log_path=log_path)
         except Exception as e:
-            print(f"Teardown warning: {e}")
+            logging.warning(f"Teardown warning: {e}")
 
     def run(self, unit: RunUnit, unit_dir: Path) -> RunResult:
         """
@@ -175,7 +176,7 @@ class Runner:
                             idx = all_hosts.index(deploy_host_raw)
                             target_addr = f"node{idx}"
                         else:
-                            print(f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback.")
+                            logging.warning(f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback.")
                             # Fallback: keep previous logic or default?
                             # Previous logic:
                             raw = deploy_host_raw
@@ -184,7 +185,7 @@ class Runner:
                             target_addr = raw.split(".")[0]
                             
                     except Exception as e:
-                         print(f"Warning: Could not resolve node alias: {e}")
+                         logging.warning(f"Warning: Could not resolve node alias: {e}")
                          target_addr = "node0"
 
                 cmd_str = (
@@ -205,7 +206,7 @@ class Runner:
                     cmd_str
                 ]
                 
-                print(f"Starting load on {host} for {api}...")
+                logging.info(f"Starting load on {host} for {api}...")
                 proc = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 active_processes.append((api, host, proc, remote_out_dir))
 
@@ -222,7 +223,7 @@ class Runner:
                 if proc.returncode != 0:
                     status = "error"
                     details[f"error_{api}"] = f"RWG failed on {host} code={proc.returncode}"
-                    print(f"Error on {host}: {stderr}")
+                    logging.error(f"Error on {host}: {stderr}")
                 else:
                     # Pull output
                     # Remote: {remote_out_dir}/out-{api}.csv and overall-{api}.json ?
@@ -259,7 +260,7 @@ class Runner:
             status = "error"
             details["exception"] = str(e)
             details["traceback"] = traceback.format_exc()
-            print(f"Runner Exception: {e}")
+            logging.error(f"Runner Exception: {e}")
         
         details["ended_at"] = time.time()
         details["duration_sec"] = details["ended_at"] - start
