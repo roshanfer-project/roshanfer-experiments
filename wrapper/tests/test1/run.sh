@@ -30,6 +30,6 @@ else
         echo "Unknown test API: $API"
         exit 1
     fi
-    ./rwg/rwg run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 5000 -o $output_dir -t 15
+    "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 5000 -o $output_dir -t 15
     exit "$?"
 fi
