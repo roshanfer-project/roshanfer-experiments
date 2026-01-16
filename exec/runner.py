@@ -20,13 +20,14 @@ import shutil
 
 from .config import Config
 from .models import RunUnit, RunResult
+from .utils import run_with_logging
 
 
 class Runner:
     def __init__(self, config: Config):
         self.config = config
 
-    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str]) -> None:
+    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str], log_path: Optional[Path] = None) -> None:
         """
         Deploys the system using benchmarks/<bench>/deploy.sh.
         Injection: tuning_params as Environment Variables.
@@ -39,6 +40,13 @@ class Runner:
         logging_msg = f"Deploying {system} on {bench}..."
         print(logging_msg)
 
+        # Always ensure clean slate
+        pre_teardown_log = None
+        if log_path:
+            pre_teardown_log = log_path.with_name(log_path.stem + "_pre_teardown" + log_path.suffix)
+            
+        self.teardown_system(bench, system, log_path=pre_teardown_log)
+
         # Prepare Environment
         env = os.environ.copy()
         # Inject Tuning Params
@@ -50,28 +58,27 @@ class Runner:
 
         # Run Deploy Script
         try:
-            subprocess.run([str(script_path)], env=env, check=True)
+            run_with_logging([str(script_path)], env=env, log_path=log_path)
             print(f"Deployment of {system} successful.")
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Deployment failed for {system}: {e}")
 
-    def teardown_system(self, bench: str, system: str) -> None:
+    def teardown_system(self, bench: str, system: str, log_path: Optional[Path] = None) -> None:
         """
-        Teardowns the system using benchmarks/<bench>/teardown.sh or clean.sh
+        Teardowns the system using benchmarks/<bench>/destroy.sh or clean.sh
         """
-        # Try teardown.sh first, then clean.sh, or assume deploy handles cleanup? 
+        # Try destroy.sh first, then clean.sh, or assume deploy handles cleanup? 
         # Typically good to have explicit teardown.
-        script_path = Path("benchmarks") / bench / "teardown.sh"
+        script_path = Path("benchmarks") / bench / "destroy.sh"
         if not script_path.exists():
-            # Fallback
-            script_path = Path("benchmarks") / bench / "clean.sh"
-            if not script_path.exists():
-                print(f"No teardown/clean script found for {bench}, skipping explicit teardown.")
-                return
+            raise FileNotFoundError(f"Destroy script not found: {script_path}")
 
         print(f"Tearing down {system} on {bench}...")
+        print(f"Tearing down {system} on {bench}...")
         try:
-            subprocess.run([str(script_path)], env={"SYSTEM": system}, check=False) # Don't error on cleanup
+            env = os.environ.copy()
+            env["SYSTEM"] = system
+            run_with_logging([str(script_path)], env=env, log_path=log_path)
         except Exception as e:
             print(f"Teardown warning: {e}")
 
@@ -114,6 +121,8 @@ class Runner:
                 remote_repo_path = "~/roshanfer-experments" # Assumption from provisioner logic
                 remote_rwg_path = f"{remote_repo_path}/rwg/rwg"
                 
+                # ...
+                
                 # Command construction
                 # Protocol logic? RWG takes specific args.
                 # Previous runner used "./wrapper/{bench}/run.sh".
@@ -146,14 +155,20 @@ class Runner:
                 cmd_str = (
                     f"cd {remote_wrapper_path} && "
                     f"mkdir -p {remote_out_dir} && "
-                    f"{wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
+                    f"RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
                 )
                 
                 # Add extra execution args
                 if unit.execution_args:
                     cmd_str += " " + " ".join(unit.execution_args)
 
-                ssh_cmd = ["ssh", host, cmd_str]
+                ssh_cmd = [
+                    "ssh", 
+                    "-o", "StrictHostKeyChecking=no", 
+                    "-o", "UserKnownHostsFile=/dev/null", 
+                    host, 
+                    cmd_str
+                ]
                 
                 print(f"Starting load on {host} for {api}...")
                 proc = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -179,11 +194,23 @@ class Runner:
                     # Wrapper usually produces out.csv or out-{api}.csv?
                     # `runner.py` previously expected `out-{api}.csv`.
                     # We will SCP everything from remote_out_dir to local output_dir.
-                    scp_cmd = ["scp", f"{host}:{remote_out_dir}/*", str(output_dir)]
+                    scp_cmd = [
+                        "scp", 
+                        "-o", "StrictHostKeyChecking=no", 
+                        "-o", "UserKnownHostsFile=/dev/null", 
+                        f"{host}:{remote_out_dir}/*", 
+                        str(output_dir)
+                    ]
                     subprocess.run(scp_cmd, check=True)
                     
                     # Cleanup remote
-                    subprocess.run(["ssh", host, f"rm -rf {remote_out_dir}"], check=False)
+                    subprocess.run([
+                        "ssh", 
+                        "-o", "StrictHostKeyChecking=no", 
+                        "-o", "UserKnownHostsFile=/dev/null", 
+                        host, 
+                        f"rm -rf {remote_out_dir}"
+                    ], check=False)
 
             end_timestamp = datetime.now().isoformat()
             

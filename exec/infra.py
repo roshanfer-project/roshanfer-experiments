@@ -2,7 +2,10 @@
 import logging
 import subprocess
 from pathlib import Path
-from typing import List, Tuple
+import sys
+import sys
+from typing import List, Tuple, Optional
+from .utils import run_with_logging
 
 class InfraBuilder:
     def __init__(self, hosts_file: Path):
@@ -24,6 +27,9 @@ class InfraBuilder:
         
         if not self.hosts:
             raise ValueError(f"No valid hosts found in {self.hosts_file}")
+            raise ValueError(f"No valid hosts found in {self.hosts_file}")
+
+    # _run_with_logging removed, using utils.run_with_logging instead
 
     def partition_hosts(self, num_generators: int) -> Tuple[List[str], List[str]]:
         """
@@ -49,7 +55,7 @@ class InfraBuilder:
         logging.info(f"Partitioned hosts: {len(generators)} Generators, {len(deployment)} Deployment")
         return generators, deployment
 
-    def provision_hosts(self, provision_script: Path):
+    def provision_hosts(self, provision_script: Path, log_path: Optional[Path] = None):
         """
         Runs the provisioning script on all hosts. 
         Assumes the script handles its own SSH loops or we call it once because it iterates hosts.
@@ -73,13 +79,17 @@ class InfraBuilder:
             env = os.environ.copy()
             env["HOSTS_FILE"] = str(self.hosts_file.resolve())
             
-            subprocess.run([str(provision_script)], env=env, check=True)
+            env["HOSTS_FILE"] = str(self.hosts_file.resolve())
+            
+            env["HOSTS_FILE"] = str(self.hosts_file.resolve())
+            
+            run_with_logging([str(provision_script)], env=env, log_path=log_path)
             logging.info("Provisioning completed successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"Provisioning failed with code {e.returncode}")
             raise e
 
-    def setup_k8s(self, k8s_script: Path, deployment_hosts: List[str]):
+    def setup_k8s(self, k8s_script: Path, deployment_hosts: List[str], log_path: Optional[Path] = None):
         """
         Runs the K8s setup script on the deployment hosts.
         Creates a temporary hosts file to pass to the script via HOSTS_FILE env var.
@@ -102,7 +112,13 @@ class InfraBuilder:
             env = os.environ.copy()
             env["HOSTS_FILE"] = tmp_hosts_path
             
-            subprocess.run([str(k8s_script)], env=env, check=True)
+            env = os.environ.copy()
+            env["HOSTS_FILE"] = tmp_hosts_path
+            
+            env = os.environ.copy()
+            env["HOSTS_FILE"] = tmp_hosts_path
+            
+            run_with_logging([str(k8s_script)], env=env, log_path=log_path)
             logging.info("K8s setup completed successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"K8s setup failed with code {e.returncode}")

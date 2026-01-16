@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Sequence, Tuple
 import subprocess
 
@@ -25,7 +25,7 @@ from . import report as report_module
 import traceback as tb
 
 def _timestamp() -> str:
-    return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
     with path.open() as f:
@@ -164,26 +164,36 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         print("No experiments found matching filters.")
         return 0
 
-    # 1. Infrastructure Setup
+    # 1. Prepare Output Root (Moved before Infra for logging)
+    run_root = Path(config.output_base_dir) / f"exp-{config.experiment_index}"
+    run_root.mkdir(parents=True, exist_ok=True)
+    tuning_dir = run_root / "tuning"
+    tuning_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir = run_root / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 2. Infrastructure Setup
     infra = InfraBuilder(Path(config.hosts_file))
     max_apis = _get_max_apis_needed(all_exps)
     try:
         generators, deployment = infra.partition_hosts(max_apis)
-        infra.provision_hosts(Path(config.provisioning_script))
+        
+        # Define log paths for infra steps
+        prov_log = logs_dir / f"provision_{_timestamp()}.log"
+        k8s_log = logs_dir / f"k8s_setup_{_timestamp()}.log"
+        
+        infra.provision_hosts(Path(config.provisioning_script), log_path=prov_log)
         
         # Setup K8s on deployment nodes (idempotent)
         if hasattr(config, "k8s_script") and config.k8s_script:
-             infra.setup_k8s(Path(config.k8s_script), deployment)
+             infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
              
     except Exception as e:
         print(f"Infra failure: {e}")
         return 1
 
-    # 2. Prepare Output Root
-    run_root = Path(config.output_base_dir) / f"exp-{config.experiment_index}"
-    run_root.mkdir(parents=True, exist_ok=True)
-    tuning_dir = run_root / "tuning"
-    tuning_dir.mkdir(parents=True, exist_ok=True)
+    # 3. Initialize Runner & Collector
+    # run_root already created above
     
     runner = Runner(config)
     collector = Collector(config)
@@ -213,7 +223,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
 
         # B. Deploy
         try:
-            runner.deploy_system(bench, system, deploy_params, deployment)
+            deploy_log = logs_dir / f"deploy_{system}_{_timestamp()}.log"
+            runner.deploy_system(bench, system, deploy_params, deployment, log_path=deploy_log)
         except Exception as e:
             print(f"Skipping system {system} due to deploy failure: {e}")
             continue
@@ -245,9 +256,12 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         if res.status == "error":
                             print(f"    Repeat {r} failed. Collecting logs and redeploying...")
                             collector.collect(unit, res, repeat_dir)
-                            runner.teardown_system(bench, system)
+                            
+                            td_log = logs_dir / f"teardown_{system}_redeploy_{_timestamp()}.log"
+                            runner.teardown_system(bench, system, log_path=td_log)
                             try:
-                                runner.deploy_system(bench, system, deploy_params, deployment)
+                                dp_log = logs_dir / f"deploy_{system}_redeploy_{_timestamp()}.log"
+                                runner.deploy_system(bench, system, deploy_params, deployment, log_path=dp_log)
                                 print("    Redeploy successful. Retrying repeat...")
                                 # Retry once
                                 res = runner.run(unit, repeat_dir)
@@ -265,7 +279,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             tb.print_exc()
         finally:
             # D. Teardown
-            runner.teardown_system(bench, system)
+            td_log = logs_dir / f"teardown_{system}_{_timestamp()}.log"
+            runner.teardown_system(bench, system, log_path=td_log)
 
     # 5. Report
     # report_module.generate_report(...) # Optional
