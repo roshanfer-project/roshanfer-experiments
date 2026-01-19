@@ -11,25 +11,18 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "test",
+            "bench": "tests/test1",
             "apis": [
                 "app"
             ],
             "system": "sidecar",
             "repeat": 3,
-            "collector_freq": 200,
-            "cleanup_args": [
-                "test1"
-            ],
-            "execution_args": [
-                "--test",
-                "test1"
-            ]
+            "collector_freq": 200
         },
         {
             "name": "latency-and-rate-vs-time-chain1-sidecar-2api",
             "type": "latency-and-rate-vs-time",
-            "script": "run-multi-api.sh",
+            "script": "run.sh",
             "loads": {
                 "start": 5000,
                 "end": 5000,
@@ -37,26 +30,19 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "test",
+            "bench": "tests/test1",
             "apis": [
                 "app",
                 "app2"
             ],
             "system": "sidecar",
             "repeat": 3,
-            "collector_freq": 200,
-            "cleanup_args": [
-                "test1"
-            ],
-            "execution_args": [
-                "--test",
-                "test1"
-            ]
+            "collector_freq": 200
         },
         {
             "name": "latency-and-rate-vs-time-chain1-sidecar-3api",
             "type": "latency-and-rate-vs-time",
-            "script": "run-multi-api.sh",
+            "script": "run.sh",
             "loads": {
                 "start": 4000,
                 "end": 4000,
@@ -64,7 +50,7 @@
             },
             "base_rate": 300,
             "duration_sec": 10,
-            "bench": "test",
+            "bench": "tests/test1",
             "apis": [
                 "app",
                 "app2",
@@ -72,14 +58,7 @@
             ],
             "system": "sidecar",
             "repeat": 3,
-            "collector_freq": 200,
-            "cleanup_args": [
-                "test1"
-            ],
-            "execution_args": [
-                "--test",
-                "test1"
-            ]
+            "collector_freq": 200
         }
     ]
 }

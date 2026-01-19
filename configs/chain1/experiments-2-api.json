@@ -3,7 +3,7 @@
         {
             "name": "latency-vs-throughput-chain1-plain",
             "type": "latency-vs-throughput",
-            "script": "run-multi-api-plain.sh",
+            "script": "run-plain.sh",
             "loads": {
                 "start": 1000,
                 "end": 3000,
@@ -11,7 +11,7 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "test",
+            "bench": "tests/test1",
             "apis": [
                 "app",
                 "app2"
@@ -19,19 +19,12 @@
             "system": "plain",
             "repeat": 3,
             "collector_freq": 200,
-            "warmup": 2,
-            "cleanup_args": [
-                "test1"
-            ],
-            "execution_args": [
-                "--test",
-                "test1"
-            ]
+            "warmup": 2
         },
         {
             "name": "latency-vs-throughput-chain1-sidecar",
             "type": "latency-vs-throughput",
-            "script": "run-multi-api.sh",
+            "script": "run.sh",
             "loads": {
                 "start": 1000,
                 "end": 3000,
@@ -39,7 +32,7 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "test",
+            "bench": "tests/test1",
             "apis": [
                 "app",
                 "app2"
@@ -47,14 +40,7 @@
             "system": "sidecar",
             "repeat": 3,
             "collector_freq": 200,
-            "warmup": 2,
-            "cleanup_args": [
-                "test1"
-            ],
-            "execution_args": [
-                "--test",
-                "test1"
-            ]
+            "warmup": 2
         }
     ]
 }
