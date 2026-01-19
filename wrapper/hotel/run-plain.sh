@@ -23,7 +23,7 @@ else
     if [ "$API" = "search-hotel" ]; then
         url="http://$address:3000/hotels?lat=37.7867&lon=-122.4112&inDate=2024-08-15&outDate=2024-08-17"
     elif [ "$API" = "reserve-hotel" ]; then
-        url="http://$address:3009/reservation?inDate=2025-05-20&outDate=2025-05-22&hotelId=4&customerName=Alice&username=Cornell_1&password=1111111111&number=1"
+        url="http://$address:3000/reservation?inDate=2025-05-20&outDate=2025-05-22&hotelId=4&customerName=Alice&username=Cornell_1&password=1111111111&number=1"
     else
         echo "Unknown hotel API: $API"
         exit 1
