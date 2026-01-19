@@ -322,12 +322,25 @@ def _log_result(csv_path: Path, jsonl_path: Path, exp: ExperimentConfig, unit: R
         writer.writerow([exp.name, unit.name, unit.system, run.status, run.details.get("duration_sec"), run.raw_artifact_dir])
     
     # JSONL
+    # Match plot_runner.py expectations: flat structure
+    # keys: type, experiment_name, run_unit_name, group_name, repeat_index, artifact_dir, metrics_dir, status ...
     data = {
-        "experiment": exp.name,
-        "unit": unit.name,
-        "repeat": r,
-        "run_result": run.to_dict(),
-        "collector_result": col.to_dict()
+        "status": run.status,
+        "type": exp.type,
+        "experiment_name": exp.name,
+        "run_unit_name": unit.name,
+        "group_name": run.group_name or unit.name,
+        "repeat_index": r,
+        "artifact_dir": run.raw_artifact_dir.replace("/raw", ""), # Artifact dir is parent of raw
+        "raw_artifact_dir": run.raw_artifact_dir,
+        "metrics_dir": col.metrics_dir,
+        "metric_files": col.metrics_files, # Legacy support
+        "start_timestamp": run.start_timestamp,
+        "end_timestamp": run.end_timestamp,
+        "duration_sec": run.details.get("duration_sec"),
+        "config": exp.params, # Store full config params for reference
+        "apis": exp.apis,
+        "load": unit.rate
     }
     with jsonl_path.open("a") as f:
         f.write(json.dumps(data) + "\n")
