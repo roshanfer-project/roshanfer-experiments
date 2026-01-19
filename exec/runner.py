@@ -112,6 +112,8 @@ class Runner:
             if len(unit.apis) > len(unit.generator_hosts):
                 raise ValueError(f"Not enough generator hosts ({len(unit.generator_hosts)}) for {len(unit.apis)} APIs")
 
+            # Phase 1: Prepare commands for all APIs
+            prepared_commands = []
             for idx, api in enumerate(unit.apis):
                 host = unit.generator_hosts[idx]
                 
@@ -173,8 +175,8 @@ class Runner:
                         # so strings should be identical.
                         
                         if deploy_host_raw in all_hosts:
-                            idx = all_hosts.index(deploy_host_raw)
-                            target_addr = f"node{idx}"
+                            host_idx = all_hosts.index(deploy_host_raw)
+                            target_addr = f"node{host_idx}"
                         else:
                             logging.warning(f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback.")
                             # Fallback: keep previous logic or default?
@@ -206,9 +208,18 @@ class Runner:
                     cmd_str
                 ]
                 
-                logging.info(f"Starting load on {host} for {api}...")
-                proc = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                active_processes.append((api, host, proc, remote_out_dir))
+                prepared_commands.append({
+                    "api": api,
+                    "host": host,
+                    "ssh_cmd": ssh_cmd,
+                    "remote_out_dir": remote_out_dir
+                })
+
+            # Phase 2: Launch all processes uniformly
+            for item in prepared_commands:
+                logging.info(f"Starting load on {item['host']} for {item['api']}...")
+                proc = subprocess.Popen(item['ssh_cmd'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                active_processes.append((item['api'], item['host'], proc, item['remote_out_dir']))
 
             # Wait for all
             start_timestamp = datetime.now().isoformat()
