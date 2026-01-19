@@ -190,7 +190,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     infra = InfraBuilder(Path(config.hosts_file))
     max_apis = _get_max_apis_needed(all_exps)
     try:
-        generators, deployment = infra.partition_hosts(max_apis)
+        generators, deployment = infra.partition_hosts(config.num_generators, min_required=max_apis)
         
         # Define log paths for infra steps
         prov_log = logs_dir / f"provision_{_timestamp()}.log"

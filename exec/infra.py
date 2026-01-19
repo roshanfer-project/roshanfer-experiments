@@ -31,16 +31,23 @@ class InfraBuilder:
 
     # _run_with_logging removed, using utils.run_with_logging instead
 
-    def partition_hosts(self, num_generators: int) -> Tuple[List[str], List[str]]:
+    def partition_hosts(self, num_generators: int, min_required: int = 1) -> Tuple[List[str], List[str]]:
         """
         Partitions the hosts into generators and deployment nodes.
         
         Args:
-            num_generators: Number of generator nodes needed (usually max APIs).
+            num_generators: Number of generator nodes explicitly requested.
+            min_required: Minimum number of generators required by the workload (e.g. max APIs).
             
         Returns:
             (generator_hosts, deployment_hosts)
         """
+        if num_generators < min_required:
+             raise ValueError(
+                f"Configured 'num_generators' ({num_generators}) is insufficient for "
+                f"workload requiring {min_required} APIs/generators."
+            )
+
         if len(self.hosts) < num_generators + 1:
             raise ValueError(
                 f"Not enough hosts. Need at least {num_generators + 1} (1 gen + 1 deploy), "

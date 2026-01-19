@@ -44,6 +44,7 @@ class Config:
     hosts_file: str = "hosts.txt"
     provisioning_script: str = "benchmarks/provisioning/provision.sh"
     k8s_script: str = "benchmarks/k8s/create.sh"
+    num_generators: int = -1  # Required. Must be set > 0.
 
     # --- Workload generator (RWG) ---
     rwg_binary_path: str = "./rwg/rwg"  # Path to RWG binary
@@ -88,33 +89,49 @@ def load_config(path: Optional[str]) -> Config:
     """
     cfg = Config()
     if not path:
-        return cfg
+        # If no config file provided, we can't validate inputs easily unless defaults are enough.
+        # But user requires num_generators.
+        # If running without config file is supported, user must provide args?
+        # Framework seems to rely on config file generally.
+        pass
+        
     p = Path(path)
-    with p.open() as f:
-        data = json.load(f)
+    if not p.exists():
+        # If path provided but doesn't exist, generic error?
+        # Or if path is None, we return default cfg.
+        pass
 
-    known_field_names = set(cfg.__dataclass_fields__.keys())  # type: ignore[attr-defined]
+    if path: 
+        with p.open() as f:
+            data = json.load(f)
 
-    init_kwargs: Dict[str, Any] = {}
-    extras: Dict[str, Any] = {}
-    for k, v in data.items():
-        if k in known_field_names:
-            init_kwargs[k] = v
-        else:
-            extras[k] = v
+        known_field_names = set(cfg.__dataclass_fields__.keys())  # type: ignore[attr-defined]
 
-    # Create a base config with simple (non-nested) overrides first.
-    simple_override_fields = {k: v for k, v in init_kwargs.items() if not isinstance(getattr(cfg, k, None), dict)}
-    cfg = replace(cfg, **simple_override_fields)
+        init_kwargs: Dict[str, Any] = {}
+        extras: Dict[str, Any] = {}
+        for k, v in data.items():
+            if k in known_field_names:
+                init_kwargs[k] = v
+            else:
+                extras[k] = v
 
-    # Merge nested dict fields individually (shallow merge).
-    for nested_key in ["experiment_defaults", "expansion", "metrics", "experiment_metrics", "report", "slos"]:
-        if nested_key in init_kwargs and isinstance(init_kwargs[nested_key], dict):
-            existing = getattr(cfg, nested_key)
-            merged = {**existing, **init_kwargs[nested_key]}
-            setattr(cfg, nested_key, merged)
+        # Create a base config with simple (non-nested) overrides first.
+        simple_override_fields = {k: v for k, v in init_kwargs.items() if not isinstance(getattr(cfg, k, None), dict)}
+        cfg = replace(cfg, **simple_override_fields)
 
-    # Non-dict nested overrides already handled; store extras.
-    if extras:
-        cfg.extra.update(extras)
+        # Merge nested dict fields individually (shallow merge).
+        for nested_key in ["experiment_defaults", "expansion", "metrics", "experiment_metrics", "report", "slos"]:
+            if nested_key in init_kwargs and isinstance(init_kwargs[nested_key], dict):
+                existing = getattr(cfg, nested_key)
+                merged = {**existing, **init_kwargs[nested_key]}
+                setattr(cfg, nested_key, merged)
+
+        # Non-dict nested overrides already handled; store extras.
+        if extras:
+            cfg.extra.update(extras)
+
+    # Validation
+    if cfg.num_generators < 0:
+        raise ValueError("Config error: 'num_generators' is required and must be >= 0.")
+    
     return cfg
