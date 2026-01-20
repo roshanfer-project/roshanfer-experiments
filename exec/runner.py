@@ -23,6 +23,206 @@ import logging
 from .config import Config
 from .models import RunUnit, RunResult
 from .utils import run_with_logging
+import threading
+import csv
+from typing import Any, Dict, List, Optional, Tuple
+
+
+
+
+
+class ResourceMonitor:
+    def __init__(self, raw_dir: Path, interval: float = 2.0):
+        self.cpu_output_file = raw_dir / "cpu_metrics.csv"
+        self.interval = interval
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(target=self._msg_loop, daemon=True)
+        # Cache for rate calculation: (node, ns, pod, container) -> (timestamp, usage_nanoseconds)
+        self.prev_cpu: Dict[Tuple[str, str, str, str], Tuple[float, int]] = {} 
+
+    def start(self):
+        # Init CPU CSV
+        if not self.cpu_output_file.exists():
+            with self.cpu_output_file.open("w") as f:
+                writer = csv.writer(f)
+                writer.writerow(["timestamp", "node", "namespace", "pod", "container", "utilization", "limit"])
+                
+        self.thread.start()
+
+    def stop(self):
+        self.stop_event.set()
+        if self.thread.is_alive():
+            self.thread.join(timeout=5)
+
+    def _get_container_metadata(self) -> Dict[str, Dict[str, any]]:
+        """Fetch container metadata from kubectl to map container ID -> pod info"""
+        try:
+            cmd = ["kubectl", "get", "pods", "--all-namespaces", "-o", "json"]
+            res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            pods_data = json.loads(res.stdout)
+            
+            # Build mapping: container_id -> {namespace, pod, container, limit}
+            container_map = {}
+            
+            for pod in pods_data.get("items", []):
+                ns = pod["metadata"]["namespace"]
+                pod_name = pod["metadata"]["name"]
+                
+                # Build limits map
+                limits = {}
+                for container in pod["spec"].get("containers", []):
+                    container_name = container["name"]
+                    resources = container.get("resources", {})
+                    cpu_limit_str = resources.get("limits", {}).get("cpu", "0")
+                    limits[container_name] = self._parse_cpu_limit(cpu_limit_str)
+                
+                # Map container IDs
+                for status in pod["status"].get("containerStatuses", []):
+                    container_id_full = status.get("containerID", "")
+                    if not container_id_full:
+                        continue
+                    
+                    # Extract ID from "containerd://abc123" format
+                    if "://" in container_id_full:
+                        container_id = container_id_full.split("://", 1)[1]
+                    else:
+                        container_id = container_id_full
+                    
+                    container_map[container_id] = {
+                        "namespace": ns,
+                        "pod": pod_name,
+                        "container": status["name"],
+                        "limit": limits.get(status["name"], 0.0)
+                    }
+            
+            logging.info(f"ResourceMonitor: Mapped {len(container_map)} containers")
+            return container_map
+        except Exception as e:
+            logging.warning(f"ResourceMonitor: Failed to get container metadata: {e}")
+            return {}
+    
+    def _parse_cpu_limit(self, cpu_str: str) -> float:
+        """Parse Kubernetes CPU limit string to float (cores)"""
+        try:
+            if not cpu_str or cpu_str == "0":
+                return 0.0
+            if cpu_str.endswith("m"):
+                return float(cpu_str[:-1]) / 1000.0
+            return float(cpu_str)
+        except Exception:
+            return 0.0
+    
+    def _get_nodes_map(self) -> Dict[str, str]:
+        """Returns mapping of NodeName -> InternalIP"""
+        try:
+            cmd = ["kubectl", "get", "nodes", "-o", "wide", "--no-headers"]
+            res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            mapping = {}
+            for line in res.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 6:
+                    name = parts[0]
+                    ip = parts[5] # INTERNAL-IP
+                    mapping[name] = ip
+            return mapping
+        except Exception as e:
+            logging.warning(f"ResourceMonitor: Failed to get node IPs: {e}")
+            return {}
+
+    def _fetch_metrics(self, node_name: str, node_ip: str) -> dict:
+        """Fetch JSON metrics from cpu-stats-exporter running on node:9100"""
+        try:
+            import urllib.request
+            url = f"http://{node_ip}:9100/metrics"
+            req = urllib.request.Request(url, headers={'User-Agent': 'ResourceMonitor/1.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = response.read().decode('utf-8')
+                return json.loads(data)
+        except Exception as e:
+            logging.warning(f"ResourceMonitor: Failed to fetch from cpu-stats-exporter on {node_ip}:9100: {e}")
+            return {}
+
+    def _msg_loop(self):
+        node_map = self._get_nodes_map()
+        
+        # Fetch container metadata once at start and refresh periodically
+        container_metadata = self._get_container_metadata()
+        metadata_refresh_time = time.time()
+        
+        while not self.stop_event.is_set():
+            start_t = time.time()
+            ts_str = datetime.utcnow().isoformat()
+            
+            # Refresh metadata every 30 seconds
+            if time.time() - metadata_refresh_time > 30:
+                container_metadata = self._get_container_metadata()
+                metadata_refresh_time = time.time()
+            
+            cpu_rows = []
+            
+            for node, ip in node_map.items():
+                metrics_data = self._fetch_metrics(node, ip)
+                if not metrics_data:
+                    continue
+                    
+                current_time = time.time()
+                containers = metrics_data.get("containers", [])
+                
+                # Process each container
+                for container_data in containers:
+                    container_id = container_data.get("container_id", "")
+                    cpu_nanos = container_data.get("cpu_usage_nanoseconds", 0)
+                    
+                    if not container_id:
+                        continue
+                    
+                    # Look up metadata
+                    metadata = container_metadata.get(container_id)
+                    if not metadata:
+                        logging.debug(f"No metadata for container {container_id[:12]}")
+                        continue
+                    
+                    ns = metadata["namespace"]
+                    pod = metadata["pod"]
+                    container = metadata["container"]
+                    cpu_limit = metadata["limit"]
+                    
+                    key = (node, ns, pod, container)
+                    rate = 0.0
+                    
+                    if key in self.prev_cpu:
+                        prev_t, prev_nanos = self.prev_cpu[key]
+                        dt = current_time - prev_t
+                        if dt > 0 and cpu_nanos >= prev_nanos:
+                            # Calculate rate in cores/second
+                            # (current_nanos - prev_nanos) / dt gives nanos/second
+                            # Divide by 1e9 to convert to cores/second
+                            rate = (cpu_nanos - prev_nanos) / (dt * 1e9)
+                    
+                    self.prev_cpu[key] = (current_time, cpu_nanos)
+                    
+                    # Calculate unnormalized utilization (percentage * 100)
+                    # rate is in cores/sec (e.g., 2.5 means 2.5 cores used)
+                    # We want 0-500 scale where 500 = 5 cores at 100%
+                    # So: utilization = rate * 100
+                    utilization = rate * 100.0
+                    
+                    # Always log all containers found in metrics
+                    # Rate will be 0 on first iteration, which is expected
+                    cpu_rows.append([ts_str, node, ns, pod, container, f"{utilization:.2f}", f"{cpu_limit:.2f}"])
+
+            # Write Rows
+            if cpu_rows:
+                try:
+                    with self.cpu_output_file.open("a") as f:
+                        csv.writer(f).writerows(cpu_rows)
+                except Exception as e:
+                    logging.error(f"ResourceMonitor: Failed to write CPU CSV: {e}")
+
+            elapsed = time.time() - start_t
+            sleep_time = max(0.0, self.interval - elapsed)
+            self.stop_event.wait(sleep_time)
+
 
 
 class Runner:
@@ -99,6 +299,13 @@ class Runner:
         start_timestamp = ""
         end_timestamp = ""
         
+        # Start Resource Monitor (CPU + Network)
+        # User requested per-repeat monitoring, output in results.
+        # raw_dir is typically specific to this repeat (passed as unit_dir in Executor).
+        
+        monitor = ResourceMonitor(raw_dir=raw_dir, interval=2.0)
+        monitor.start()
+
         # Determine protocol and version
         http_type = "http" if unit.system in ("sidecar", "sidecar-queue", "plain", "envoy") else "grpc"
         
@@ -272,6 +479,8 @@ class Runner:
             details["exception"] = str(e)
             details["traceback"] = traceback.format_exc()
             logging.error(f"Runner Exception: {e}")
+        finally:
+            monitor.stop()
         
         details["ended_at"] = time.time()
         details["duration_sec"] = details["ended_at"] - start
