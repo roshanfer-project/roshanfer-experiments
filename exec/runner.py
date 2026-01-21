@@ -229,7 +229,34 @@ class Runner:
     def __init__(self, config: Config):
         self.config = config
 
-    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str], log_path: Optional[Path] = None) -> None:
+    def build_system(self, bench: str, system: str, tag: str, status_file: Optional[Path] = None, log_path: Optional[Path] = None) -> None:
+        """
+        Builds the system using benchmarks/<bench>/build.sh.
+        Checks for success status file to potentially skip.
+        """
+        script_path = Path("benchmarks") / bench / "build.sh"
+        if not script_path.exists():
+             # If build.sh doesn't exist, we assume no build needed or legacy?
+             # User prompt implies we should add it. If missing, warn.
+             logging.error(f"Build script not found: {script_path}. Skipping build.")
+             return
+
+        logging_msg = f"Building {system} for {bench} (Tag: {tag})..."
+        logging.info(logging_msg)
+
+        # Build Args
+        cmd = [str(script_path), tag]
+        if status_file:
+            cmd.append(str(status_file))
+
+        try:
+             # Run synchronously
+             run_with_logging(cmd, env=os.environ.copy(), log_path=log_path)
+             logging.info(f"Build of {system} successful.")
+        except subprocess.CalledProcessError as e:
+             raise RuntimeError(f"Build failed for {system}: {e}")
+
+    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str], tag: str, log_path: Optional[Path] = None) -> None:
         """
         Deploys the system using benchmarks/<bench>/deploy.sh.
         Injection: tuning_params as Environment Variables.
@@ -239,7 +266,7 @@ class Runner:
         if not script_path.exists():
             raise FileNotFoundError(f"Deploy script not found: {script_path}")
 
-        logging_msg = f"Deploying {system} on {bench}..."
+        logging_msg = f"Deploying {system} on {bench} (Tag: {tag})..."
         logging.info(logging_msg)
 
         # Always ensure clean slate
@@ -256,6 +283,7 @@ class Runner:
             env[str(k).upper()] = str(v)
         
         env["SYSTEM"] = system
+        env["TAG"] = tag
         env["DEPLOYMENT_HOSTS"] = ",".join(deployment_hosts)
 
         # Run Deploy Script

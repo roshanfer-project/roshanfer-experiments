@@ -235,12 +235,30 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         # Extract 'parameters' key if present
         deploy_params = tuning_params.get("parameters", {})
 
-        # B. Deploy
+        # B. Build & Deploy
         try:
+            # Build Step
+            # User requirement: "build success file ... under directory corresponding to experiment_index"
+            # "name should only include experiment_index and system"
+            # This allows reuse of artifacts for same system in the same run.
+            tag_base = f"{config.experiment_index}-{system}"
+            tag = _safe_name(tag_base)
+            logging.info(f"Tag: {tag}")
+            
+            # Status file in the run directory (exp-<index>/build_success_<tag>)
+            build_status_file = run_root / f"build_success_{tag}"
+            
+            # Check build
+            if not build_status_file.exists():
+                build_log = logs_dir / f"build_{system}_{_timestamp()}.log"
+                runner.build_system(bench, system, tag, build_status_file, log_path=build_log)
+            else:
+                logging.info(f"Build for tag {tag} already successful. Skipping.")
+
             deploy_log = logs_dir / f"deploy_{system}_{_timestamp()}.log"
-            runner.deploy_system(bench, system, deploy_params, deployment, log_path=deploy_log)
+            runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=deploy_log)
         except Exception as e:
-            logging.error(f"Skipping system {system} due to deploy failure: {e}")
+            logging.error(f"Skipping system {system} due to build/deploy failure: {e}")
             continue
 
         # C. Run Experiments
@@ -275,7 +293,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             runner.teardown_system(bench, system, log_path=td_log)
                             try:
                                 dp_log = logs_dir / f"deploy_{system}_redeploy_{_timestamp()}.log"
-                                runner.deploy_system(bench, system, deploy_params, deployment, log_path=dp_log)
+                                runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=dp_log)
                                 logging.info("    Redeploy successful. Retrying repeat...")
                                 # Retry once
                                 res = runner.run(unit, repeat_dir)
