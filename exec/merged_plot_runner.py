@@ -955,9 +955,13 @@ def _load_summary(run_root: Path) -> List[Dict]:
             except Exception:
                 continue
             
-            # Check nested run_result status
+            # Check nested run_result status or top-level status
             run_result = obj.get('run_result', {})
-            if run_result.get('status') != 'success':
+            status = run_result.get('status')
+            if status is None:
+                status = obj.get('status')
+            
+            if status != 'success':
                 continue
                 
             # Flatten or use run_result for artifact_dir lookups later
