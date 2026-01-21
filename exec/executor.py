@@ -284,22 +284,10 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         # Run
                         res = runner.run(unit, repeat_dir)
                         
-                        # Failure Handling: Redeploy loop
+                        # Failure Handling: Log and continue (Retry disabled)
                         if res.status == "error":
-                            logging.warning(f"    Repeat {r} failed. Collecting logs and redeploying...")
-                            collector.collect(unit, res, repeat_dir)
-                            
-                            td_log = logs_dir / f"teardown_{system}_redeploy_{_timestamp()}.log"
-                            runner.teardown_system(bench, system, log_path=td_log)
-                            try:
-                                dp_log = logs_dir / f"deploy_{system}_redeploy_{_timestamp()}.log"
-                                runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=dp_log)
-                                logging.info("    Redeploy successful. Retrying repeat...")
-                                # Retry once
-                                res = runner.run(unit, repeat_dir)
-                            except Exception as re_e:
-                                logging.error(f"    Redeploy failed: {re_e}. Aborting this system.")
-                                raise re_e
+                            logging.warning(f"    Repeat {r} failed. Status: {res.status}")
+
 
                         # Collect
                         col_res = collector.collect(unit, res, repeat_dir)
