@@ -29,13 +29,13 @@ else
         url="http://$address:3000/compose?text=$repeated_char"
         echo "url: $url"
     elif [ "$API" = "read-home-timeline" ]; then
-        url="http://$address:3008/home"
+        url="http://$address:3000/home"
     elif [ "$API" = "read-user-timeline" ]; then
-        url="http://$address:3009/user"
+        url="http://$address:3000/user"
     else
         echo "Unknown social API: $API"
         exit 1
     fi
-    "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 5000 -o $output_dir -t 15
+    "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 15
     exit "$?"
 fi
