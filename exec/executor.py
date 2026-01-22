@@ -241,7 +241,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             # User requirement: "build success file ... under directory corresponding to experiment_index"
             # "name should only include experiment_index and system"
             # This allows reuse of artifacts for same system in the same run.
-            tag_base = f"{config.experiment_index}-{system}"
+            tag_base = f"{config.experiment_index}"
             tag = _safe_name(tag_base)
             logging.info(f"Tag: {tag}")
             
