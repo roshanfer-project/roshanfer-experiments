@@ -105,8 +105,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
       "base_rate": 1000,
