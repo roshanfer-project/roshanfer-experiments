@@ -1,7 +1,8 @@
 {
   "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
   "output_base_dir": "./exp_runs",
-  "experiment_index": "hotel-tight-scale",
+  "experiment_index": "hotel-scale-2api-final-test",
+  "num_generators": 3,
   "prometheus_url": "http://192.168.1.100:9091",
   "raw_artifact_subdir": "raw",
   "metrics_subdir": "metrics",
@@ -11,6 +12,7 @@
   "remote_microservice_path": "/home/farzad/files/benchmarks/hotel/exec",
   "rwg_binary_path": "./rwg/rwg",
   "bench": "hotel",
+  "hosts_file": "configs/hotel/hosts.txt",
   "ssh_binary": "ssh",
   "docker_compose_binary": "docker-compose",
   "git_root": "..",
@@ -32,7 +34,7 @@
     }
   },
   "slos": {
-    "search-hotel": 60,
+    "search-hotel": 28,
     "reserve-hotel": 25
   },
   "metrics": {},

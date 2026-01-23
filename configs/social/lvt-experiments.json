@@ -3,10 +3,10 @@
         {
             "name": "latency-vs-throughput-social-plain",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
+            "script": "run-plain.sh",
             "loads": {
-                "start": 2200,
-                "end": 2300,
+                "start": 2000,
+                "end": 2000,
                 "step": 100
             },
             "base_rate": 1000,
@@ -16,7 +16,7 @@
                 "compose-post"
             ],
             "system": "plain",
-            "repeat": 3,
+            "repeat": 1,
             "collector_freq": 200,
             "warmup": 2
         },
@@ -25,8 +25,8 @@
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
-                "start": 2200,
-                "end": 2300,
+                "start": 2000,
+                "end": 2000,
                 "step": 100
             },
             "base_rate": 1000,
@@ -36,7 +36,7 @@
                 "compose-post"
             ],
             "system": "sidecar",
-            "repeat": 3,
+            "repeat": 1,
             "collector_freq": 200,
             "warmup": 2
         }

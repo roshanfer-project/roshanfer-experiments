@@ -12,7 +12,9 @@
       "base_rate": 10,
       "duration_sec": 10,
       "bench": "hotel",
-      "apis": ["search-hotel"],
+      "apis": [
+        "search-hotel"
+      ],
       "system": "sidecar",
       "repeat": 5,
       "collector_step": "100ms",
@@ -21,7 +23,7 @@
     {
       "name": "latency-and-goodput-vs-load-hotel-1-plain",
       "type": "latency-and-goodput-vs-load",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
         "start": 10,
         "end": 400,
@@ -30,7 +32,9 @@
       "base_rate": 10,
       "duration_sec": 10,
       "bench": "hotel",
-      "apis": ["search-hotel"],
+      "apis": [
+        "search-hotel"
+      ],
       "system": "plain",
       "repeat": 2,
       "collector_step": "100ms",
@@ -48,7 +52,9 @@
       "base_rate": 10,
       "duration_sec": 10,
       "bench": "hotel",
-      "apis": ["search-hotel"],
+      "apis": [
+        "search-hotel"
+      ],
       "system": "envoy",
       "repeat": 5,
       "collector_step": "100ms",
