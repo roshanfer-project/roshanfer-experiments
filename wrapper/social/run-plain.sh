@@ -36,6 +36,6 @@ else
         echo "Unknown social API: $API"
         exit 1
     fi
-    "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 15
+    "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 30
     exit "$?"
 fi
