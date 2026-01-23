@@ -269,13 +269,6 @@ class Runner:
         logging_msg = f"Deploying {system} on {bench} (Tag: {tag})..."
         logging.info(logging_msg)
 
-        # Always ensure clean slate
-        pre_teardown_log = None
-        if log_path:
-            pre_teardown_log = log_path.with_name(log_path.stem + "_pre_teardown" + log_path.suffix)
-            
-        self.teardown_system(bench, system, deployment_hosts, log_path=pre_teardown_log)
-
         # Prepare Environment
         env = os.environ.copy()
         # Inject Tuning Params

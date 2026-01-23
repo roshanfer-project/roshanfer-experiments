@@ -255,8 +255,6 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             else:
                 logging.info(f"Build for tag {tag} already successful. Skipping.")
 
-            deploy_log = logs_dir / f"deploy_{system}_{_timestamp()}.log"
-            runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=deploy_log)
         except Exception as e:
             logging.error(f"Skipping system {system} due to build/deploy failure: {e}")
             continue
@@ -278,6 +276,10 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         repeat_dir = unit_dir / f"repeat_{r:03d}"
                         repeat_dir.mkdir(parents=True, exist_ok=True)
                         
+                        # Deploy per repeat
+                        deploy_log = logs_dir / f"deploy_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
+                        runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=deploy_log)
+                        
                         # Add tuning metadata
                         unit.metadata["tuning_params"] = deploy_params
                         
@@ -294,12 +296,14 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         _log_result(summary_csv, summary_jsonl, exp, unit, res, col_res, r, unit.repeats)
                         run_results.append(res)
                         
+                        # Teardown per repeat
+                        td_log = logs_dir / f"teardown_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
+                        runner.teardown_system(bench, system, deployment, log_path=td_log)
+                        
         except Exception as e:
             logging.error(f"System {system} loop aborted: {e}", exc_info=True)
         finally:
-            # D. Teardown
-            td_log = logs_dir / f"teardown_{system}_{_timestamp()}.log"
-            runner.teardown_system(bench, system, deployment, log_path=td_log)
+            pass # Teardown handled per repeat
 
     # 5. Report
     # report_module.generate_report(...) # Optional
