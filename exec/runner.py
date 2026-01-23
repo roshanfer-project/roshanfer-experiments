@@ -274,7 +274,7 @@ class Runner:
         if log_path:
             pre_teardown_log = log_path.with_name(log_path.stem + "_pre_teardown" + log_path.suffix)
             
-        self.teardown_system(bench, system, log_path=pre_teardown_log)
+        self.teardown_system(bench, system, deployment_hosts, log_path=pre_teardown_log)
 
         # Prepare Environment
         env = os.environ.copy()
@@ -293,21 +293,39 @@ class Runner:
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Deployment failed for {system}: {e}")
 
-    def teardown_system(self, bench: str, system: str, log_path: Optional[Path] = None) -> None:
+    def teardown_system(self, bench: str, system: str, deployment_hosts: List[str], log_path: Optional[Path] = None) -> None:
         """
         Teardowns the system using benchmarks/<bench>/destroy.sh or clean.sh
+        Also flushes conntrack on deployment hosts.
         """
         # Try destroy.sh first, then clean.sh, or assume deploy handles cleanup? 
         # Typically good to have explicit teardown.
         script_path = Path("benchmarks") / bench / "destroy.sh"
         if not script_path.exists():
-            raise FileNotFoundError(f"Destroy script not found: {script_path}")
+             raise FileNotFoundError(f"Destroy script not found: {script_path}")
 
         logging.info(f"Tearing down {system} on {bench}...")
         try:
             env = os.environ.copy()
             env["SYSTEM"] = system
             run_with_logging([str(script_path)], env=env, log_path=log_path)
+            
+            # Flush conntrack on deployment hosts
+            logging.info("Flushing conntrack on deployment hosts...")
+            for host in deployment_hosts:
+                try:
+                    cmd = [
+                        "ssh", 
+                        "-o", "StrictHostKeyChecking=no", 
+                        "-o", "UserKnownHostsFile=/dev/null", 
+                        host,
+                        "sudo conntrack -F"
+                    ]
+                    # We run this blindly, if it fails (e.g. conntrack not found), we log but continue
+                    subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception as e:
+                    logging.warning(f"Failed to flush conntrack on {host}: {e}")
+
         except Exception as e:
             logging.warning(f"Teardown warning: {e}")
 

@@ -299,7 +299,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         finally:
             # D. Teardown
             td_log = logs_dir / f"teardown_{system}_{_timestamp()}.log"
-            runner.teardown_system(bench, system, log_path=td_log)
+            runner.teardown_system(bench, system, deployment, log_path=td_log)
 
     # 5. Report
     # report_module.generate_report(...) # Optional
