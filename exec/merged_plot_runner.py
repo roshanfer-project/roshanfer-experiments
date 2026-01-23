@@ -1497,7 +1497,7 @@ def generate_latency_vs_throughput_merged(
     # Use ACM compact style
     style = PlotStyle(width_points=180)
     # Layout: 2 rows (P99, P95), N columns (one per API)
-    grid = SubplotGrid(style, layout=f"2x{n_apis}")
+    grid = SubplotGrid(style, layout=f"1x{n_apis}")
     
     # Data structure: data[api][exp_label] = {'tps': [], 'p99': [], ...}
     plot_data = {api: {} for api in all_apis}
@@ -1628,7 +1628,7 @@ def generate_latency_vs_throughput_merged(
     # 3. Plotting Loop
     for api_idx, api in enumerate(all_apis):
         ax_p99 = grid.get_ax(0, api_idx)
-        ax_p95 = grid.get_ax(1, api_idx)
+        #ax_p95 = grid.get_ax(1, api_idx)
         
         # Set titles for columns (API names)
         ax_p99.set_title(api, fontsize=style.title_size)
@@ -1647,7 +1647,7 @@ def generate_latency_vs_throughput_merged(
                 show_markers=True
             )
 
-            # Plot P95 line (Row 1)
+            """ # Plot P95 line (Row 1)
             plot_line(
                 ax_p95, data['tps'], data['p95'],
                 yerr=data['p95_ci'],
@@ -1656,7 +1656,7 @@ def generate_latency_vs_throughput_merged(
                 color_idx=color_idx,
                 style_idx=color_idx,
                 show_markers=True
-            )
+            ) """
         
         # Add SLO line
         slo_val = None
@@ -1676,9 +1676,9 @@ def generate_latency_vs_throughput_merged(
             # Plot SLO on P99
             ax_p99.axhline(y=slo_val, color='r', linestyle='--',
                        label='SLO', linewidth=style.line_width)
-            # Plot SLO on P95
+            """ # Plot SLO on P95
             ax_p95.axhline(y=slo_val, color='r', linestyle='--',
-                       label='SLO', linewidth=style.line_width)
+                       label='SLO', linewidth=style.line_width) """
             
         # Configure axes per column
         limits = api_limits[api]
@@ -1695,32 +1695,32 @@ def generate_latency_vs_throughput_merged(
             ax_p99,
             ylabel="P99 Latency (ms)" if api_idx == 0 else "",
             y_data=None, # We set manual limits
-            ylim=(0, 20),
+            ylim=(0, 30),
             y_type='int',
-            y_step=2,
+            y_step=5,
             grid=True,
-            show_xticklabels=False,
-            show_xlabel=False,
+            show_xticklabels=True,
+            show_xlabel=True,
             show_ylabel=(api_idx == 0),
             show_yticklabels=(api_idx == 0)
         )
 
-        # Configure P95 axis (Row 1)
+        """ # Configure P95 axis (Row 1)
         grid.configure_ax(
             ax_p95,
             xlabel="Throughput (RPS)",
             ylabel="P95 Latency (ms)" if api_idx == 0 else "",
             y_data=None, # We set manual limits
-            ylim=(0, 20),
+            ylim=(0, 30),
             y_type='int',
-            y_step=2,
+            y_step=5,
             grid=True,
             show_yticklabels=(api_idx == 0)
-        )
+        ) """
 
     # Add shared legend
     # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top", y_offset=1.1, two_rows=True)
+    grid.add_shared_legend(position="top", y_offset=1.2, two_rows=True)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
