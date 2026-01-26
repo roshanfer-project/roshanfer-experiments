@@ -7,6 +7,13 @@ if [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ] || [ -z "$6" ]; then
   exit 1
 fi
 
+# check if --ignore-errors is provided
+if [ "$7" == "--ignore-errors" ]; then
+    ignore_errors=true
+else
+    ignore_errors=false
+fi
+
 
 protocol=$1
 BASE=$2
@@ -28,6 +35,10 @@ else
         echo "Unknown hotel API: $API"
         exit 1
     fi
-    "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 30
+    if [ "$ignore_errors" = true ]; then
+        "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 30 --ignore-errors
+    else
+        "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 30
+    fi
     exit "$?"
 fi
