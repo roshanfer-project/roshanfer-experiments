@@ -45,8 +45,9 @@ else
     fi
     if [ "$ignore_errors" = true ]; then
         "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 30 --ignore-errors
+        exit 0
     else
         "$RWG_BINARY" run --url $url -d exp -D 2,$DURATION -r $BASE,$RATE -w 10000 -o $output_dir -t 30
+        exit "$?"
     fi
-    exit "$?"
 fi
