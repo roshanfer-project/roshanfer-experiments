@@ -56,7 +56,8 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
             services=exp.services, execution_args=exp.execution_args,
             repeats=exp.repeat,
             generator_hosts=generators,
-            deployment_hosts=deployment
+            deployment_hosts=deployment,
+            params=exp.params
         )
         return
 
@@ -81,7 +82,8 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
             metadata={},
             repeats=exp.repeat,
             generator_hosts=generators,
-            deployment_hosts=deployment
+            deployment_hosts=deployment,
+            params=exp.params
         )
 
 def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:
@@ -310,9 +312,14 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         repeat_dir.mkdir(parents=True, exist_ok=True)
                         
                         try:
+                            # Merge tuning params with experiment-specific env vars
+                            # Priority: deploy_env (exp config) > deploy_params (tuning result)
+                            extra_env = unit.params.get("deploy_env", {})
+                            final_env_vars = {**deploy_params, **extra_env}
+
                             # Deploy per repeat
                             deploy_log = logs_dir / f"deploy_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
-                            runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=deploy_log)
+                            runner.deploy_system(bench, system, final_env_vars, deployment, tag=tag, log_path=deploy_log)
                             
                             # Add tuning metadata
                             unit.metadata["tuning_params"] = deploy_params

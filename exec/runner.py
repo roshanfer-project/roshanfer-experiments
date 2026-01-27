@@ -256,10 +256,10 @@ class Runner:
         except subprocess.CalledProcessError as e:
              raise RuntimeError(f"Build failed for {system}: {e}")
 
-    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str], tag: str, log_path: Optional[Path] = None, quiet: bool = False) -> None:
+    def deploy_system(self, bench: str, system: str, env_vars: Dict[str, Any], deployment_hosts: List[str], tag: str, log_path: Optional[Path] = None, quiet: bool = False) -> None:
         """
         Deploys the system using benchmarks/<bench>/deploy.sh.
-        Injection: tuning_params as Environment Variables.
+        Injection: env_vars as Environment Variables.
         Helpers: Passes DEPLOYMENT_HOSTS as comma-separated env var.
         """
         script_path = Path("benchmarks") / bench / "deploy.sh"
@@ -272,8 +272,8 @@ class Runner:
 
         # Prepare Environment
         env = os.environ.copy()
-        # Inject Tuning Params
-        for k, v in tuning_params.items():
+        # Inject Env Vars
+        for k, v in env_vars.items():
             env[str(k)] = str(v)
         
         env["SYSTEM"] = system
