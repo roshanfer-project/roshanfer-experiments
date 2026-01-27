@@ -39,7 +39,6 @@ def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
 
 def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generators: List[str], deployment: List[str]) -> Iterable[RunUnit]:
     # Custom expansion logic mapping exp params to units
-    # Assuming latency-vs-load type mostly
     start = exp.loads.start if exp.loads else exp.base_rate
     end = exp.loads.end + 1 if exp.loads else (exp.base_rate + 1)
     step = exp.loads.step if exp.loads else 1
