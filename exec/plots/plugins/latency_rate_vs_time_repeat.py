@@ -57,6 +57,14 @@ SUPPORTED_TYPES = [
     'latency-and-rate-vs-time',  # per-repeat only; no cross-repeat aggregation
 ]
 
+# Custom color map for rate plots
+RATE_COLOR_MAP = {
+    'goodput': '#4daf4a',       # Green
+    'SLO violation': '#e41a1c', # Red
+    'dropped': '#ff7f00',       # Orange
+    'errors': '#999999',        # Gray
+}
+
 
 def _load_global_slos() -> Optional[Dict[str, float]]:
     """Search for config.json / config.sample.json containing 'slos' starting from this file upward.
@@ -177,7 +185,8 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     x = df['relative_time'].values
     
     # Plot stacked area
-    plot_stacked_area(ax, x, y_series, style=style)
+    # Plot stacked area
+    plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
     
     # Configure axis
     grid.configure_ax(ax, xlabel='Time (s)', ylabel='Rate (KRPS)', grid=True)
@@ -235,7 +244,8 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
         x = df['relative_time'].values
         
         # Plot stacked area
-        plot_stacked_area(ax, x, y_series, style=style)
+        # Plot stacked area
+        plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
         
         # Add subplot title (API name)
         display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
