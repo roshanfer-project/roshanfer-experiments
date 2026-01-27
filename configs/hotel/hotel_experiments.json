@@ -46,8 +46,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run.sh",
       "loads": {
-        "start": 6000,
-        "end": 6000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -57,7 +57,7 @@
         "search-hotel"
       ],
       "system": "sidecar",
-      "repeat": 3,
+      "repeat": 1,
       "collector_freq": 200
     },
     {
@@ -65,8 +65,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 4000,
-        "end": 4000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -76,7 +76,7 @@
         "search-hotel"
       ],
       "system": "plain",
-      "repeat": 3,
+      "repeat": 1,
       "collector_freq": 200
     },
     {
@@ -223,23 +223,21 @@
     {
       "name": "latency-and-rate-vs-time-hotel-1-rajomon",
       "type": "latency-and-rate-vs-time",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
         "start": 8000,
         "end": 8000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "rajomon",
-      "repeat": 10,
-      "collector_step": "1000ms",
-      "collector_range": "1s",
-      "collector_freq": 1000
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-rate-vs-time-hotel-2-rajomon",
