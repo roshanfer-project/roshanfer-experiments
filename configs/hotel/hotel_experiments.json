@@ -16,14 +16,13 @@
         "search-hotel"
       ],
       "system": "sidecar",
-      "repeat": 7,
-      "collector_step": "1000ms",
-      "collector_range": "1s"
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-goodput-vs-load-hotel-2-sidecar",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-2-api-hotel.sh",
+      "script": "run.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -37,17 +36,16 @@
         "reserve-hotel"
       ],
       "system": "sidecar",
-      "repeat": 7,
-      "collector_step": "1000ms",
-      "collector_range": "1s"
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-rate-vs-time-hotel-1-sidecar",
       "type": "latency-and-rate-vs-time",
       "script": "run.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -57,53 +55,13 @@
         "search-hotel"
       ],
       "system": "sidecar",
-      "repeat": 1,
+      "repeat": 3,
       "collector_freq": 200
     },
     {
       "name": "latency-and-rate-vs-time-hotel-1-plain",
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
-      "loads": {
-        "start": 8000,
-        "end": 8000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 10,
-      "bench": "hotel",
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "plain",
-      "repeat": 1,
-      "collector_freq": 200
-    },
-    {
-      "name": "latency-and-rate-vs-time-updown-hotel-1-sidecar",
-      "type": "latency-and-rate-vs-time",
-      "script": "run-updown.sh",
-      "loads": {
-        "start": 8000,
-        "end": 8000,
-        "step": 1000
-      },
-      "base_rate": 3000,
-      "duration_sec": 10,
-      "bench": "hotel",
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 5,
-      "collector_step": "1000ms",
-      "collector_range": "1s",
-      "collector_freq": 1000
-    },
-    {
-      "name": "latency-and-rate-vs-time-hotel-2-sidecar",
-      "type": "latency-and-rate-vs-time",
-      "script": "run.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -113,11 +71,30 @@
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
+        "search-hotel"
+      ],
+      "system": "plain",
+      "repeat": 3,
+      "collector_freq": 200
+    },
+    {
+      "name": "latency-and-rate-vs-time-hotel-2-sidecar",
+      "type": "latency-and-rate-vs-time",
+      "script": "run.sh",
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1000
+      },
+      "base_rate": 1000,
+      "duration_sec": 10,
+      "bench": "hotel",
+      "apis": [
         "search-hotel",
         "reserve-hotel"
       ],
       "system": "sidecar",
-      "repeat": 1,
+      "repeat": 3,
       "collector_freq": 200
     },
     {
@@ -125,21 +102,21 @@
       "type": "max-queue",
       "script": "run.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
-      "system": "sidecar-queue",
-      "repeat": 7,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "system": "sidecar",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
+        "ingress",
         "frontend",
         "search",
         "reservation",
@@ -147,29 +124,32 @@
         "user",
         "rate",
         "geo"
-      ]
+      ],
+      "deploy_env": {
+        "queuing_export": "true"
+      }
     },
     {
       "name": "max-queue-hotel-2-sidecar",
       "type": "max-queue",
-      "script": "run-2-api-hotel.sh",
+      "script": "run.sh",
       "loads": {
-        "start": 6000,
-        "end": 6000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 200,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
       ],
-      "system": "sidecar-queue",
-      "repeat": 7,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "system": "sidecar",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
+        "ingress",
         "frontend",
         "search",
         "reservation",
@@ -177,12 +157,15 @@
         "user",
         "rate",
         "geo"
-      ]
+      ],
+      "deploy_env": {
+        "queuing_export": "true"
+      }
     },
     {
       "name": "latency-and-goodput-vs-load-hotel-1-rajomon",
       "type": "latency-and-goodput-vs-load",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 14000,
@@ -195,14 +178,13 @@
         "search-hotel"
       ],
       "system": "rajomon",
-      "repeat": 12,
-      "collector_step": "1000ms",
-      "collector_range": "1s"
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-goodput-vs-load-hotel-2-rajomon",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -216,17 +198,16 @@
         "reserve-hotel"
       ],
       "system": "rajomon",
-      "repeat": 12,
-      "collector_step": "1000ms",
-      "collector_range": "1s"
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-rate-vs-time-hotel-1-rajomon",
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -242,13 +223,13 @@
     {
       "name": "latency-and-rate-vs-time-hotel-2-rajomon",
       "type": "latency-and-rate-vs-time",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 6000,
-        "end": 6000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 200,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
@@ -256,32 +237,30 @@
         "reserve-hotel"
       ],
       "system": "rajomon",
-      "repeat": 10,
-      "collector_step": "1000ms",
-      "collector_range": "1s",
-      "collector_freq": 1000
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "max-queue-hotel-1-rajomon",
       "type": "max-queue",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 500,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "rajomon",
-      "repeat": 7,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -293,24 +272,24 @@
     {
       "name": "max-queue-motivation-hotel-1-rajomon",
       "type": "max-queue-motivation",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 3000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 500
       },
-      "base_rate": 3000,
+      "base_rate": 500,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "rajomon",
-      "repeat": 1,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -322,13 +301,13 @@
     {
       "name": "max-queue-hotel-2-rajomon",
       "type": "max-queue",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 6000,
-        "end": 6000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 200,
+      "base_rate": 500,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
@@ -336,11 +315,11 @@
         "reserve-hotel"
       ],
       "system": "rajomon",
-      "repeat": 7,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -352,24 +331,24 @@
     {
       "name": "resource-waste-hotel-1-rajomon",
       "type": "resource-waste",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "rajomon",
-      "repeat": 5,
-      "collector_step": "2s",
-      "collector_range": "15s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -381,13 +360,13 @@
     {
       "name": "resource-waste-hotel-2-rajomon",
       "type": "resource-waste",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
@@ -395,11 +374,11 @@
         "reserve-hotel"
       ],
       "system": "rajomon",
-      "repeat": 5,
-      "collector_step": "2s",
-      "collector_range": "15s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -411,7 +390,7 @@
     {
       "name": "latency-and-goodput-vs-load-hotel-1-dagor",
       "type": "latency-and-goodput-vs-load",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 14000,
@@ -424,14 +403,13 @@
         "search-hotel"
       ],
       "system": "dagor",
-      "repeat": 7,
-      "collector_step": "1000ms",
-      "collector_range": "1s"
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-goodput-vs-load-hotel-2-dagor",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -445,41 +423,38 @@
         "reserve-hotel"
       ],
       "system": "dagor",
-      "repeat": 7,
-      "collector_step": "1000ms",
-      "collector_range": "1s"
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-rate-vs-time-hotel-1-dagor",
       "type": "latency-and-rate-vs-time",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "dagor",
-      "repeat": 10,
-      "collector_step": "1000ms",
-      "collector_range": "1s",
-      "collector_freq": 1000
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "latency-and-rate-vs-time-hotel-2-dagor",
       "type": "latency-and-rate-vs-time",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 6000,
-        "end": 6000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 200,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
@@ -487,32 +462,30 @@
         "reserve-hotel"
       ],
       "system": "dagor",
-      "repeat": 10,
-      "collector_step": "1000ms",
-      "collector_range": "1s",
-      "collector_freq": 1000
+      "repeat": 3,
+      "collector_freq": 200
     },
     {
       "name": "max-queue-hotel-1-dagor",
       "type": "max-queue",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "dagor",
-      "repeat": 7,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -524,13 +497,13 @@
     {
       "name": "max-queue-hotel-2-dagor",
       "type": "max-queue",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 6000,
-        "end": 6000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 200,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
@@ -538,11 +511,11 @@
         "reserve-hotel"
       ],
       "system": "dagor",
-      "repeat": 7,
-      "collector_step": "4s",
-      "collector_range": "5s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -554,24 +527,24 @@
     {
       "name": "resource-waste-hotel-1-dagor",
       "type": "resource-waste",
-      "script": "run.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
       "system": "dagor",
-      "repeat": 5,
-      "collector_step": "2s",
-      "collector_range": "15s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
@@ -583,13 +556,13 @@
     {
       "name": "resource-waste-hotel-2-dagor",
       "type": "resource-waste",
-      "script": "run-2-api-hotel.sh",
+      "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
-      "base_rate": 3000,
+      "base_rate": 1000,
       "duration_sec": 10,
       "bench": "hotel",
       "apis": [
@@ -597,11 +570,11 @@
         "reserve-hotel"
       ],
       "system": "dagor",
-      "repeat": 5,
-      "collector_step": "2s",
-      "collector_range": "15s",
+      "repeat": 3,
+      "collector_freq": 200,
       "services": [
-        "frontend-grpc",
+        "ingress",
+        "frontend",
         "search",
         "reservation",
         "profile",
