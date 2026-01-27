@@ -256,7 +256,7 @@ class Runner:
         except subprocess.CalledProcessError as e:
              raise RuntimeError(f"Build failed for {system}: {e}")
 
-    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str], tag: str, log_path: Optional[Path] = None) -> None:
+    def deploy_system(self, bench: str, system: str, tuning_params: Dict[str, Any], deployment_hosts: List[str], tag: str, log_path: Optional[Path] = None, quiet: bool = False) -> None:
         """
         Deploys the system using benchmarks/<bench>/deploy.sh.
         Injection: tuning_params as Environment Variables.
@@ -267,13 +267,14 @@ class Runner:
             raise FileNotFoundError(f"Deploy script not found: {script_path}")
 
         logging_msg = f"Deploying {system} on {bench} (Tag: {tag})..."
-        logging.info(logging_msg)
+        if not quiet:
+             logging.info(logging_msg)
 
         # Prepare Environment
         env = os.environ.copy()
         # Inject Tuning Params
         for k, v in tuning_params.items():
-            env[str(k).upper()] = str(v)
+            env[str(k)] = str(v)
         
         env["SYSTEM"] = system
         env["TAG"] = tag
@@ -281,12 +282,13 @@ class Runner:
 
         # Run Deploy Script
         try:
-            run_with_logging([str(script_path)], env=env, log_path=log_path)
-            logging.info(f"Deployment of {system} successful.")
+            run_with_logging([str(script_path)], env=env, log_path=log_path, verbose=not quiet)
+            if not quiet:
+                 logging.info(f"Deployment of {system} successful.")
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Deployment failed for {system}: {e}")
 
-    def teardown_system(self, bench: str, system: str, deployment_hosts: List[str], log_path: Optional[Path] = None) -> None:
+    def teardown_system(self, bench: str, system: str, deployment_hosts: List[str], log_path: Optional[Path] = None, quiet: bool = False) -> None:
         """
         Teardowns the system using benchmarks/<bench>/destroy.sh or clean.sh
         Also flushes conntrack on deployment hosts.
@@ -297,11 +299,12 @@ class Runner:
         if not script_path.exists():
              raise FileNotFoundError(f"Destroy script not found: {script_path}")
 
-        logging.info(f"Tearing down {system} on {bench}...")
+        if not quiet:
+             logging.info(f"Tearing down {system} on {bench}...")
         try:
             env = os.environ.copy()
             env["SYSTEM"] = system
-            run_with_logging([str(script_path)], env=env, log_path=log_path)
+            run_with_logging([str(script_path)], env=env, log_path=log_path, verbose=not quiet)
             
             # Flush conntrack on deployment hosts
             logging.info("Flushing conntrack on deployment hosts...")
@@ -346,7 +349,7 @@ class Runner:
         monitor.start()
 
         # Determine protocol and version
-        http_type = "http" if unit.system in ("sidecar", "sidecar-queue", "plain", "envoy") else "grpc"
+        http_type = "http"
         
         active_processes = []
         
@@ -441,6 +444,9 @@ class Runner:
                     f"mkdir -p {remote_out_dir} && "
                     f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
                 )
+                if not (unit.system in ["plain", "sidecar"]):
+                    # add --ignore-errors
+                    cmd_str += " --ignore-errors"
                 
                 # Add extra execution args
                 if unit.execution_args:
@@ -480,7 +486,7 @@ class Runner:
                 if proc.returncode != 0:
                     status = "error"
                     details[f"error_{api}"] = f"RWG failed on {host} code={proc.returncode}"
-                    logging.error(f"Error on {host}: {stderr}")
+                    logging.error(f"Error on {host} (code={proc.returncode}): {stderr} | Stdout snippet: {stdout[:200]}")
                 else:
                     # Pull output
                     # Remote: {remote_out_dir}/out-{api}.csv and overall-{api}.json ?

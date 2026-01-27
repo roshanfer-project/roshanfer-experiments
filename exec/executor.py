@@ -90,49 +90,63 @@ def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:
         mx = max(mx, len(e.apis))
     return mx if mx > 0 else 1
 
-def _run_tuner(system: str, bench: str, tuning_dir: Path, config_path: Path) -> Dict[str, Any]:
-    """Run tuner script and return params."""
-    tuner_script = Path("exec") / "tuner_template.py" 
-    # Logic to pick specific tuner?
-    # User said "move template_tuner to exec". 
-    # If we want specific tuners, maybe exec/tuners/<system>_tuner.py?
-    # Or just check default locations.
-    
-    possible_scripts = [
-        Path("tuner") / f"{system}_tuner.py",
-        Path("exec") / f"{system}_tuner.py",
-        Path("exec") / "tuner_template.py" # Output of move command
-    ]
-    
-    target_script = None
-    for p in possible_scripts:
-        if p.exists():
-            target_script = p
-            break
-            
-    if not target_script:
-        logging.warning(f"No tuner found for {system}, skipping.")
-        return {}
-
-    output_file = tuning_dir / f"{system}.json"
-    
-    cmd = [
-        "python", str(target_script),
-        "--system", system,
-        "--bench", bench,
-        "--output", str(output_file),
-        "--config", str(config_path)
-    ]
-
+def _run_tuner(system: str, bench: str, tuning_dir: Path, logs_dir: Path, config_path: Path, tag: str, generators: List[str], deployment: List[str]) -> Dict[str, Any]:
+    """Run tuner module natively and return params."""
     try:
-        logging.info(f"Running tuner for {system}...")
-        subprocess.run(cmd, check=True)
-        if output_file.exists():
-            return json.loads(output_file.read_text())
+        import importlib
+        import contextlib
+        
+        # Determine module name
+        module_name = f"exec.{system}_tuner"
+        
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            logging.warning(f"Could not import tuner module {module_name}. Skipping tuning.")
+            return {}
 
+        logging.info(f"Running tuner {module_name} for {system} (Tag: {tag})...")
+        
+        # Log to a separate file for the tuner
+        tuner_log_path = logs_dir / f"tuner_{system}_{_timestamp()}.log"
+        
+        # Detach executor file handlers to prevent pollution
+        root_logger = logging.getLogger()
+        executor_handlers = []
+        for h in root_logger.handlers:
+            if isinstance(h, logging.FileHandler) and "executor_" in str(Path(h.baseFilename).name):
+                executor_handlers.append(h)
+        
+        for h in executor_handlers:
+            root_logger.removeHandler(h)
+
+        try:
+            # Capture stdout/stderr to the log file with line buffering
+            with tuner_log_path.open("w", buffering=1) as f:
+                with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+                     # Check if module has optimize_system
+                     if hasattr(module, "optimize_system"):
+                          return module.optimize_system(str(config_path), system, bench, tag=tag, generators=generators, deployment=deployment, logs_dir=logs_dir)
+                     else:
+                          print(f"Module {module_name} has no optimize_system function.")
+                          return {}
+        except Exception as e:
+            logging.warning(f"Tuner failed for {system}: {e}")
+            # Log exception to tuner log if possible
+            try:
+                 with (logs_dir / f"tuner_{system}_error.log").open("a") as ef:
+                     ef.write(str(e) + "\n")
+                     import traceback
+                     ef.write(traceback.format_exc())
+            except: 
+                pass
+        finally:
+            # Re-attach executor handlers
+            for h in executor_handlers:
+                root_logger.addHandler(h)
+    
     except Exception as e:
-
-        logging.warning(f"Tuner failed for {system}: {e}")
+        logging.warning(f"Top-level Tuner error for {system}: {e}")
     
     return {}
 
@@ -226,21 +240,16 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     for system, system_exps in by_system.items():
         logging.info(f"=== Process System: {system} ===")
         
-        # A. Tuning
-        # Assuming all exps for a system use same benchmark? 
-        # If not, we might need multiple tunes. 
-        # For simplicity, pick the first bench.
+        if not system_exps:
+             logging.warning(f"No experiments for system {system}?")
+             continue
+        
+        # Simplify: Pick the first benchmark and assume all experiments for this system use it.
         bench = system_exps[0].bench
-        tuning_params = _run_tuner(system, bench, tuning_dir, config_path)
-        # Extract 'parameters' key if present
-        deploy_params = tuning_params.get("parameters", {})
-
-        # B. Build & Deploy
+        
+        # A. Build & Deploy (Moved before Tuning so images exist)
         try:
             # Build Step
-            # User requirement: "build success file ... under directory corresponding to experiment_index"
-            # "name should only include experiment_index and system"
-            # This allows reuse of artifacts for same system in the same run.
             tag_base = f"{config.experiment_index}"
             tag = _safe_name(tag_base)
             logging.info(f"Tag: {tag}")
@@ -256,16 +265,40 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                 logging.info(f"Build for tag {tag} already successful. Skipping.")
 
         except Exception as e:
-            logging.error(f"Skipping system {system} due to build/deploy failure: {e}")
+            logging.error(f"Skipping system {system} due to build failure: {e}")
             continue
 
+        # B. Tuning
+        best_params_file = tuning_dir / "best_params.json"
+        if best_params_file.exists():
+            logging.info(f"Found existing best parameters at {best_params_file}. Skipping tuning.")
+            try:
+                tuning_params = json.loads(best_params_file.read_text())
+            except Exception as e:
+                logging.warning(f"Failed to read best params from {best_params_file}: {e}. Proceeding with tuning.")
+                tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
+        else:
+            tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
+        # Extract 'parameters' key if present, otherwise assume the whole dict is properties
+        deploy_params = tuning_params.get("parameters", tuning_params)
+        
+        if deploy_params:
+            try:
+                (tuning_dir / "best_params.json").write_text(json.dumps(deploy_params, indent=2))
+                logging.info(f"Persisted best parameters to {tuning_dir / 'best_params.json'}")
+            except Exception as e:
+                logging.warning(f"Failed to persist best params: {e}")
+        
         # C. Run Experiments
         try:
             for exp in system_exps:
                 logging.info(f"  Running Experiment: {exp.name}")
                 exp_dir = run_root / _safe_name(exp.name)
                 exp_dir.mkdir(parents=True, exist_ok=True)
-
+                
+                # Get params for this experiment's benchmark
+                # deploy_params is already set above for the single 'bench'
+                
                 for unit in _expand_experiment_to_units(exp, config, generators, deployment):
                     unit_dir = exp_dir / unit.safe_name()
                     unit_dir.mkdir(parents=True, exist_ok=True)
@@ -276,34 +309,58 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         repeat_dir = unit_dir / f"repeat_{r:03d}"
                         repeat_dir.mkdir(parents=True, exist_ok=True)
                         
-                        # Deploy per repeat
-                        deploy_log = logs_dir / f"deploy_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
-                        runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=deploy_log)
-                        
-                        # Add tuning metadata
-                        unit.metadata["tuning_params"] = deploy_params
-                        
-                        # Run
-                        res = runner.run(unit, repeat_dir)
-                        
-                        # Failure Handling: Log and continue (Retry disabled)
-                        if res.status == "error":
-                            logging.warning(f"    Repeat {r} failed. Status: {res.status}")
+                        try:
+                            # Deploy per repeat
+                            deploy_log = logs_dir / f"deploy_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
+                            runner.deploy_system(bench, system, deploy_params, deployment, tag=tag, log_path=deploy_log)
+                            
+                            # Add tuning metadata
+                            unit.metadata["tuning_params"] = deploy_params
+                            
+                            # Run
+                            res = runner.run(unit, repeat_dir)
+                            
+                            # Failure Handling from Run (application failure)
+                            if res.status == "error":
+                                logging.warning(f"    Repeat {r} failed. Status: {res.status}")
+                            
+                            # Collect
+                            col_res = collector.collect(unit, res, repeat_dir)
+                            _log_result(summary_csv, summary_jsonl, exp, unit, res, col_res, r, unit.repeats)
+                            run_results.append(res)
+                            
+                        except Exception as e:
+                            logging.error(f"Experiment {exp.name} Unit {unit.name} Repeat {r} failed: {e}")
+                            # Mark as failed in logs?
+                            # Create a failed result to log
+                            fail_res = RunResult(
+                                unit_name=unit.name,
+                                status="error",
+                                raw_artifact_dir=str(repeat_dir / "raw"), # approximation
+                                details={"error": str(e), "traceback": tb.format_exc()},
+                                repeat_index=r
+                            )
+                            # Create dummy collector result
+                            fail_col = CollectorResult(unit.name, str(repeat_dir/"metrics"), [], "failed")
+                            _log_result(summary_csv, summary_jsonl, exp, unit, fail_res, fail_col, r, unit.repeats)
+                            
+                            # Log to main error file
+                            try:
+                                with (logs_dir / f"errors_{system}_{_timestamp()}.log").open("a") as ef:
+                                    ef.write(f"Ref: {exp.name}/{unit.name}/{r}\n")
+                                    ef.write(tb.format_exc() + "\n")
+                            except: pass
+                            
+                        finally:
+                            # Ensure Teardown per repeat
+                            td_log = logs_dir / f"teardown_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
+                            try:
+                                runner.teardown_system(bench, system, deployment, log_path=td_log)
+                            except Exception as te:
+                                logging.warning(f"Teardown failed for repeat {r}: {te}")
 
-
-                        # Collect
-                        col_res = collector.collect(unit, res, repeat_dir)
-                        _log_result(summary_csv, summary_jsonl, exp, unit, res, col_res, r, unit.repeats)
-                        run_results.append(res)
-                        
-                        # Teardown per repeat
-                        td_log = logs_dir / f"teardown_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
-                        runner.teardown_system(bench, system, deployment, log_path=td_log)
-                        
         except Exception as e:
-            logging.error(f"System {system} loop aborted: {e}", exc_info=True)
-        finally:
-            pass # Teardown handled per repeat
+            logging.error(f"System {system} loop aborted (Unexpected top-level error): {e}", exc_info=True)
 
     # 5. Report
     # report_module.generate_report(...) # Optional

@@ -47,7 +47,7 @@ def format_query(template: str, values: Mapping[str, Any], *, strict: bool = Fal
     return _PLACEHOLDER_PATTERN.sub(repl, template)
 
 
-def run_with_logging(cmd: List[str], env: dict, log_path: Optional[Path] = None):
+def run_with_logging(cmd: List[str], env: dict, log_path: Optional[Path] = None, verbose: bool = True):
     """
     Runs a command, streaming output to stdout and optionally to a log file.
     Similar to 'tee'. 
@@ -57,9 +57,12 @@ def run_with_logging(cmd: List[str], env: dict, log_path: Optional[Path] = None)
     # But 'tee' style is nice even for just stdout often.
     # Let's use Popen to ensure real-time output.
     
-    logging.info(f"Running command: {' '.join(cmd)}")
+    if verbose:
+         logging.info(f"Running command: {' '.join(cmd)}")
+    
     if log_path:
-        logging.info(f"Logging output to: {log_path}")
+        if verbose:
+             logging.info(f"Logging output to: {log_path}")
     
     # Open log file if needed
     log_file = None
@@ -82,8 +85,9 @@ def run_with_logging(cmd: List[str], env: dict, log_path: Optional[Path] = None)
             if not line and process.poll() is not None:
                 break
             if line:
-                sys.stdout.write(line)
-                sys.stdout.flush()
+                if verbose:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
                 if log_file:
                     log_file.write(line)
                     log_file.flush()

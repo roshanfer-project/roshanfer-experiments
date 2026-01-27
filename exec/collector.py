@@ -24,7 +24,7 @@ class Collector:
     def __init__(self, config: Config):
         self.config = config
 
-    def collect(self, unit: RunUnit, run_result: RunResult, unit_dir: Path) -> CollectorResult:
+    def collect(self, unit: RunUnit, run_result: RunResult, unit_dir: Path, collect_service_logs: bool = True) -> CollectorResult:
         output_dir = unit_dir / "output"
         raw_dir = unit_dir / self.config.raw_artifact_subdir
         metrics_dir = unit_dir / self.config.metrics_subdir
@@ -40,8 +40,9 @@ class Collector:
         }
         metric_files: List[str] = []
 
-        # 1. Collect Service Logs
-        self._collect_service_logs(unit, raw_dir)
+        # 1. Collect Service Logs (Optional)
+        if collect_service_logs:
+             self._collect_service_logs(unit, raw_dir)
 
         # 2. Generate/Validate JSON Reports from CSV (Local processing)
         # We assume Runner has already pulled out-{api}.csv to output_dir
@@ -84,7 +85,7 @@ class Collector:
 
     def _generate_reports(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any], metric_files: List[str]):
         """Runs `rwg parse` to generate overall.json and realtime.csv."""
-        version = "1" if unit.system in ("plain", "sidecar", "envoy") else "2"
+        version = "1"
         # Determine version more robustly if needed, but this matches legacy.
 
         for api in unit.apis:
