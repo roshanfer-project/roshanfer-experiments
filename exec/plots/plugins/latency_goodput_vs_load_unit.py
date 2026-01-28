@@ -3,7 +3,7 @@
 REWRITTEN to use new RWG data loading and plotting architecture.
 
 Generates per run-unit (load point) PDF figures combining repeats:
-  * latency_vs_load_unit.pdf : P95 (per API) with error bars across repeats
+  * latency_vs_load_unit.pdf : P99 (per API) with error bars across repeats
   * goodput_vs_load_unit.pdf : goodput (per API) with error bars across repeats
 
 Context provided via aggregate key:
@@ -145,15 +145,15 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
         
         api_metrics = aggregated[api]
         
-        # Extract P95 latency with CI
-        p95_mean, p95_std, p95_ci = api_metrics.get('p95_latency', (None, None, None))
+        # Extract P99 latency with CI
+        p99_mean, p99_std, p99_ci = api_metrics.get('p99_latency', (None, None, None))
         
-        if p95_mean is not None:
+        if p99_mean is not None:
             # Plot with error bars (use CI, not std)
             plot_line(
-                ax, [x_value], [p95_mean], 
-                yerr=[p95_ci if p95_ci is not None else 0.0],
-                label='P95',
+                ax, [x_value], [p99_mean], 
+                yerr=[p99_ci if p99_ci is not None else 0.0],
+                label='P99',
                 style=style,
                 color_idx=1,
                 show_markers=True  # Sparse data, markers help
@@ -177,7 +177,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
     grid_lat.configure_labels(
         pattern="leftmost_y_bottom_x",
         xlabel="Offered Load (KRPS)",
-        ylabel="P95 Latency (ms)"
+        ylabel="P99 Latency (ms)"
     )
     
     # Add legend

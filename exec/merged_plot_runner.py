@@ -1093,7 +1093,7 @@ def generate_latency_goodput_vs_load_merged(
             load_groups.setdefault(load_value, []).append(record)
         
         # Process each load and collect metrics using RWG data
-        exp_data = {api: {'latency_p95': [], 'goodput': []} for api in apis}
+        exp_data = {api: {'latency_p99': [], 'goodput': []} for api in apis}
         loads = []
         
         for load_value in sorted(load_groups.keys()):
@@ -1118,7 +1118,7 @@ def generate_latency_goodput_vs_load_merged(
                 # No data for this load - add None placeholders
                 for api in apis:
                     exp_data[api]['goodput'].append((None, None, None))
-                    exp_data[api]['latency_p95'].append((None, None, None))
+                    exp_data[api]['latency_p99'].append((None, None, None))
                 continue
             
             # Aggregate across repeats
@@ -1127,14 +1127,14 @@ def generate_latency_goodput_vs_load_merged(
             for api in apis:
                 if api in aggregated:
                     # Latency P95
-                    lat_mean, lat_std, lat_ci = aggregated[api].get('p95_latency', (None, None, None))
-                    exp_data[api]['latency_p95'].append((lat_mean, lat_std, lat_ci))
+                    lat_mean, lat_std, lat_ci = aggregated[api].get('p99_latency', (None, None, None))
+                    exp_data[api]['latency_p99'].append((lat_mean, lat_std, lat_ci))
                     
                     # Goodput
                     gp_mean, gp_std, gp_ci = aggregated[api].get('goodput', (None, None, None))
                     exp_data[api]['goodput'].append((gp_mean, gp_std, gp_ci))
                 else:
-                    exp_data[api]['latency_p95'].append((None, None, None))
+                    exp_data[api]['latency_p99'].append((None, None, None))
                     exp_data[api]['goodput'].append((None, None, None))
         
         all_experiment_data[label] = {
@@ -1178,7 +1178,7 @@ def generate_latency_goodput_vs_load_merged(
                 continue
             
             # Extract latency data with CI
-            latency_data = exp_data[api]['latency_p95']
+            latency_data = exp_data[api]['latency_p99']
             means = [item[0] for item in latency_data]
             cis = [item[2] if item[2] is not None else 0.0 for item in latency_data]
             
@@ -1504,7 +1504,7 @@ def generate_latency_vs_throughput_merged(
     
     # Track global min/max for axis configuration per API
     # limits[api] = {'max_tp': 0, 'max_lat': 0}
-    api_limits = {api: {'max_tp': 0, 'max_p99': 0, 'max_p95': 0} for api in all_apis}
+    api_limits = {api: {'max_tp': 0, 'max_p99': 0} for api in all_apis}
 
     color_idx_map = {} # label -> color_idx
 
@@ -1551,7 +1551,7 @@ def generate_latency_vs_throughput_merged(
             for unit_name, artifact_dirs in found_units.items():
                 unit_throughputs = []
                 unit_p99_latencies = []
-                unit_p95_latencies = []
+                unit_p99_latencies = []
                 
                 for artifact_dir in artifact_dirs:
                     repeat_data = load_repeat_data(artifact_dir)
@@ -1560,7 +1560,7 @@ def generate_latency_vs_throughput_merged(
                         if overall is not None:
                              unit_throughputs.append(overall.throughput)
                              unit_p99_latencies.append(overall.p99_latency)
-                             unit_p95_latencies.append(overall.p95_latency)
+                             unit_p99_latencies.append(overall.p99_latency)
                         else:
                             if os.environ.get('PLOT_DEBUG') == '1':
                                 print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
@@ -1571,22 +1571,22 @@ def generate_latency_vs_throughput_merged(
                 if unit_throughputs and unit_p99_latencies:
                     tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
                     p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
-                    p95_mean, _, p95_ci = aggregate_overall_metric(unit_p95_latencies)
+                    p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
                     
                     if tp_mean is not None and p99_mean is not None:
                         exp_points.append({
                             'tp': tp_mean,
                             'p99': p99_mean,
                             'p99_ci': p99_ci if p99_ci is not None else 0.0,
-                            'p95': p95_mean,
-                            'p95_ci': p95_ci if p95_ci is not None else 0.0
+                            'p99': p99_mean,
+                            'p99_ci': p99_ci if p99_ci is not None else 0.0
                         })
                         if os.environ.get('PLOT_DEBUG') == '1':
                             print(f"  [DEBUG] Unit: {unit_name}")
                             print(f"    Samples: {len(unit_throughputs)}")
                             print(f"    Throughput: {tp_mean:.2f}")
                             print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
-                            print(f"    P95: {p95_mean:.2f} ± {p95_ci if p95_ci else 0:.2f}")
+                            print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
 
             # Sort by throughput per API
             exp_points.sort(key=lambda x: x['tp'])
@@ -1595,7 +1595,7 @@ def generate_latency_vs_throughput_merged(
                 print(f"[DEBUG] Experiment: {exp_name} ({label}) API: {api}")
                 print(f"  Aggregated Points (TP, P99, P95):")
                 for p in exp_points:
-                    print(f"    {p['tp']:.2f}, {p['p99']:.2f}, {p['p95']:.2f}")
+                    print(f"    {p['tp']:.2f}, {p['p99']:.2f}, {p['p99']:.2f}")
 
             if not exp_points:
                 continue
@@ -1605,19 +1605,19 @@ def generate_latency_vs_throughput_merged(
                 'tps': [p['tp'] for p in exp_points],
                 'p99': [p['p99'] for p in exp_points],
                 'p99_ci': [p['p99_ci'] for p in exp_points],
-                'p95': [p['p95'] for p in exp_points],
-                'p95_ci': [p['p95_ci'] for p in exp_points]
+                'p99': [p['p99'] for p in exp_points],
+                'p99_ci': [p['p99_ci'] for p in exp_points]
             }
             
             # Update limits
             if exp_points:
                 max_tp = max(p['tp'] for p in exp_points)
                 max_p99 = max(p['p99'] + (p['p99_ci'] or 0) for p in exp_points)
-                max_p95 = max(p['p95'] + (p['p95_ci'] or 0) for p in exp_points)
+                max_p99 = max(p['p99'] + (p['p99_ci'] or 0) for p in exp_points)
                 
                 if max_tp > api_limits[api]['max_tp']: api_limits[api]['max_tp'] = max_tp
                 if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
-                if max_p95 > api_limits[api]['max_p95']: api_limits[api]['max_p95'] = max_p95
+                if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
 
     # 3. Plotting Loop
     # Load SLOs from config file
@@ -1628,7 +1628,7 @@ def generate_latency_vs_throughput_merged(
     # 3. Plotting Loop
     for api_idx, api in enumerate(all_apis):
         ax_p99 = grid.get_ax(0, api_idx)
-        #ax_p95 = grid.get_ax(1, api_idx)
+        #ax_p99 = grid.get_ax(1, api_idx)
         
         # Set titles for columns (API names)
         ax_p99.set_title(api, fontsize=style.title_size)
@@ -1649,8 +1649,8 @@ def generate_latency_vs_throughput_merged(
 
             """ # Plot P95 line (Row 1)
             plot_line(
-                ax_p95, data['tps'], data['p95'],
-                yerr=data['p95_ci'],
+                ax_p99, data['tps'], data['p99'],
+                yerr=data['p99_ci'],
                 label=label,
                 style=style,
                 color_idx=color_idx,
@@ -1677,12 +1677,12 @@ def generate_latency_vs_throughput_merged(
             ax_p99.axhline(y=slo_val, color='r', linestyle='--',
                        label='SLO', linewidth=style.line_width)
             """ # Plot SLO on P95
-            ax_p95.axhline(y=slo_val, color='r', linestyle='--',
+            ax_p99.axhline(y=slo_val, color='r', linestyle='--',
                        label='SLO', linewidth=style.line_width) """
             
         # Configure axes per column
         limits = api_limits[api]
-        max_lat = max(limits['max_p99'], limits['max_p95'])
+        max_lat = max(limits['max_p99'], limits['max_p99'])
         # Round up to nearest 10
         y_max = math.ceil(max_lat / 10.0) * 10
         if y_max < 10: y_max = 10
@@ -1707,7 +1707,7 @@ def generate_latency_vs_throughput_merged(
 
         """ # Configure P95 axis (Row 1)
         grid.configure_ax(
-            ax_p95,
+            ax_p99,
             xlabel="Throughput (RPS)",
             ylabel="P95 Latency (ms)" if api_idx == 0 else "",
             y_data=None, # We set manual limits

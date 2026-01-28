@@ -60,7 +60,7 @@ def aggregate_overall_data(overall_list: List[OverallData]) -> Dict[str, Tuple[f
         Dictionary mapping metric_name to (mean, std, ci_95)
     """
     metrics = ['goodput', 'slo_violations', 'dropped_requests', 'errors',
-               'p50_latency', 'p95_latency', 'num_goodput', 'num_slo_violations',
+               'p50_latency', 'p99_latency', 'num_goodput', 'num_slo_violations',
                'num_dropped_requests', 'num_errors']
     
     result = {}
@@ -86,7 +86,7 @@ def aggregate_by_api(repeat_data_list: List[Dict[str, Tuple[OverallData, Any]]])
         {
             'api_name': {
                 'goodput': (mean, std, ci),
-                'p95_latency': (mean, std, ci),
+                'p99_latency': (mean, std, ci),
                 ...
             }
         }

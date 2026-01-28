@@ -3,7 +3,7 @@
 REWRITTEN to use new RWG data loading and plotting architecture.
 
 Produces exactly two figures per experiment (spanning all loads):
-  * latency_vs_load.pdf  (P95 per API with error bars across repeats)
+  * latency_vs_load.pdf  (P99 per API with error bars across repeats)
   * goodput_vs_load.pdf  (goodput per API with error bars across repeats)
 
 Supports up to 3 APIs. X-axis = load * 10 / 1000 (KRPS).
@@ -92,7 +92,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     
     # Build per-API series: load -> (mean, std, ci) for each metric
     loads = []  # in KRPS
-    latency_series = {api: {'p95': []} for api in apis}
+    latency_series = {api: {'p99': []} for api in apis}
     goodput_series = {api: [] for api in apis}
     
     for unit_entry in unit_entries:
@@ -115,7 +115,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
             if not all_repeats:
                 # No data for this load point - add None placeholders
                 for api in apis:
-                    latency_series[api]['p95'].append((None, None, None))
+                    latency_series[api]['p99'].append((None, None, None))
                     goodput_series[api].append((None, None, None))
                 continue
             
@@ -124,15 +124,15 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
             
             for api in apis:
                 if api in aggregated:
-                    # Latency P95
-                    p95_mean, p95_std, p95_ci = aggregated[api].get('p95_latency', (None, None, None))
-                    latency_series[api]['p95'].append((p95_mean, p95_std, p95_ci))
+                    # Latency P99
+                    p99_mean, p99_std, p99_ci = aggregated[api].get('p99_latency', (None, None, None))
+                    latency_series[api]['p99'].append((p99_mean, p99_std, p99_ci))
                     
                     # Goodput
                     gp_mean, gp_std, gp_ci = aggregated[api].get('goodput', (None, None, None))
                     goodput_series[api].append((gp_mean, gp_std, gp_ci))
                 else:
-                    latency_series[api]['p95'].append((None, None, None))
+                    latency_series[api]['p99'].append((None, None, None))
                     goodput_series[api].append((None, None, None))
         
         except Exception as e:
@@ -140,7 +140,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
                 print(f"[latency_goodput_vs_load_experiment] Error processing unit {load}: {e}")
             # Add None placeholders
             for api in apis:
-                latency_series[api]['p95'].append((None, None, None))
+                latency_series[api]['p99'].append((None, None, None))
                 goodput_series[api].append((None, None, None))
     
     # Use ACM compact style
@@ -157,9 +157,9 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
         ax = grid_lat.get_ax(0, idx)
         
         # Extract data for this API
-        p95_data = latency_series[api]['p95']
-        means = [item[0] for item in p95_data]
-        cis = [item[2] if item[2] is not None else 0.0 for item in p95_data]
+        p99_data = latency_series[api]['p99']
+        means = [item[0] for item in p99_data]
+        cis = [item[2] if item[2] is not None else 0.0 for item in p99_data]
         
         # Filter out None values
         valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
@@ -172,7 +172,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
             plot_line(
                 ax, valid_loads, valid_means,
                 yerr=valid_cis,
-                label='P95',
+                label='P99',
                 style=style,
                 color_idx=1,
                 show_markers=True  # Good for sparse load points
@@ -214,7 +214,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     grid_lat.configure_labels(
         pattern="leftmost_y_bottom_x",
         xlabel="Offered Load (KRPS)",
-        ylabel="P95 Latency (ms)"
+        ylabel="P99 Latency (ms)"
     )
     
     # Add legend

@@ -28,7 +28,7 @@ class RealtimeData:
     """
     api_name: str
     df: pd.DataFrame  # Columns: timestamp, relative_time, goodput, slo_violations,
-                      #          dropped_requests, errors, p50_latency, p95_latency, total_requests
+                      #          dropped_requests, errors, p50_latency, p99_latency, total_requests
     
     @classmethod
     def from_csv(cls, csv_path: Path, api_name: str) -> 'RealtimeData':
@@ -51,7 +51,7 @@ class RealtimeData:
         df = pd.read_csv(csv_path)
         
         # Validate expected columns
-        expected_cols = {'relative_time', 'throughput_rate', 'p50_latency', 'p95_latency', 'p99_latency'}
+        expected_cols = {'relative_time', 'throughput_rate', 'p50_latency', 'p99_latency'}
         if not expected_cols.issubset(set(df.columns)):
             missing = expected_cols - set(df.columns)
             raise ValueError(f"Realtime CSV missing expected columns: {missing}")
@@ -79,7 +79,6 @@ class OverallData:
     throughput: float  # requests/sec (successful requests)
     num_throughput: int  # count of successful requests
     p50_latency: float  # milliseconds
-    p95_latency: float  # milliseconds
     p99_latency: float  # milliseconds
     total_requests: int
     duration_seconds: float
@@ -108,7 +107,7 @@ class OverallData:
             data = json.load(f)
         
         # Validate required fields
-        required_fields = {'goodput', 'num_errors', 'p50_latency', 'p95_latency'}
+        required_fields = {'goodput', 'num_errors', 'p50_latency', 'p99_latency'}
         if not required_fields.issubset(set(data.keys())):
             missing = required_fields - set(data.keys())
             raise ValueError(f"Overall JSON missing required fields: {missing}")
@@ -127,7 +126,6 @@ class OverallData:
             throughput=data.get('throughput', data.get('success', 0.0)),
             num_throughput=data.get('num_throughput', data.get('num_success', 0)),
             p50_latency=data['p50_latency'],
-            p95_latency=data['p95_latency'],
             p99_latency=data['p99_latency'],
             total_requests=data['total_requests'],
             duration_seconds=data['duration_seconds'],
@@ -152,7 +150,7 @@ def load_repeat_data(repeat_dir: Path) -> Dict[str, Tuple[OverallData, Optional[
         >>> data = load_repeat_data(Path("experiment_runs/exp-001/.../repeat_000"))
         >>> api_data = data["search-hotel"]
         >>> overall, realtime = api_data
-        >>> print(overall.goodput, overall.p95_latency)
+        >>> print(overall.goodput, overall.p99_latency)
     """
     output_dir = repeat_dir / "output"
     

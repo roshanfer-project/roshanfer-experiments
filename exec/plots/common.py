@@ -25,7 +25,7 @@ except Exception:  # running with top-level package 'exec'
 
 # Legacy constants - kept for backward compatibility
 RATE_KEYS_ORDER = ["goodput", "slo_violation", "dropped_in", "dropped"]
-LATENCY_KEYS_ORDER = ["latency_p50", "latency_p95", "latency_p99"]
+LATENCY_KEYS_ORDER = ["latency_p50", "latency_p99", "latency_p99"]
 
 def _label_fixer(label: str) -> str:
     if label == 'dropped_in':
@@ -34,8 +34,8 @@ def _label_fixer(label: str) -> str:
         return 'SLO violation'
     elif label == "latency_p50":
         return "P50"
-    elif label == "latency_p95":
-        return "P95"
+    elif label == "latency_p99":
+        return "P99"
     return label
 
 

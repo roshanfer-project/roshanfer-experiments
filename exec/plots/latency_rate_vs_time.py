@@ -14,7 +14,7 @@ Assumptions:
 Current implementation:
   - Collects all metrics JSON files for the chosen experiment units (matching name prefix with load variants) and builds
     a combined time series for goodput, slo_violation, dropped, dropped_in (if present).
-  - Plots stacked area (KRPS) and latency percentiles (if latency_p50 / latency_p95 present) vs relative seconds.
+  - Plots stacked area (KRPS) and latency percentiles (if latency_p50 / latency_p99 present) vs relative seconds.
 
 Future enhancements:
   - Aggregate across repeats (mean/CI) instead of plotting each repeat.
