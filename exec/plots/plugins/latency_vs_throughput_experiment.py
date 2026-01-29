@@ -109,7 +109,11 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
                 repeat_data = load_repeat_data(artifact_dir)
                 
                 if repeat_data and api in repeat_data:
-                    _, realtime = repeat_data[api]
+                    vals = repeat_data[api]
+                    if len(vals) == 3:
+                         _, realtime, _ = vals
+                    else:
+                         _, realtime = vals
                     
                     if realtime is not None:
                         # Extract throughput (throughput_rate) and p99 latency from realtime data

@@ -393,7 +393,11 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     
     # Extract realtime data (ignore overall data for this plot type)
     api_realtime: Dict[str, RealtimeData] = {}
-    for api_name, (overall, realtime) in repeat_data.items():
+    for api_name, vals in repeat_data.items():
+        if len(vals) == 3:
+             overall, realtime, _ = vals
+        else:
+             overall, realtime = vals
         if realtime is not None:
             api_realtime[api_name] = realtime
     
