@@ -10,7 +10,7 @@
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -29,7 +29,7 @@
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -44,12 +44,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -63,12 +63,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 5000,
-        "end": 5000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -82,12 +82,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -102,12 +102,12 @@
       "type": "max-queue",
       "script": "run.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -134,12 +134,12 @@
       "type": "max-queue",
       "script": "run.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -172,7 +172,7 @@
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -191,7 +191,7 @@
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -206,12 +206,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -225,12 +225,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -245,12 +245,12 @@
       "type": "max-queue",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 500,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -274,12 +274,12 @@
       "type": "max-queue-motivation",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 500
       },
       "base_rate": 500,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -303,12 +303,12 @@
       "type": "max-queue",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
       "base_rate": 500,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -333,12 +333,12 @@
       "type": "resource-waste",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -362,12 +362,12 @@
       "type": "resource-waste",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -397,7 +397,7 @@
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -416,7 +416,7 @@
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -431,12 +431,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -450,12 +450,12 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
       "base_rate": 1000,
-      "duration_sec": 10,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -470,12 +470,12 @@
       "type": "max-queue",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -499,12 +499,12 @@
       "type": "max-queue",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
@@ -529,12 +529,12 @@
       "type": "resource-waste",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 8000,
+        "end": 8000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel"
@@ -558,12 +558,12 @@
       "type": "resource-waste",
       "script": "run-plain.sh",
       "loads": {
-        "start": 10000,
-        "end": 10000,
+        "start": 5000,
+        "end": 5000,
         "step": 1000
       },
-      "base_rate": 1000,
-      "duration_sec": 10,
+      "base_rate": 500,
+      "duration_sec": 15,
       "bench": "hotel",
       "apis": [
         "search-hotel",
