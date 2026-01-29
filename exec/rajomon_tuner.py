@@ -26,7 +26,7 @@ tuner_parameters = {
         "social": "compose-post"
     },
     "tuner_base": 1000,
-    "tuner_rate": 5000
+    "tuner_rate": 8000
 }
 
 # Ensure bayes_opt is installed
