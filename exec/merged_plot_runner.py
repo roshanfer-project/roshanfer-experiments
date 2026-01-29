@@ -27,6 +27,158 @@ import math
 from matplotlib.ticker import LogLocator
 import statistics
 
+def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, bench: str) -> Dict[str, Dict[str, float]]:
+    """
+    Calculate resource waste using Prometheus data and the new 2-step algorithm.
+    Algorithm:
+    1. LocalFailed(S) = ReportedFailed(S) - Sum(ReportedFailed(DirectDownstream))
+    2. FinalFailed(S) = LocalFailed(S) + FinalFailed(NextServiceInSequence) [Cumulative Suffix Sum in Reverse]
+    3. Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+    
+    Refinements:
+    - BLO Violations: Use 'num_slo_violations' from overall-{api}.json
+    - Sanity Check: num_dropped_requests (overall) == failed_rpc_counter (entry point)
+    """
+    waste_results = {} # service -> api -> waste_pct
+    
+    # Topology Definitions
+    # Direct Downstreams (for Local Failed calc)
+    direct_downstreams = {
+        'hotel': {
+            'search-hotel': {
+                'frontend': ['search', 'reservation', 'profile'],
+                'search': ['geo', 'rate'],
+                # Leaves have []
+            },
+            'reserve-hotel': {
+                'frontend': ['user', 'reservation'],
+                'user': ['reservation'],
+            }
+        },
+        'social': {
+            'read-user-timeline': {
+                'nginx': ['user'],
+                'user': ['posts'],
+            },
+            'read-home-timeline': {
+                'nginx': ['home'],
+                'home': ['posts'],
+            },
+            'compose-post': {
+                'nginx': ['compose'],
+                'compose': ['posts', 'user', 'home'],
+                'home': ['graph'],
+            }
+        }
+    }
+    
+    # Execution Sequences (for Final Failed propagation - Suffix Sum)
+    # Ordered by Start Time (we will iterate in Reverse)
+    execution_sequences = {
+        'hotel': {
+            'search-hotel': ['frontend', 'search', 'geo', 'rate', 'reservation', 'profile'],
+            'reserve-hotel': ['frontend', 'user', 'reservation'],
+        },
+        'social': {
+            'read-user-timeline': ['nginx', 'user', 'posts'],
+            'read-home-timeline': ['nginx', 'home', 'posts'],
+            'compose-post': ['nginx', 'compose', 'posts', 'user', 'home', 'graph'],
+        }
+    }
+
+    # Helper to get ReportedFailed from Prometheus Data
+    # prom_data.metrics structure: data[api][service][metric]
+    def get_metric(api, service, metric):
+        if api not in prom_data.metrics: return 0.0
+        # Try exact match first
+        if service in prom_data.metrics[api]:
+            return prom_data.metrics[api][service].get(metric, 0.0)
+        # Try variants (e.g. frontend vs frontend-grpc)
+        variants = [service + '-grpc', service.replace('-grpc', '')]
+        for v in variants:
+            if v in prom_data.metrics[api]:
+                return prom_data.metrics[api][v].get(metric, 0.0)
+        return 0.0
+
+    for api in apis:
+        if bench not in execution_sequences or api not in execution_sequences[bench]:
+            continue
+            
+        seq = execution_sequences[bench][api]
+        downstream_map = direct_downstreams[bench].get(api, {})
+        
+        local_failed = {} # service -> count
+        final_failed = {} # service -> count
+        
+        # Determine entry point service for sanity check
+        entry_service = 'nginx' if bench == 'social' else 'frontend'
+        
+        # 1. Calculate Local Failed
+        for service in seq:
+            reported_failed = get_metric(api, service, 'failed_rpc_counter')
+            
+            # Sum downstream reported failures
+            downstream_failed_sum = 0.0
+            for child in downstream_map.get(service, []):
+                downstream_failed_sum += get_metric(api, child, 'failed_rpc_counter')
+            
+            local = max(0.0, reported_failed - downstream_failed_sum)
+            local_failed[service] = local
+            
+        # 2. Calculate Final Failed (Cumulative Suffix Sum in Reverse)
+        accumulator = 0.0
+        for service in reversed(seq):
+            accumulator += local_failed.get(service, 0.0)
+            final_failed[service] = accumulator
+            
+        # SANITY CHECK: Compare FinalFailed of entry point to num_dropped_requests from overall report.
+        # We expect ReportedFailed(Entry) ≈ num_dropped_requests.
+        
+        # Get overall data for this API
+        overall_obj = None
+        if api in loaded_data:
+             overall_tuple = loaded_data[api] 
+             # loaded_data[api] is (overall, realtime, prom)
+             if overall_tuple and len(overall_tuple) >= 1 and overall_tuple[0]:
+                 overall_obj = overall_tuple[0]
+        
+        num_dropped = overall_obj.num_dropped_requests if overall_obj else 0
+        entry_reported_failed = get_metric(api, entry_service, 'failed_rpc_counter')
+        
+        # Logging check (print for now, maybe warn?)
+        # Allow small deviation? User said "equal".
+        # Let's print warning if diff > 5% or absolute diff > 100 ?
+        diff = abs(num_dropped - entry_reported_failed)
+        if diff > 0:
+            # We used PLOT_DEBUG env var elsewhere, but standard print is safer for visibility
+            if diff > (num_dropped * 0.1) and num_dropped > 10: # >10% mismatch
+                 print(f"WARNING: [Sanity Check Failed] {api} - Dropped: {num_dropped}, {entry_service}.Failed: {entry_reported_failed} (Diff: {diff})")
+
+        # 3. Calculate Waste %
+        # Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+        
+        # Get SLO Violations from overall stats
+        slo_violations = overall_obj.num_slo_violations if overall_obj else 0
+        
+        for service in seq:
+            accepted = get_metric(api, service, 'accepted_rpc_counter')
+            
+            # Add Global SLO violations to the numerator for each service
+            # This follows the requirement: Total Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+            
+            total_waste_count = final_failed[service] + slo_violations
+            
+            if accepted > 0:
+                waste_pct = (total_waste_count / accepted) * 100.0
+            else:
+                waste_pct = 0.0
+                
+            if service not in waste_results: waste_results[service] = {}
+            waste_results[service][api] = waste_pct
+
+    return waste_results
+
+
 def generate_resource_waste_bar_merged(
     figure_name: str,
     figure_config: dict,
@@ -91,10 +243,8 @@ def generate_resource_waste_bar_merged(
         bench = exp_def.get('bench', 'hotel')  # Default to hotel
         
         # Load all repeats for this experiment (from all exp-XXX dirs)
-        repeat_metric_files = []
-        found_records = []
+        repeat_waste_data = []
         
-        # Find all run_summary.jsonl entries for this experiment (all repeats)
         # Determine roots to scan
         roots_to_scan = []
         if experiments_root.name.startswith('exp-'):
@@ -103,31 +253,62 @@ def generate_resource_waste_bar_merged(
             for exp_index in range(1, 20):
                 roots_to_scan.append(experiments_root / f'exp-{exp_index:03d}')
         
+        # Scan roots
+        repeat_metric_files = [] # For legacy fallback
+        
         for run_root in roots_to_scan:
-            records = _load_summary(run_root)
-            for r in records:
-                if r.get('experiment_name') == exp_name:
-                    found_records.append(r)
-        
-        # For each record, load metrics
-        for record in found_records:
-            artifact_dir = Path(record.get('artifact_dir', '.'))
-            metrics_dir = artifact_dir / 'metrics'
-            metric_files = {}
-            for fp in metrics_dir.glob('*.json'):
-                if fp.name.startswith('_index'):
-                    continue
-                try:
-                    metric_files[fp.stem] = json.loads(fp.read_text())
-                except Exception:
-                    continue
-            repeat_metric_files.append(metric_files)
-        
-        # Calculate waste data for each repeat using the resource waste plugin logic
-        repeat_waste_data = []
-        for repeat_files in repeat_metric_files:
-            waste_data = _calculate_waste_per_repeat(repeat_files, apis, bench)
-            repeat_waste_data.append(waste_data)
+            try:
+                # Need to use data_loader directly to get prometheus data
+                from exec.plots.data_loader import load_repeat_data
+                
+                # Check if this run_root is for our experiment
+                # We need to find the correct repeat dir. 'run_root' is likely 'exp-XXX'
+                # Inside exp-XXX, we might have multiple units, or it might be the unit itself.
+                # Based on usage, 'experiments_root' is usually the base dir containing 'exp-001', etc.
+                # But 'run_root' implies a specific run.
+                # Let's follow existing logic: _load_summary finds summary.jsonl.
+                
+                # If we use existing _load_summary logic to find artifact dirs:
+                records = _load_summary(run_root)
+                for record in records:
+                    if record.get('experiment_name') == exp_name:
+                        artifact_dir = Path(record.get('artifact_dir', '.'))
+                        # artifact_dir is the repeat dir
+                        
+                        # Load data using new loader
+                        loaded_data = load_repeat_data(artifact_dir)
+                        
+                        # Check if we have any data (loaded_data is dict: api -> (overall, realtime, prom))
+                        if not loaded_data:
+                            continue
+                            
+                        # Extract Prometheus data (it's the same for all APIs in the repeat)
+                        first_valid_api = next(iter(loaded_data))
+                        _, _, prom_data = loaded_data[first_valid_api]
+                        
+                        if prom_data and prom_data.metrics:
+                            # Use Prometheus data
+                            waste_data = _calculate_waste_from_prometheus(prom_data, loaded_data, apis, bench)
+                            repeat_waste_data.append(waste_data)
+                        else:
+                            # Fallback to legacy logic
+                            metrics_dir = artifact_dir / 'metrics'
+                            metric_files = {}
+                            for fp in metrics_dir.glob('*.json'):
+                                if fp.name.startswith('_index') or fp.name == 'prometheus.json':
+                                    continue
+                                try:
+                                    metric_files[fp.stem] = json.loads(fp.read_text())
+                                except Exception:
+                                    continue
+                            if metric_files:
+                                waste_data = _calculate_waste_per_repeat(metric_files, apis, bench)
+                                repeat_waste_data.append(waste_data)
+                                
+            except Exception as e:
+                print(f"Error loading data for {exp_name} in {run_root}: {e}")
+                traceback.print_exc()
+                continue
         
         if not repeat_waste_data:
             continue
@@ -138,12 +319,11 @@ def generate_resource_waste_bar_merged(
             all_services_this_exp.update(waste_data.keys())
         all_services.update(all_services_this_exp)
         
-        # Aggregate across repeats (keep APIs separate for multi-API case)
+        # Aggregate across repeats
         aggregated_data = {}
         for service in all_services_this_exp:
             aggregated_data[service] = {}
             for api in apis:
-                # Collect waste for this service and API across all repeats
                 values = []
                 for waste_data in repeat_waste_data:
                     if service in waste_data and api in waste_data[service]:
@@ -600,43 +780,101 @@ def generate_max_queue_merged(
         if exp_name not in experiment_configs:
             raise Exception(f"Experiment '{exp_name}' not found in experiment configs")
         exp_def = experiment_configs[exp_name]
-        # Load all repeats for this experiment (from all exp-XXX dirs)
-        repeat_metric_files = []
-        found_records = []
-        # Find all run_summary.jsonl entries for this experiment (all repeats)
-        for exp_index in range(1, 20):
-            run_root = experiments_root / f'exp-{exp_index:03d}' if not experiments_root.name.startswith('exp-') else experiments_root
-            records = _load_summary(run_root)
-            for r in records:
-                if r.get('experiment_name') == exp_name:
-                    found_records.append(r)
-        # For each record, load metrics
-        for record in found_records:
-            artifact_dir = Path(record.get('artifact_dir', '.'))
-            metrics_dir = artifact_dir / 'metrics'
-            metric_files = {}
-            for fp in metrics_dir.glob('*.json'):
-                if fp.name.startswith('_index'):
-                    continue
-                try:
-                    metric_files[fp.stem] = json.loads(fp.read_text())
-                except Exception:
-                    continue
-            repeat_metric_files.append(metric_files)
-        # Determine fallback services/apis from config if present
+        # Scan roots
+        repeat_metric_files = [] 
+        repeat_prom_data = [] # Store prom data for repeats
+        roots_to_scan = [experiments_root]
+        
+        for run_root in roots_to_scan:
+            try:
+                # Use data_loader to get prometheus data
+                from exec.plots.data_loader import load_repeat_data
+                
+                records = _load_summary(run_root)
+                for record in records:
+                    if record.get('experiment_name') == exp_name:
+                        artifact_dir = Path(record.get('artifact_dir', '.'))
+                        
+                        # Load data using new loader
+                        loaded_data = load_repeat_data(artifact_dir)
+                        
+                        if loaded_data:
+                            # Check for Prometheus data
+                            first_valid_api = next(iter(loaded_data))
+                            _, _, prom_data = loaded_data[first_valid_api]
+                            if prom_data and prom_data.metrics:
+                                repeat_prom_data.append(prom_data)
+                        
+                        # Also load legacy metric files for fallback or if mixed
+                        metrics_dir = artifact_dir / 'metrics'
+                        metric_files = {}
+                        for fp in metrics_dir.glob('*.json'):
+                            if fp.name.startswith('_index') or fp.name == 'prometheus.json':
+                                continue
+                            try:
+                                metric_files[fp.stem] = json.loads(fp.read_text())
+                            except Exception:
+                                continue
+                        repeat_metric_files.append(metric_files)
+            except Exception as e:
+                print(f"Error loading data for {exp_name} in {run_root}: {e}")
+                traceback.print_exc()
+                continue
+
+        # Determine services and APIs
         fallback_services = exp_def.get('services', [])
         fallback_apis = exp_def.get('apis', [])
-        # Infer services/apis from metrics (plugin logic)
+        
+        # Use legacy inference to get list of services, but then pull data from Prom if available.
         services, apis = _infer_services_and_apis(repeat_metric_files, fallback_services, fallback_apis)
-        # Normalize service names as in max_queue_unit
         services = [_normalize_service_name(svc) for svc in services]
+        
+        # Explicitly check for ingress in Prometheus data
+        triggers_ingress = False
+        for p in repeat_prom_data:
+             if p and p.metrics:
+                 for api in apis:
+                      if api in p.metrics and 'ingress' in p.metrics[api]:
+                           triggers_ingress = True
+                           break
+             if triggers_ingress: break
+        
+        if triggers_ingress and 'ingress' not in services:
+             services.append('ingress')
+        
         all_services.update(services)
         all_apis.update(apis)
+        
         # Build data[service][api] = list of per-repeat maxima
         data = {svc: {api: [] for api in apis} for svc in services}
-        for mf in repeat_metric_files:
+        
+        # Iterate through repeats. Maintain alignment between metric files and Prometheus data by index.
+        
+        # Re-structure the loop to align data
+        for i in range(len(repeat_metric_files)):
+            mf = repeat_metric_files[i]
+            prom = repeat_prom_data[i] if i < len(repeat_prom_data) else None
+            
             for svc in services:
                 for api in apis:
+                    val = 0.0
+                    
+                    # Try Prometheus first
+                    found_in_prom = False
+                    if prom and prom.metrics and api in prom.metrics:
+                        # Check service variants
+                        variants = [svc, svc + '-grpc', svc.replace('-grpc', ''), svc + '-server']
+                        for v in variants:
+                            if v in prom.metrics[api] and 'max_queue' in prom.metrics[api][v]:
+                                val = prom.metrics[api][v]['max_queue']
+                                found_in_prom = True
+                                break
+                    
+                    if found_in_prom:
+                        data[svc][api].append(float(val))
+                        continue
+                        
+                    # Fallback to legacy
                     # Try stems as in plugin
                     original_service_variants = [svc]
                     if svc == 'frontend':
@@ -670,46 +908,6 @@ def generate_max_queue_merged(
             'apis': apis,
             'data': data
         })
-    
-    # Add Ingress service to all experiments
-    for ed in exp_data:
-        label = ed['label']
-        data = ed['data']
-        apis = ed['apis']
-        
-        # Add Ingress to services list if not already present
-        if 'ingress' not in ed['services']:
-            ed['services'].append('ingress')
-        
-        # Initialize Ingress data structure
-        data['ingress'] = {api: [] for api in apis}
-        
-        # Calculate Ingress values based on experiment type
-        if label.lower() == 'roshanfer':
-            print(f"DEBUG: Calculating Ingress for Sidecar experiment '{label}'")
-            # For Roshanfer: Ingress = 3 + max(frontend, nginx)
-            for api in apis:
-                frontend_vals = data.get('frontend', {}).get(api, [])
-                nginx_vals = data.get('nginx', {}).get(api, [])
-                
-                # Calculate per-repeat Ingress values
-                max_repeats = max(len(frontend_vals), len(nginx_vals))
-                for i in range(max_repeats):
-                    frontend_val = frontend_vals[i] if i < len(frontend_vals) else 0.0
-                    nginx_val = nginx_vals[i] if i < len(nginx_vals) else 0.0
-                    ingress_val = 3.0 + max(frontend_val, nginx_val)
-                    data['ingress'][api].append(ingress_val)
-        else:
-            # For other systems: Ingress = 0
-            for api in apis:
-                # Get the number of repeats from any existing service
-                num_repeats = 0
-                for svc_data in data.values():
-                    if api in svc_data and len(svc_data[api]) > 0:
-                        num_repeats = len(svc_data[api])
-                        break
-                # Set all repeats to 0 for non-Roshanfer systems
-                data['ingress'][api] = [0.0] * num_repeats
 
     # Union of all services/apis across experiments, preserve order of first appearance
     def unique_ordered(seq):

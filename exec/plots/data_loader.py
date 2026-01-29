@@ -134,28 +134,68 @@ class OverallData:
         )
 
 
-def load_repeat_data(repeat_dir: Path) -> Dict[str, Tuple[OverallData, Optional[RealtimeData]]]:
+@dataclass
+class PrometheusData:
+    """Parsed metrics/prometheus.json data.
+    
+    Contains aggregated Prometheus metrics collected at the end of a run.
+    Structure: api_name -> service_name -> metric_name -> value
+    Also includes calculated ingress metrics.
+    """
+    metrics: Dict[str, Dict[str, Dict[str, float]]]
+    
+    @classmethod
+    def from_json(cls, json_path: Path) -> 'PrometheusData':
+        """Load from prometheus.json file.
+        
+        Args:
+            json_path: Path to prometheus.json file
+            
+        Returns:
+            PrometheusData instance
+        """
+        if not json_path.exists():
+            # Return empty data if file doesn't exist (graceful fallback)
+            return cls(metrics={})
+        
+        try:
+            with open(json_path) as f:
+                data = json.load(f)
+            return cls(metrics=data)
+        except Exception as e:
+            # Return empty on parse error
+            print(f"Warning: Failed to parse prometheus.json: {e}")
+            return cls(metrics={})
+
+
+def load_repeat_data(repeat_dir: Path) -> Dict[str, Tuple[OverallData, Optional[RealtimeData], Optional[PrometheusData]]]:
     """Load all API data for a single repeat.
     
     Scans the output/ directory for overall-{api}.json and realtime-{api}.csv files.
+    Also looks for metrics/prometheus.json.
     
     Args:
         repeat_dir: Path to repeat directory (e.g., repeat_000/)
         
     Returns:
-        Dictionary mapping api_name -> (overall_data, realtime_data)
+        Dictionary mapping api_name -> (overall_data, realtime_data, prometheus_data)
         realtime_data may be None if not generated for this experiment type
+        prometheus_data is shared across APIs (contains data for all APIs)
         
     Example:
         >>> data = load_repeat_data(Path("experiment_runs/exp-001/.../repeat_000"))
         >>> api_data = data["search-hotel"]
-        >>> overall, realtime = api_data
-        >>> print(overall.goodput, overall.p99_latency)
+        >>> overall, realtime, prom = api_data
     """
     output_dir = repeat_dir / "output"
+    metrics_dir = repeat_dir / "metrics"
     
     if not output_dir.exists():
         return {}
+    
+    # Load Prometheus data once (it covers all APIs)
+    prom_file = metrics_dir / "prometheus.json"
+    prom_data = PrometheusData.from_json(prom_file) if metrics_dir.exists() else None
     
     result = {}
     
@@ -171,12 +211,12 @@ def load_repeat_data(repeat_dir: Path) -> Dict[str, Tuple[OverallData, Optional[
         realtime_file = output_dir / f"realtime-{api_name}.csv"
         realtime = RealtimeData.from_csv(realtime_file, api_name) if realtime_file.exists() else None
         
-        result[api_name] = (overall, realtime)
+        result[api_name] = (overall, realtime, prom_data)
     
     return result
 
 
-def load_unit_data(unit_dir: Path) -> List[Dict[str, Tuple[OverallData, Optional[RealtimeData]]]]:
+def load_unit_data(unit_dir: Path) -> List[Dict[str, Tuple[OverallData, Optional[RealtimeData], Optional[PrometheusData]]]]:
     """Load all repeats for a unit (load point).
     
     A unit contains multiple repeats (repeat_000, repeat_001, ...).
@@ -186,12 +226,7 @@ def load_unit_data(unit_dir: Path) -> List[Dict[str, Tuple[OverallData, Optional
         unit_dir: Path to unit directory containing repeat_XXX subdirectories
         
     Returns:
-        List of dictionaries (one per repeat), each mapping api_name -> (overall, realtime)
-        
-    Example:
-        >>> repeats = load_unit_data(Path("exp-001/exp-name/unit-rate-8000"))
-        >>> # repeats[0] is first repeat, repeats[0]["search-hotel"] is (overall, realtime)
-        >>> # Can aggregate: means = [r["search-hotel"][0].goodput for r in repeats]
+        List of dictionaries (one per repeat), each mapping api_name -> (overall, realtime, prometheus)
     """
     repeats = []
     
@@ -204,7 +239,7 @@ def load_unit_data(unit_dir: Path) -> List[Dict[str, Tuple[OverallData, Optional
     return repeats
 
 
-def load_experiment_data(experiment_dir: Path) -> Dict[str, List[Dict[str, Tuple[OverallData, Optional[RealtimeData]]]]]:
+def load_experiment_data(experiment_dir: Path) -> Dict[str, List[Dict[str, Tuple[OverallData, Optional[RealtimeData], Optional[PrometheusData]]]]]:
     """Load all units for an experiment.
     
     An experiment contains multiple units (different load points).
@@ -214,11 +249,6 @@ def load_experiment_data(experiment_dir: Path) -> Dict[str, List[Dict[str, Tuple
         
     Returns:
         Dictionary mapping unit_name -> list of repeat data
-        
-    Example:
-        >>> exp_data = load_experiment_data(Path("exp-001/latency-vs-load-experiment"))
-        >>> unit_data = exp_data["latency-vs-load-experiment-rate-8000"]
-        >>> # unit_data is list of repeats, can aggregate across them
     """
     units = {}
     

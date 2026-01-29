@@ -219,3 +219,32 @@ def plot_latency_lines(df, out_path: Path, time_col: str = 't_rel', value_col: s
     except Exception:  # pragma: no cover
         pass
     return out_path
+
+
+def extract_series(data: dict) -> Tuple[List[float], List[float]]:
+    """Extract timeseries data from legacy metrics JSON.
+    
+    Args:
+        data: Dictionary containing 'values' list of [timestamp, value]
+        
+    Returns:
+        Tuple of (timestamps, values)
+    """
+    if not data or 'values' not in data:
+        return [], []
+        
+    ts = []
+    vals = []
+    start_time = None
+    
+    for t_str, v_str in data['values']:
+        t = float(t_str)
+        v = float(v_str)
+        
+        if start_time is None:
+            start_time = t
+            
+        ts.append(t - start_time)
+        vals.append(v)
+        
+    return ts, vals

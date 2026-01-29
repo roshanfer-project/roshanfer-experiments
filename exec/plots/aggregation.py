@@ -103,7 +103,14 @@ def aggregate_by_api(repeat_data_list: List[Dict[str, Tuple[OverallData, Any]]])
         overall_list = []
         for repeat_data in repeat_data_list:
             if api in repeat_data:
-                overall, _ = repeat_data[api]
+                # Unpack tuple - could be 2 or 3 elements
+                # load_repeat_data now returns (overall, realtime, prom_data)
+                # old behavior was (overall, realtime)
+                data_in = repeat_data[api]
+                if len(data_in) == 3:
+                     overall, _, _ = data_in
+                else:
+                     overall, _ = data_in
                 if overall is not None:
                     overall_list.append(overall)
         

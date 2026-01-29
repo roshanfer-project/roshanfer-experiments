@@ -281,8 +281,23 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
         output_dir_data = artifact_dir / 'output'
         has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
         
-        # Skip if no data available (neither legacy nor new)
-        if not metric_files and not has_rwg_data:
+        # Load Prometheus data via data_loader
+        # We check both legacy and new data availability
+        prometheus_data = None
+        try:
+            from exec.plots.data_loader import load_repeat_data
+            loaded_data = load_repeat_data(artifact_dir)
+            if loaded_data:
+                # Extract Prometheus data (it's the same for all APIs in the repeat)
+                # Just take the first one
+                first_api = next(iter(loaded_data))
+                _, _, prometheus_data = loaded_data[first_api]
+        except Exception:
+            if os.environ.get('PLOT_DEBUG') == '1':
+                traceback.print_exc()
+        
+        # Skip if no data available (neither legacy nor new nor prometheus)
+        if not metric_files and not has_rwg_data and not prometheus_data:
             if os.environ.get('PLOT_DEBUG') == '1':
                 print(f"[plot_runner] skip repeat {repeat_index}: no data (checked metrics_dir and output/)")
             continue
@@ -294,6 +309,8 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             if has_rwg_data:
                 rwg_files = list(output_dir_data.glob('overall-*.json'))
                 data_sources.append(f"RWG({len(rwg_files)} APIs)")
+            if prometheus_data:
+                 data_sources.append("PrometheusData")
             print(f"[plot_runner] repeat {repeat_index} data: {', '.join(data_sources)}")
         
         out_dir = output_root / rec.get('experiment_name') / rec.get('group_name', rec.get('run_unit_name','')) / f'repeat_{int(repeat_index):03d}'
@@ -311,6 +328,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             'metrics_dir': metrics_dir,
             'output_dir': out_dir,
             'metric_files': metric_files,  # Legacy - for backward compatibility
+            'prometheus_data': prometheus_data, # New - parsed Prometheus metrics
             'record': rec,
             'slos': slos,
             "bench": config.get("bench")
@@ -339,16 +357,44 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 continue
             # Collect per-repeat metric_files for this unit
             repeat_metric_files = []
+            repeat_prometheus_data = []
             artifact_dirs = []
+            
             for r in recs:
                 artifact_dir = Path(r.get('artifact_dir', '.'))
                 metrics_dir = artifact_dir / 'metrics'
+                
+                # Legacy files
                 metric_files = _load_metric_files(metrics_dir)
                 if metric_files:
                     repeat_metric_files.append(metric_files)
+                else:
+                    repeat_metric_files.append({}) # Consistent length
+                
+                # Prometheus data
+                prom_data = None
+                try:
+                    from exec.plots.data_loader import load_repeat_data
+                    loaded_data = load_repeat_data(artifact_dir)
+                    if loaded_data:
+                        first_api = next(iter(loaded_data))
+                        _, _, prom_data = loaded_data[first_api]
+                except Exception:
+                    pass
+                if prom_data:
+                    repeat_prometheus_data.append(prom_data)
+                elif metric_files: 
+                    # If we found legacy files but no loaded prom data, append None to keep indexing if needed?
+                    # Generally plugins usually iterate lists.
+                    pass
+                
+                # Check data existence for at least one source
+                if metric_files or prom_data or (artifact_dir/'output').exists():
                     artifact_dirs.append(artifact_dir)
-            if not repeat_metric_files:
+
+            if not artifact_dirs:
                 continue
+                
             # Derive load from run_unit_name if it encodes rate-<num> else use first record's load
             load_value = None
             run_unit = run_unit_name or ''
@@ -373,6 +419,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 'group_name': run_unit_name,
                 'artifact_dirs': artifact_dirs,
                 'repeat_metric_files': repeat_metric_files,
+                'repeat_prometheus_data': repeat_prometheus_data,
                 'output_dir': unit_out_dir,
                 'load_value': load_value,
                 'apis': apis,
@@ -409,27 +456,43 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 recs = info['records']
                 # Collect metric files per repeat (legacy Prometheus) or RWG data
                 repeat_metric_files = []
+                repeat_prometheus_data = []
                 artifact_dirs = []
+                
                 for r in recs:
                     artifact_dir = Path(r.get('artifact_dir', '.'))
                     
                     # Check for legacy Prometheus metrics
                     mdir = artifact_dir / 'metrics'
                     mf = _load_metric_files(mdir)
+                    
+                    # Check for Prometheus data
+                    prom_data = None
+                    try:
+                        from exec.plots.data_loader import load_repeat_data
+                        loaded_data = load_repeat_data(artifact_dir)
+                        if loaded_data:
+                            first_api = next(iter(loaded_data))
+                            _, _, prom_data = loaded_data[first_api]
+                    except Exception:
+                        pass
+                    
                     if mf:
                         repeat_metric_files.append(mf)
-                        artifact_dirs.append(artifact_dir)
                     else:
-                        # Check for new RWG data
-                        output_dir_data = artifact_dir / 'output'
-                        has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
-                        if has_rwg_data:
-                            # For RWG data, we don't need repeat_metric_files (plugins load directly)
-                            # Just add empty dict as placeholder to indicate data exists
-                            repeat_metric_files.append({})
-                            artifact_dirs.append(artifact_dir)
+                        repeat_metric_files.append({})
+                        
+                    if prom_data:
+                        repeat_prometheus_data.append(prom_data)
+                        
+                    # Check for new RWG data
+                    output_dir_data = artifact_dir / 'output'
+                    has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
+                    
+                    if mf or prom_data or has_rwg_data:
+                        artifact_dirs.append(artifact_dir)
                 
-                if not repeat_metric_files:
+                if not artifact_dirs:
                     continue
                 # derive load value
                 import re
@@ -443,6 +506,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 unit_entries.append({
                     'run_unit_name': run_unit_name,
                     'repeat_metric_files': repeat_metric_files,
+                    'repeat_prometheus_data': repeat_prometheus_data,
                     'artifact_dirs': artifact_dirs,
                     'load_value': load_value,
                 })

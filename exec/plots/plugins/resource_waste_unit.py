@@ -18,9 +18,146 @@ import statistics
 SUPPORTED_TYPES = ['resource-waste']
 
 try:
+    from exec.plots.data_loader import PrometheusData
+except ImportError:
+    PrometheusData = None
+
+try:
     from ..common import extract_series
 except Exception:  # pragma: no cover
     from experiments.exec.plots.common import extract_series  # type: ignore
+
+def _calculate_waste_from_prometheus(prom_data, apis: list, bench: str) -> Dict[str, Dict[str, float]]:
+    """
+    Calculate resource waste using Prometheus data and the new 2-step algorithm.
+    Algorithm:
+    1. LocalFailed(S) = ReportedFailed(S) - Sum(ReportedFailed(DirectDownstream))
+    2. FinalFailed(S) = LocalFailed(S) + FinalFailed(NextServiceInSequence) [Cumulative Suffix Sum in Reverse]
+    3. Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+    """
+    waste_results = {} # service -> api -> waste_pct
+    
+    # Topology Definitions
+    # Direct Downstreams (for Local Failed calc)
+    direct_downstreams = {
+        'hotel': {
+            'search-hotel': {
+                'frontend': ['search', 'reservation', 'profile'],
+                'search': ['geo', 'rate'],
+                # Leaves have []
+            },
+            'reserve-hotel': {
+                'frontend': ['user', 'reservation'],
+                'user': ['reservation'],
+            }
+        },
+        'social': {
+            'read-user-timeline': {
+                'nginx': ['user'],
+                'user': ['posts'],
+            },
+            'read-home-timeline': {
+                'nginx': ['home'],
+                'home': ['posts'],
+            },
+            'compose-post': {
+                'nginx': ['compose'],
+                'compose': ['posts', 'user', 'home'],
+                'home': ['graph'],
+            }
+        }
+    }
+    
+    # Execution Sequences (for Final Failed propagation - Suffix Sum)
+    # Ordered by Start Time (we will iterate in Reverse)
+    execution_sequences = {
+        'hotel': {
+            'search-hotel': ['frontend', 'search', 'geo', 'rate', 'reservation', 'profile'],
+            'reserve-hotel': ['frontend', 'user', 'reservation'],
+        },
+        'social': {
+            'read-user-timeline': ['nginx', 'user', 'posts'],
+            'read-home-timeline': ['nginx', 'home', 'posts'],
+            'compose-post': ['nginx', 'compose', 'posts', 'user', 'home', 'graph'],
+        }
+    }
+
+    # Helper to get ReportedFailed from Prometheus Data
+    # prom_data.metrics structure: data[api][service][metric]
+    def get_metric(api, service, metric):
+        if not prom_data or not prom_data.metrics or api not in prom_data.metrics: return 0.0
+        # Try exact match first
+        if service in prom_data.metrics[api]:
+            return prom_data.metrics[api][service].get(metric, 0.0)
+        # Try variants (e.g. frontend vs frontend-grpc)
+        variants = [service + '-grpc', service.replace('-grpc', '')]
+        for v in variants:
+            if v in prom_data.metrics[api]:
+                return prom_data.metrics[api][v].get(metric, 0.0)
+        return 0.0
+
+    for api in apis:
+        if bench not in execution_sequences or api not in execution_sequences[bench]:
+            continue
+            
+        seq = execution_sequences[bench][api]
+        downstream_map = direct_downstreams[bench].get(api, {})
+        
+        local_failed = {} # service -> count
+        final_failed = {} # service -> count
+        
+        # 1. Calculate Local Failed
+        for service in seq:
+            reported_failed = get_metric(api, service, 'failed_rpc_counter')
+            
+            # Sum downstream reported failures
+            downstream_failed_sum = 0.0
+            for child in downstream_map.get(service, []):
+                downstream_failed_sum += get_metric(api, child, 'failed_rpc_counter')
+            
+            local = max(0.0, reported_failed - downstream_failed_sum)
+            local_failed[service] = local
+            
+        # 2. Calculate Final Failed (Cumulative Suffix Sum in Reverse)
+        accumulator = 0.0
+        for service in reversed(seq):
+            accumulator += local_failed.get(service, 0.0)
+            final_failed[service] = accumulator
+            
+        # 3. Calculate Waste %
+        for service in seq:
+            accepted = get_metric(api, service, 'accepted_rpc_counter')
+            
+            slo_violations = 0.0
+            if service in ['frontend', 'nginx']:
+                # Use ingress max_queue if available
+                # In prom_data.metrics[api]['ingress']['max_queue']
+                if 'ingress' in prom_data.metrics.get(api, {}):
+                     slo_violations = prom_data.metrics[api]['ingress'].get('max_queue', 0.0)
+                else:
+                     slo_violations = get_metric(api, service, 'max_queue')
+            else:
+                slo_violations = get_metric(api, service, 'max_queue')
+                
+            total_waste_count = final_failed[service] + slo_violations
+            
+            if accepted > 0:
+                waste_pct = (total_waste_count / accepted) * 100.0
+            else:
+                waste_pct = 0.0
+                
+            if service not in waste_results: waste_results[service] = {}
+            waste_results[service][api] = waste_pct
+            
+            # Normalize service name for consistency with legacy map
+            norm_service = _normalize_service_name(service)
+            if norm_service != service:
+                if norm_service not in waste_results: waste_results[norm_service] = {}
+                waste_results[norm_service][api] = waste_pct
+
+    return waste_results
+
+
 
 
 def _normalize_service_name(service: str) -> str:
@@ -45,11 +182,26 @@ def _mean_std(vals: List[float]) -> Tuple[float | None, float | None]:
         return m, 0.0
 
 
-def _calculate_waste_per_repeat(metric_files: Dict[str, dict], apis: List[str], bench: str) -> Dict[str, Dict[str, float]]:
+def _calculate_waste_per_repeat(metric_files: Dict[str, dict], apis: List[str], bench: str, prom_data=None) -> Dict[str, Dict[str, float]]:
     """Calculate resource waste percentages for each service and API in a single repeat.
+    
+    Args:
+        metric_files: Dictionary of legacy metric files
+        apis: List of APIs to process
+        bench: Benchmark name (hotel or social)
+        prom_data: Optional PrometheusData object. If present, use new calculation method.
     
     Returns: {service: {api: waste_percentage}}
     """
+    # If Prometheus data is available, use the new algorithm
+    if prom_data and prom_data.metrics:
+        try:
+            return _calculate_waste_from_prometheus(prom_data, apis, bench)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"Warning: Failed to calculate waste from Prometheus data: {e}. Falling back to legacy.")
+
     import os
     debug = os.environ.get('PLOT_DEBUG') == '1'
     
@@ -320,6 +472,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
     debug = os.environ.get('PLOT_DEBUG') == '1'
     
     repeat_metric_files: List[Dict[str, dict]] = ctx['repeat_metric_files']
+    artifact_dirs = ctx.get('artifact_dirs', [])
     out_dir: Path = ctx['output_dir']
     out_dir.mkdir(parents=True, exist_ok=True)
     
@@ -352,11 +505,25 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
         print(f"[resource-waste] APIs: {apis}")
 
     # Calculate waste data for each repeat
+    # Calculate waste data for each repeat
     repeat_waste_data = []
-    for i, repeat_files in enumerate(repeat_metric_files):
+    num_repeats = len(repeat_metric_files)
+    for i in range(num_repeats):
+        repeat_files = repeat_metric_files[i]
+
+        # Try to load Prometheus Data for this repeat
+        prom_data = None
+        if i < len(artifact_dirs) and PrometheusData:
+            try:
+                p_path = artifact_dirs[i] / "metrics" / "prometheus.json"
+                if p_path.exists():
+                     prom_data = PrometheusData.from_json(p_path)
+            except Exception:
+                pass
+
         if debug:
-            print(f"[resource-waste] Processing repeat {i+1}/{len(repeat_metric_files)}")
-        waste_data = _calculate_waste_per_repeat(repeat_files, apis, bench)
+            print(f"[resource-waste] Processing repeat {i+1}/{num_repeats}")
+        waste_data = _calculate_waste_per_repeat(repeat_files, apis, bench, prom_data=prom_data)
         repeat_waste_data.append(waste_data)
         if debug:
             print(f"[resource-waste] Repeat {i+1} waste data: {waste_data}")
