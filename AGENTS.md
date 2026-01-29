@@ -7,6 +7,7 @@ The main goal is fast prototyping.
 
 - Minimal and simple implementations (fewer abstractions, prioritizing understandibity).
 - Re-use the existing codebase when possible.
+- DO NOT WRITE VERBOSE COMMENTS. keep them short, simple, and to the point.
 
 
 # Guidlines for speciifc scenarios
@@ -36,9 +37,9 @@ The agent should work in two phases: planning and execution.
 ## Planning phase
 The agent consumes all the context and comes up with a plan to fulfill user's request.
 The agent should present the summary of the plan along with a summary of the context consumed (including a confirmation that it has read this file) to the user for confirmation.
-If the agent is uncertain about parts of the plan, it should ask its questions as well.
+If the agent is uncertain about parts of the plan, it should ask its questions in the planning phase. DO NOT WRITE QUESTIONS IN THE CODE. If you are uncertain, ask me directly in the planning phase.
 
-The agent should reperat this phase until its certain.
+The agent should repeat this phase until its certain.
 
 
 ## Execution phase
