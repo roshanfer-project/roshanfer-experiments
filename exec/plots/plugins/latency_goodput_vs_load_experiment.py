@@ -232,6 +232,22 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     # === GOODPUT FIGURE ===
     grid_gp = SubplotGrid(style, layout=layout)
     
+    # Calculate global max goodput for consistent Y-axis scaling
+    all_goodput_values = []
+    for api in apis:
+        gp_data = goodput_series[api]
+        # Collect all valid mean values (converted to KRPS)
+        means = [(item[0] / 1000.0) for item in gp_data if item[0] is not None and not (isinstance(item[0], float) and math.isnan(item[0]))]
+        all_goodput_values.extend(means)
+    
+    # Determine Y-axis limit
+    if all_goodput_values:
+        global_gp_max = max(all_goodput_values) * 1.05  # 5% padding
+        # Ensure a reasonable minimum scale if values are very small
+        global_gp_max = max(global_gp_max, 0.1)
+    else:
+        global_gp_max = 10.0  # Default fallback if no data
+
     for idx, api in enumerate(apis):
         ax = grid_gp.get_ax(0, idx)
         
@@ -263,6 +279,9 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
             ax.set_title(display_api, fontsize=style.title_size)
         ax.grid(True, alpha=0.3)
         
+        # Set shared Y-axis limit
+        ax.set_ylim(0, global_gp_max)
+
         # Set x-axis limits with padding
         if loads:
             span = loads[-1] - loads[0]
