@@ -290,6 +290,33 @@
       ]
     },
     {
+      "name": "max-queue-social-1-rajomon-motivation",
+      "type": "max-queue-motivation",
+      "script": "run-plain.sh",
+      "loads": {
+        "start": 1000,
+        "end": 10000,
+        "step": 9000
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "bench": "social",
+      "apis": [
+        "compose-post"
+      ],
+      "system": "rajomon",
+      "repeat": 3,
+      "collector_freq": 200,
+      "services": [
+        "nginx",
+        "compose",
+        "home",
+        "user",
+        "posts",
+        "graph"
+      ]
+    },
+    {
       "name": "max-queue-social-3-rajomon",
       "type": "max-queue",
       "script": "run-plain.sh",
