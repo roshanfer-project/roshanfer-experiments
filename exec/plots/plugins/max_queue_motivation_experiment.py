@@ -240,7 +240,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
     grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max))
     
     # Add legend
-    grid.add_shared_legend(position="top")
+    grid.add_shared_legend(position="top", y_offset=1.2)
     
     fig_path = out_dir / 'max_queue_motivation_bar.pdf'
     grid.save(fig_path)
