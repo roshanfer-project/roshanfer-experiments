@@ -197,7 +197,7 @@ def generate_resource_waste_bar_merged(
     import math
     import statistics
     
-    # Import helpers from resource waste plugin
+    # Import primitives
     try:
         from exec.plots.plugins.resource_waste_unit import _normalize_service_name, _mean_std, _calculate_waste_per_repeat
     except Exception:
@@ -206,17 +206,21 @@ def generate_resource_waste_bar_merged(
         from exec.plots.common import extract_series
     except Exception:
         from experiments.exec.plots.common import extract_series
+        
     try:
-        from canvas import canvas
-    except Exception:
-        try:
-            from experiments.canvas import canvas
-        except Exception:
-            raise ImportError("Canvas module not available. Please ensure canvas is installed.")
-    
-    # Import matplotlib for GridSpec (needed for proportional subplot widths)
+        from exec.plots.plotting_primitives import (
+            SubplotGrid, PlotStyle, plot_grouped_bars
+        )
+    except ImportError:
+         try:
+            from plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, PlotStyle, plot_grouped_bars
+            )
+         except ImportError:
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, PlotStyle, plot_grouped_bars
+            )
     import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
 
     include_experiments = figure_config.get('include', {})
     if not include_experiments:
@@ -398,16 +402,14 @@ def generate_resource_waste_bar_merged(
     base_subplot_width = max(compact_min_width, min(compact_max_width, n_services * compact_bar_width_per_service))
     
     # Decide layout based on number of APIs
+    # Decide layout based on number of APIs
     if n_apis <= 1:
         # Single API case: one subplot
-        fig, ax = canvas.create_canvas(
-            nrows=1, ncols=1, width_in_inches=base_subplot_width, aspect_ratio=0.6,
-            font_size=11, legend_size=9, line_width=1.0, marker_size=3
-        )
-        axes = [ax] if hasattr(ax, 'bar') else ax
+        style = PlotStyle(width_points=240, aspect_ratio=0.6) # User requested 240pt
+        grid = SubplotGrid(style, layout="1x1")
     else:
-        # Multiple API case: 
-        # Step 1: Find non-zero services for each API
+        # Multiple API case
+        # Step 1: Find non-zero services (count)
         api_service_counts = {}
         for api in all_apis:
             services_count_for_api = 0
@@ -415,57 +417,23 @@ def generate_resource_waste_bar_merged(
                 has_nonzero_waste_for_api = False
                 for ed in exp_data:
                     data = ed['data']
-                    if (service in data and 
-                        api in data[service] and 
-                        data[service][api]['mean'] > 0.0):
+                    if (service in data and api in data[service] and data[service][api]['mean'] > 0.0):
                         has_nonzero_waste_for_api = True
                         break
                 if has_nonzero_waste_for_api:
                     services_count_for_api += 1
             api_service_counts[api] = services_count_for_api
-        
+            
         # Step 2: Calculate proportional subplot widths
-        total_services_across_apis = sum(api_service_counts.values())
-        if total_services_across_apis == 0:
-            total_services_across_apis = n_apis  # Fallback
-        
-        # Use consistent compact parameters across all cases
-        subplot_widths = []
-        for api in all_apis:
-            service_count = api_service_counts[api]
-            if service_count == 0:
-                service_count = 1  # Minimum for empty APIs
-            # Calculate compact width with consistent bounds
-            subplot_width = max(compact_min_width, min(compact_max_width, service_count * compact_bar_width_per_service))
-            subplot_widths.append(subplot_width)
-        
-        total_figure_width = sum(subplot_widths)
-        
-        # Step 3: Create figure with proportional subplot widths using GridSpec
-        # Calculate width ratios based on service counts
         width_ratios = []
         for api in all_apis:
-            service_count = api_service_counts[api]
-            if service_count == 0:
-                service_count = 1  # Minimum ratio for empty APIs
-            width_ratios.append(service_count)
-        
-        fig = plt.figure(figsize=(total_figure_width, total_figure_width * 0.35))
-        
-        # Create GridSpec with width ratios
-        gs = gridspec.GridSpec(1, n_apis, width_ratios=width_ratios, 
-                              left=0.08, right=0.95, top=0.85, bottom=0.15,
-                              wspace=0.1)
-        
-        # Create subplots with proportional widths and consistent styling
-        axes = []
-        for i in range(n_apis):
-            ax = fig.add_subplot(gs[0, i])
-            # Apply consistent compact styling
-            for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                        ax.get_xticklabels() + ax.get_yticklabels()):
-                item.set_fontsize(11)
-            axes.append(ax)
+            c = api_service_counts[api]
+            width_ratios.append(c if c > 0 else 1)
+            
+        style = PlotStyle(width_points=240, aspect_ratio=0.35 * n_apis) # Aspect adjusted roughly
+        # Actually aspect ratio applies to total height. 0.6 is default.
+        # User requested 240pt total width.
+        grid = SubplotGrid(style, layout=f"1x{n_apis}", width_ratios=width_ratios)
     
     # Color mapping for experiments
     try:
@@ -506,13 +474,15 @@ def generate_resource_waste_bar_merged(
     all_labels = []
     
     for api_idx, api in enumerate(all_apis):
-        ax = axes[api_idx] if n_apis > 1 else axes[0]
+        ax = grid.get_ax(0, api_idx) if n_apis > 1 else grid.get_ax(0, 0)
         
         # Filter services for this specific API
         if n_apis > 1:
             # Filter services that have non-zero resource waste for this specific API only
             services_for_this_api = []
             for service in all_services:
+                # Check if EVERY experiment has non-zero waste for this service+API combination
+                # Wait, original logic was 'ANY'. Let's stick to original logic.
                 # Check if ANY experiment has non-zero waste for this service+API combination
                 has_nonzero_waste_for_api = False
                 for ed in exp_data:
@@ -542,12 +512,15 @@ def generate_resource_waste_bar_merged(
         if n_apis > 1:
             ax.set_title(api.replace('-', '-'), fontsize=10, fontweight='bold', pad=4)
         
+        # Prepare bar groups
+        # Format: (label, heights, errors)
+        bar_groups = []
+        
+        # Add experiment bars
         for exp_idx, ed in enumerate(exp_data):
             label = ed['label']
             data = ed['data']
-            color = exp_colors.get(label)
             
-            offsets = [x - fixed_total_group_width/2 + exp_idx * api_bar_width + api_bar_width/2 for x in api_x_indices]
             means = []
             stds = []
             
@@ -567,40 +540,28 @@ def generate_resource_waste_bar_merged(
                     means.append(0.0)
                     stds.append(0.0)
             
-            bars = ax.bar(offsets, means, yerr=stds, width=api_bar_width*0.9, 
-                         label=label, color=color, edgecolor='black', linewidth=0.6,
-                         error_kw=dict(capsize=3, elinewidth=1.0, capthick=0.8))
+            bar_groups.append((label, means, stds))
             
-            # Collect legend handles and labels from first subplot only
-            if api_idx == 0:
-                all_handles.extend([bars])
-                all_labels.append(label)
+        # Add Sidecar bars (zero values)
+        sidecar_means = [0.0] * len(services_for_this_api)
+        sidecar_stds = [0.0] * len(services_for_this_api)
+        bar_groups.append(('Roshanfer', sidecar_means, sidecar_stds))
         
-        # Add Sidecar bars (zero values) to emphasize good performance
-        sidecar_exp_idx = n_exps  # Position after all experiment bars
-        sidecar_offsets = [x - fixed_total_group_width/2 + sidecar_exp_idx * api_bar_width + api_bar_width/2 
-                          for x in api_x_indices]
-        sidecar_means = [0.0] * len(services_for_this_api)  # All zero values
-        sidecar_stds = [0.0] * len(services_for_this_api)   # No error bars
+        plot_grouped_bars(ax, api_x_indices, bar_groups, style=style)
         
-        # Use a distinct style to emphasize that zero is good
-        sidecar_bars = ax.bar(sidecar_offsets, sidecar_means, yerr=sidecar_stds, 
-                             width=api_bar_width*0.9, label='Roshanfer', 
-                             color='lightgreen', edgecolor='darkgreen', linewidth=1.2,
-                             hatch='///',  # Diagonal pattern to emphasize
-                             error_kw=dict(capsize=3, elinewidth=1.0, capthick=0.8))
+        # Annotations for Roshanfer
+        n_groups = len(bar_groups)
+        total_group_width = style.bar_width_fraction
+        bar_width = total_group_width / n_groups
         
-        # Add y-value annotations on top of sidecar bars (all zeros)
-        for j, (offset, mean, std) in enumerate(zip(sidecar_offsets, sidecar_means, sidecar_stds)):
-            # Position text above the bar with a small fixed offset
-            y_pos = mean + std + 1.0  # Small fixed offset above error bar
-            ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                   fontsize=7, fontweight='normal')
-        
-        # Collect sidecar legend handle from first subplot only
-        if api_idx == 0:
-            all_handles.extend([sidecar_bars])
-            all_labels.append('Roshanfer')
+        # Last group is Roshanfer
+        g_i = n_groups - 1
+        offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 
+                           for x in api_x_indices]
+        for j, (offset, mean, std) in enumerate(zip(offsets, sidecar_means, sidecar_stds)):
+             y_pos = mean + std + 1.0
+             ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
+                    fontsize=6, fontweight='normal')
 
         # Store filtered services for this API for axis formatting
         if api_idx == 0:
@@ -612,7 +573,7 @@ def generate_resource_waste_bar_merged(
     
     # Format axes for all subplots
     for api_idx, api in enumerate(all_apis):
-        ax = axes[api_idx] if n_apis > 1 else axes[0]
+        ax = grid.get_ax(0, api_idx) if n_apis > 1 else grid.get_ax(0, 0)
         
         # Get services for this specific API (same filtering logic as in plotting)
         if n_apis > 1:
@@ -643,86 +604,31 @@ def generate_resource_waste_bar_merged(
         ax.set_xticks(api_x_indices)
         ax.set_xticklabels([service.title() for service in services_for_this_api], rotation=30, ha='right')
         
-        # Y-axis formatting (only for leftmost subplot)
-        if api_idx == 0:
-            ylab = ax.set_ylabel('Resource Waste (%)', labelpad=10, fontsize=11)
-            ylab.set_position((ylab.get_position()[0], 0.40))  # Moved lower from 0.5 to 0.35
-        else:
-            ax.set_ylabel('')
-            # Hide y-axis tick labels for non-leftmost subplots
-            ax.set_yticklabels([])
-        
-        ax.yaxis.grid(True, alpha=0.3)
-    
     # Set consistent y-axis limits and ticks for all subplots
     if global_max > 0:
         if n_apis <= 1:
-            # Single API case: adaptive ticks based on data
-            tick_spacing = 10
-            max_tick = tick_spacing * np.ceil(global_max / tick_spacing)
-            ticks = np.arange(0, max_tick + 1, tick_spacing)
-            ylim_max = max_tick + 2
-            
-            print(f"DEBUG: Single API - global_max={global_max}, max_tick={max_tick}")
-            print(f"DEBUG: Single API - ticks={list(ticks)}")
+            ylim_max = 10 * np.ceil(global_max / 10) + 2
         else:
-            # Multiple API case: custom ticks [0, 10, 30, 50, 70]
-            ticks = np.array([0, 10, 30, 50, 70])
             ylim_max = 72
-            
-            print(f"DEBUG: Multiple API - global_max={global_max}, custom ticks={list(ticks)}")
         
-        # Apply to all subplots
         for api_idx in range(len(all_apis)):
-            ax = axes[api_idx] if n_apis > 1 else axes[0]
-            ax.set_yticks(ticks)
-            ax.set_ylim(0, ylim_max)
-            print(f"DEBUG: Set subplot {api_idx} ylim to (0, {ylim_max})")
-    else:
-        # Apply default limits to all subplots
-        for api_idx in range(len(all_apis)):
-            ax = axes[api_idx] if n_apis > 1 else axes[0]
-            ax.set_ylim(0, 10)
+            ax = grid.get_ax(0, api_idx) if n_apis > 1 else grid.get_ax(0, 0)
+            
+            # Configure axis using primitives
+            grid.configure_ax(ax,
+                ylabel='Resource Waste (%)' if api_idx == 0 else '',
+                ylim=(0, ylim_max),
+                show_ylabel=(api_idx == 0),
+                show_yticklabels=(api_idx == 0)
+            )
 
     # Compact legend at the top center of the figure
-    if all_handles and all_labels:
-        n_items = len(all_labels)
-        if n_apis > 1:
-            # Multiple API case: always use single row for all legend items
-            ncol = n_items  # All items in one row
-            bbox_y = 1.15  # Slightly higher position for multiple API case
-            top_adjust = 0.72  # Adjusted space for higher legend and subplot titles
-        else:
-            # Single API case: lowered positioning
-            if n_items > 2:
-                ncol = math.ceil(n_items / 2)
-                bbox_y = 1.10
-                top_adjust = 0.75
-            else:
-                ncol = n_items
-                bbox_y = 1.05
-                top_adjust = 0.80
-        
-        fig.legend(all_handles, all_labels, loc='upper center', bbox_to_anchor=(0.5, bbox_y),
-                  frameon=True, fancybox=True, framealpha=0.85, edgecolor='#bbbbbb',
-                  ncol=ncol, fontsize=9, markerscale=0.8)  # Smaller legend font and markers
-        # Very compact spacing for multiple APIs
-        if n_apis > 1:
-            fig.subplots_adjust(top=top_adjust, hspace=0.2, wspace=0.1)  # Tighter spacing for multiple APIs
-        else:
-            fig.subplots_adjust(top=top_adjust, hspace=0.3, wspace=0.2)  # Standard spacing for single API
+    grid.add_shared_legend(position="top")
     
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_path = output_dir / f'{figure_name}_resource_waste_bar.pdf'
-    fig.savefig(fig_path, bbox_inches='tight')
-    
-    # Close figure to free memory
-    try:
-        plt.close(fig)
-    except Exception:
-        pass
-    
+    grid.save(fig_path)
     return [fig_path]
 
 
@@ -742,6 +648,7 @@ def generate_max_queue_merged(
     from pathlib import Path
     import numpy as np
     # Import helpers from plugin
+    # Import primitives
     try:
         from exec.plots.plugins.max_queue_unit import _normalize_service_name, _mean_std, _infer_services_and_apis
     except Exception:
@@ -750,17 +657,20 @@ def generate_max_queue_merged(
         from exec.plots.common import extract_series
     except Exception:
         from experiments.exec.plots.common import extract_series
+        
     try:
-        from canvas import canvas
-    except Exception:
-        import matplotlib.pyplot as plt
-        class SimpleCanvas:
-            color_list = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
-            def create_canvas(self, nrows=1, ncols=1, width_in_inches=6, aspect_ratio=0.66, 
-                              font_size=14, legend_size=12, line_width=1.5, marker_size=4):
-                fig, axes = plt.subplots(nrows, ncols, figsize=(width_in_inches*ncols, width_in_inches*aspect_ratio*nrows))
-                return fig, axes
-        canvas = SimpleCanvas()
+        from exec.plots.plotting_primitives import (
+            SubplotGrid, PlotStyle, plot_grouped_bars
+        )
+    except ImportError:
+         try:
+            from plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, PlotStyle, plot_grouped_bars
+            )
+         except ImportError:
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, PlotStyle, plot_grouped_bars
+            )
     import matplotlib.pyplot as plt
 
     include_experiments = figure_config.get('include', {})
@@ -925,43 +835,20 @@ def generate_max_queue_merged(
     single_api_mode = len(all_apis) == 1
     
     # Prepare figure
+    # Prepare figure
     if single_api_mode:
-        fig, axes = canvas.create_canvas(
-            nrows=1, ncols=1, width_in_inches=3.33, aspect_ratio=0.66,
-            font_size=16, legend_size=13, line_width=1.6, marker_size=5
-        )
+        style = PlotStyle(width_points=120, aspect_ratio=0.66)
+        grid = SubplotGrid(style, layout="1x1")
     else:
-        fig, axes = canvas.create_canvas(
-            nrows=1, ncols=ncols, width_in_inches=3.33, aspect_ratio=0.66,
-            font_size=16, legend_size=13, line_width=1.6, marker_size=5
-        )
-    # Normalize axes to list
-    try:
-        from matplotlib.axes import Axes as _Axes
-    except Exception:
-        _Axes = object
-    if isinstance(axes, _Axes):
-        axes = [axes]
-    else:
-        try:
-            axes = list(getattr(axes, 'ravel')().tolist())
-        except Exception:
-            axes = list(axes) if not isinstance(axes, list) else axes
+        style = PlotStyle(width_points=240, aspect_ratio=0.66)
+        grid = SubplotGrid(style, layout=f"1x{ncols}")
     
     # Color mapping - use experiment colors for single API mode, API colors for multi-API mode
     if single_api_mode:
-        # Use same color coding as resource-waste (experiment-based colors)
-        try:
-            colors = canvas.color_list[:len(exp_data)]
-        except Exception:
-            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        colors = style.colors[:len(exp_data)]
         exp_colors = dict(zip([ed['label'] for ed in exp_data], colors))
     else:
-        # Use API-based colors for multi-API mode
-        try:
-            colors = canvas.color_list[:len(all_apis)]
-        except Exception:
-            colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        colors = style.colors[:len(all_apis)]
         api_colors = dict(zip(all_apis, colors))
     # Compute global max (mean+std) across all experiments/services/apis
     global_max = 0.0
@@ -981,21 +868,20 @@ def generate_max_queue_merged(
     
     if single_api_mode:
         # Single API mode: one bar plot with each experiment as a different bar
-        ax = axes[0]
+        ax = grid.get_ax(0, 0)
         api = all_apis[0]  # Only one API
         
         n_services = len(all_services)
         n_exps = len(exp_data)
         x_indices = list(range(n_services))
-        total_group_width = 0.8
-        bar_width = total_group_width / n_exps if n_exps > 0 else total_group_width
         
+        # Prepare bar groups for plot_grouped_bars
+        # Format: (label, heights, errors)
+        bar_groups = []
         for exp_idx, ed in enumerate(exp_data):
             data = ed['data']
             label = ed['label']
-            color = exp_colors.get(label)
             
-            offsets = [x - total_group_width/2 + exp_idx * bar_width + bar_width/2 for x in x_indices]
             means = []
             stds = []
             
@@ -1008,107 +894,91 @@ def generate_max_queue_merged(
                 means.append(m)
                 stds.append(0.0001 if (s is None or s == 0) else s)
             
-            bars = ax.bar(offsets, means, yerr=stds, width=bar_width*0.9, label=label,
-                   color=color, edgecolor='black', linewidth=0.6,
-                   error_kw=dict(capsize=3, elinewidth=1.0, capthick=0.8))
+            bar_groups.append((label, means, stds))
             
-            # Add y-value annotations on top of bars only for "sidecar"
-            if label.lower() == 'roshanfer':
-                for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
-                    # Position text above the error bar
-                    y_pos = mean + std + ylim_max * 0.02  # Small offset above error bar
-                    ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                           fontsize=7, fontweight='normal')
+        # Plot using primitive
+        plot_grouped_bars(ax, x_indices, bar_groups, style=style)
+            
+        # Add y-value annotations on top of bars only for "sidecar" (now "Roshanfer" or similar)
+        # We need to manually add these as plot_grouped_bars doesn't support custom annotations per bar yet easily
+        # But we can iterate and add them on top
+        # Re-calc offsets to place text
+        total_group_width = style.bar_width_fraction
+        n_groups = len(bar_groups)
+        bar_width = total_group_width / n_groups
         
+        for g_i, (label, means, stds) in enumerate(bar_groups):
+             if label.lower() == 'roshanfer':
+                 offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 for x in x_indices]
+                 for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
+                    y_pos = mean + std + ylim_max * 0.02
+                    ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
+                           fontsize=6, fontweight='normal')
+
         ax.set_xticks(x_indices)
         ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
-        ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
-        ylab.set_position((ylab.get_position()[0], 0.42))
-        ax.yaxis.grid(True, alpha=0.3)
-        ax.set_ylim(0, ylim_max)
+        
+        grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max))
+        # ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
+        # ylab.set_position((ylab.get_position()[0], 0.42))
+        
         
     else:
         # Multi-API mode: subplot for each experiment, bars for APIs (original logic)
         for i, ed in enumerate(exp_data):
-            ax = axes[i]
+            ax = grid.get_ax(0, i)
             data = ed['data']
             services = all_services
             apis = all_apis
             n_services = len(services)
-            n_apis = len(apis)
             x_indices = list(range(n_services))
-            total_group_width = 0.8
-            bar_width = total_group_width / n_apis if n_apis > 0 else total_group_width
-            max_error = 0.0
-            for api_idx, api in enumerate(apis):
-                offsets = [x - total_group_width/2 + api_idx * bar_width + bar_width/2 for x in x_indices]
+            
+            # Prepare bar groups: each group is an API
+            bar_groups = []
+            for api in apis:
                 means = []
                 stds = []
                 for svc in services:
                     vals = data.get(svc, {}).get(api, [])
                     m, s = _mean_std(vals)
-                    if m is None:
-                        m = 0.0
-                        s = 0.0
+                    if m is None: m=0.0; s=0.0
                     means.append(m)
+                    
                     stds.append(0.0001 if (s is None or s == 0) else s)
-                    if m + (s if s is not None else 0) > max_error:
-                        max_error = m + (s if s is not None else 0)
-                bars = ax.bar(offsets, means, yerr=stds, width=bar_width*0.9, label=api,
-                       color=api_colors.get(api), edgecolor='black', linewidth=0.6,
-                       error_kw=dict(capsize=3, elinewidth=1.0, capthick=0.8))
-                
-                # Add y-value annotations on top of bars only for "sidecar" experiment
-                if ed['label'].lower() == 'roshanfer':
-                    for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
-                        # Position text above the error bar
-                        y_pos = mean + std + ylim_max * 0.02  # Small offset above error bar
+                bar_groups.append((api, means, stds))
+            
+            plot_grouped_bars(ax, x_indices, bar_groups, style=style)
+
+            # Annotation for sidecar
+            total_group_width = style.bar_width_fraction
+            n_groups = len(bar_groups)
+            bar_width = total_group_width / n_groups
+            
+            if ed['label'].lower() == 'roshanfer':
+               for g_i, (api, means, stds) in enumerate(bar_groups):
+                   offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 for x in x_indices]
+                   for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
+                        y_pos = mean + std + ylim_max * 0.02
                         ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                               fontsize=7, fontweight='normal')
+                               fontsize=6, fontweight='normal')
+
             ax.set_xticks(x_indices)
             ax.set_xticklabels([service.title() for service in services], rotation=30, ha='right')
-            if i == 0:
-                ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
-                ylab.set_position((ylab.get_position()[0], 0.42))
-            else:
-                ax.set_ylabel('')
-                ax.set_yticklabels([])
-            ax.yaxis.grid(True, alpha=0.3)
-            ax.set_ylim(0, ylim_max)
-            # Title above subplot (experiment label)
-            ax.set_title(ed['label'])
-    # Legend logic for both modes
-    if single_api_mode:
-        # Single API mode: legend shows experiments
-        handles, labels = axes[0].get_legend_handles_labels()
-        if handles:
-            # Use two rows if more than 2 items
-            if len(labels) > 2:
-                ncol = (len(labels) + 1) // 2  # Ceiling division to get columns for 2 rows
-            else:
-                ncol = 1  # Single row for 2 or fewer items
             
-            fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.10),
-                       ncol=ncol, frameon=True, fancybox=True,
-                       framealpha=0.85, edgecolor='#bbbbbb')
-            fig.subplots_adjust(top=0.80)
-    else:
-        # Multi-API mode: legend shows APIs (only if more than one API)
-        if len(all_apis) > 1:
-            handles, labels = axes[0].get_legend_handles_labels()
-            if handles:
-                fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.10),
-                           ncol=max(1, len(labels)), frameon=True, fancybox=True,
-                           framealpha=0.85, edgecolor='#bbbbbb')
-            fig.subplots_adjust(top=0.80, wspace=0.1)
-        else:
-            # Single API in multi-mode (fallback case)
-            fig.subplots_adjust(wspace=0.1)
+            grid.configure_ax(ax, 
+                ylabel='Max Queueing (req)' if i == 0 else '',
+                title=ed['label'],
+                ylim=(0, ylim_max),
+                show_ylabel=(i==0),
+                show_yticklabels=(i==0)
+            )
+    # Legend logic for both modes
+    # Legend logic
+    grid.add_shared_legend(position="top")
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_path = output_dir / f'{figure_name}_max_queue.pdf'
-    fig.savefig(fig_path, bbox_inches='tight')
-    plt.close(fig)
+    grid.save(fig_path)
     return [fig_path]
 
 def load_merged_config(merged_config_path: Path) -> Dict[str, Any]:
@@ -1228,6 +1098,7 @@ def generate_latency_goodput_vs_load_merged(
     
     import matplotlib.pyplot as plt
     import math
+    from dataclasses import replace
     
     produced: List[Path] = []
     include_experiments = figure_config.get('include', {})
@@ -1298,7 +1169,7 @@ def generate_latency_goodput_vs_load_merged(
             load_records = load_groups[load_value]
             
             # Convert to KRPS for x-axis
-            x_val = (load_value * 10) / 1000.0
+            x_val = load_value / 1000.0
             loads.append(x_val)
             
             # Collect all repeats for this load using RWG data
@@ -1356,18 +1227,37 @@ def generate_latency_goodput_vs_load_merged(
     # Use ACM compact style
     style = ACM_COMPACT_HALF
     
-    # === LATENCY FIGURE ===
-    layout = f"row-{len(all_apis)}" if len(all_apis) > 1 else "1x1"
-    grid_lat = SubplotGrid(style, layout=layout)
+    # Determine layout
+    n_apis = len(all_apis)
+    if n_apis == 1:
+        # Single API: Side-by-side (Latency, Goodput)
+        layout = "1x2"
+        # We need a bit more width for side-by-side? 
+        # ACM_COMPACT_HALF is 240pt. 120pt per plot is standard quarter width. 
+        # So "1x2" in 240pt means two 120pt plots side-by-side. This is perfect.
+        # However, we need space for the inner goodput label
+        style = replace(style, wspace=0.15)
+    else:
+        # Multi API: Goodput first row, Latency second row
+        layout = f"2x{n_apis}"
+        
+    grid = SubplotGrid(style, layout=layout)
     
     # Track all latency values for dynamic Y-axis
     all_latency_values = []
     
     for idx, api in enumerate(all_apis):
-        ax = grid_lat.get_ax(0, idx)
+        # Determine axes based on layout
+        if n_apis == 1:
+            ax_lat = grid.get_ax(0, 0)
+            ax_gp = grid.get_ax(0, 1)
+        else:
+            ax_gp = grid.get_ax(0, idx)     # Row 0: Goodput
+            ax_lat = grid.get_ax(1, idx)    # Row 1: Latency
+            
         display_api = api.replace('_all', '') if api.endswith('_all') else api
         
-        # Plot each experiment
+        # --- Plotting ---
         for exp_idx, (label, exp_info) in enumerate(all_experiment_data.items()):
             exp_data = exp_info['data']
             loads = exp_info['loads']
@@ -1375,31 +1265,69 @@ def generate_latency_goodput_vs_load_merged(
             if api not in exp_data:
                 continue
             
-            # Extract latency data with CI
+            # 1. Latency Data
             latency_data = exp_data[api]['latency_p99']
-            means = [item[0] for item in latency_data]
-            cis = [item[2] if item[2] is not None else 0.0 for item in latency_data]
+            lat_means = [item[0] for item in latency_data]
+            lat_cis = [item[2] if item[2] is not None else 0.0 for item in latency_data]
             
-            # Filter out None values
-            valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
-                         if m is not None and not (isinstance(m, float) and math.isnan(m))]
+            # Filter None
+            valid_lat_data = [(l, m, c) for l, m, c in zip(loads, lat_means, lat_cis)
+                             if m is not None and not (isinstance(m, float) and math.isnan(m))]
             
-            if valid_data:
-                valid_loads, valid_means, valid_cis = zip(*valid_data)
+            if valid_lat_data:
+                v_loads, v_means, v_cis = zip(*valid_lat_data)
                 
-                # Plot with error bars (using CI not std)
+                lat_errs = None
+                if any(c is not None for c in v_cis):
+                     lat_lower = [min(c if c is not None else 0, m if m is not None else 0) for m, c in zip(v_means, v_cis)]
+                     # For log scale, we also need to ensure we don't hit 0 exactly if we want log plotting to be happy?
+                     # Actually matplotlib handles 0 in error bar lower limit by just clipping drawing usually, or we can clamp to slightly less than mean.
+                     # But min(ci, mean) ensures lower bound is at worst 0. 
+                     # If y scales are log, 0 is -inf. 
+                     # If mean is > 0, and we subtract mean, we get 0. 
+                     # Usually for log plot, we might want to clamp lower bound to something positive if mean-ci <= 0.
+                     # But here we are producing (lower_delta, upper_delta).
+                     # The checked value is y - lower_delta.
+                     # If lower_delta = mean, y - lower_delta = 0. Log(0) is undefined.
+                     # So for latency (log scale), we should perhaps clamp such that y-delta > 0.
+                     # Let's just stick to clamping delta = min(ci, mean - epsilon) if we are strict, or just min(ci, mean) and hope matplotlib ignores 0 on log scale.
+                     # Standard behavior for negative/zero lower bounds in log plots is often to clip them to a small positive number or not draw them.
+                     
+                     lat_upper = [c if c is not None else 0 for c in v_cis]
+                     lat_errs = [lat_lower, lat_upper]
+
                 plot_line(
-                    ax, valid_loads, valid_means,
-                    yerr=valid_cis,
-                    label=label,
-                    style=style,
-                    color_idx=exp_idx,
-                    style_idx=exp_idx,
-                    show_markers=True  # Good for distinguishing experiments
+                    ax_lat, v_loads, v_means, yerr=lat_errs,
+                    label=label, style=style, color_idx=exp_idx, style_idx=exp_idx,
+                    show_markers=True
                 )
+                all_latency_values.extend(v_means)
+
+            # 2. Goodput Data
+            goodput_data = exp_data[api]['goodput']
+            gp_means = [(item[0] / 1000.0) if item[0] is not None else None for item in goodput_data]
+            gp_cis = [(item[2] / 1000.0) if item[2] is not None else 0.0 for item in goodput_data]
+            
+            # Filter None
+            valid_gp_data = [(l, m, c) for l, m, c in zip(loads, gp_means, gp_cis)
+                            if m is not None and not (isinstance(m, float) and math.isnan(m))]
+
+            if valid_gp_data:
+                v_loads, v_means, v_cis = zip(*valid_gp_data)
                 
-                all_latency_values.extend(valid_means)
-        
+                gp_errs = None
+                if any(c is not None for c in v_cis):
+                     gp_lower = [min(c if c is not None else 0, m if m is not None else 0) for m, c in zip(v_means, v_cis)]
+                     gp_upper = [c if c is not None else 0 for c in v_cis]
+                     gp_errs = [gp_lower, gp_upper]
+
+                plot_line(
+                    ax_gp, v_loads, v_means, yerr=gp_errs,
+                    label=label, style=style, color_idx=exp_idx, style_idx=exp_idx,
+                    show_markers=True
+                )
+
+        # --- Latency Axis Config ---
         # Add SLO line
         slo_val = None
         for key in [display_api, display_api.replace('-', '_'), display_api.replace('_', '-')]:
@@ -1408,111 +1336,123 @@ def generate_latency_goodput_vs_load_merged(
                 break
         
         if slo_val is not None:
-            ax.axhline(y=slo_val, color='r', linestyle='--',
-                      label='SLO', linewidth=style.line_width)
+            ax_lat.axhline(y=slo_val, color='r', linestyle='--',
+                       label='SLO', linewidth=style.line_width)
             all_latency_values.append(slo_val)
-        
-        # Configure axis
-        ax.set_title(display_api, fontsize=style.title_size)
-        ax.set_yscale('log')
-        ax.grid(True, alpha=0.3)
-        
-        # Set x-axis limits with padding
-        if all_loads:
-            span = all_loads[-1] - all_loads[0]
-            pad = 0.03 * span if span > 0 else 0.05
-            ax.set_xlim(all_loads[0] - pad, all_loads[-1] + pad)
-    
-    # Dynamic Y-axis: 5x max value
+
+        # Config Latency Axis
+        ax_lat.set_yscale('log')
+        ax_lat.grid(True, alpha=0.3)
+        # Ensure minor ticks on Y axis only
+
+        if n_apis > 1:
+             # In 2xN grid, Latency is Row 1 (bottom), Goodput is Row 0 (top)
+             # Latency axis title might not be needed if Goodput has it, or vice versa.
+             # Typically top row has titles. Goodput is top row.
+             # But we want to label the column.
+             # Put title on Goodput (top)
+             ax_gp.set_title(display_api, fontsize=style.title_size)
+        else:
+            # Single API side-by-side -> Each might need title? Or one title for whole?
+            # Typically separate titles "Latency", "Goodput" or just axis labels?
+            # Axis labels handle "Latency" vs "Goodput".
+            # Maybe title the whole figure or subplots?
+            # Let's title subplots with "Latency" and "Goodput" maybe? 
+            # Or just rely on Y-axis labels.
+            # But we need to ID the API. 
+            pass # We will handle titles in configure_ax/labels if needed.
+                 # Actually grid.configure_labels handles overall pattern.
+            
+            # For 1x2, maybe title both with API name? Or Set global title?
+            # Let's simple set title on both for now or just Left one. 
+            # But clearer: columns are metric types in 1x2.
+            # Actually standard practice: Y-label says metric. 
+            # We just need to know it IS "Search Hotel".
+            # grid.fig.suptitle(display_api) ?
+            pass
+
+    # Dynamic Y-axis for Latency
     if all_latency_values:
         dyn_y_max = max(all_latency_values) * 5.0 * 1.05
-        dyn_y_max = max(dyn_y_max, 10)  # Minimum 10ms
+        dyn_y_max = max(dyn_y_max, 10)
     else:
         dyn_y_max = 500
-    
-    for idx in range(len(all_apis)):
-        ax = grid_lat.get_ax(0, idx)
+
+    for idx in range(n_apis):
+        if n_apis == 1:
+            ax = grid.get_ax(0, 0) # Latency is col 0
+        else:
+            ax = grid.get_ax(1, idx) # Latency is row 1
         ax.set_ylim(1, dyn_y_max)
-    
-    # Configure labels
-    grid_lat.configure_labels(
-        pattern="leftmost_y_bottom_x",
-        xlabel="Offered Load (KRPS)",
-        ylabel="P95 Latency (ms)"
-    )
-    
-    # Add legend (use two rows if many experiments)
-    grid_lat.add_shared_legend(position="top", two_rows=(len(all_experiment_data) > 3))
-    
+        
+    # --- Configuration ---
+    if n_apis == 1:
+        # Layout: 1x2. Col 0: Latency, Col 1: Goodput
+        # Both share X: Offered Load.
+        # Y labels separate.
+        
+        # Latency (0,0)
+        grid.configure_ax(grid.get_ax(0,0), 
+                          ylabel="P99 Latency (ms)", 
+                          xlabel="Offered Load (KRPS)",
+                          x_step=2.0,
+                          x_data=all_loads,
+                          log_y=True,
+                          title=f"{all_apis[0]}")
+        
+        # Goodput (0,1)
+        grid.configure_ax(grid.get_ax(0,1), 
+                          ylabel="Goodput (KRPS)", 
+                          xlabel="Offered Load (KRPS)",
+                          x_step=2.0,
+                          x_data=all_loads,
+                          log_y=False,
+                          title=f"{all_apis[0]}")
+                          
+    else:
+        # Layout 2xN. Row 0 Goodput. Row 1 Latency.
+        # Row 0 (Goodput): Show Y label only on Left. X ticks/labels hidden? 
+        # Actually usually top row has no X labels if shared x.
+        # Bottom row (Latency): X labels.
+        
+        # We can use configure_labels logic or manual.
+        # Let's iterate.
+        for idx in range(n_apis):
+             # Row 0: Goodput
+             ax_gp = grid.get_ax(0, idx)
+             grid.configure_ax(ax_gp,
+                 ylabel="Goodput (KRPS)" if idx == 0 else "",
+                 xlabel="",
+                 show_xlabel=False,
+                 show_xticklabels=False,
+                 x_step=2.0,
+                 x_data=all_loads,
+                 log_y=False,
+                 show_ylabel=(idx==0),
+                 show_yticklabels=(idx==0)
+             )
+             
+             # Row 1: Latency
+             ax_lat = grid.get_ax(1, idx)
+             grid.configure_ax(ax_lat,
+                 ylabel="P99 Latency (ms)" if idx == 0 else "",
+                 xlabel="Offered Load (KRPS)",
+                 x_step=2.0,
+                 x_data=all_loads,
+                 log_y=True,
+                 show_ylabel=(idx==0),
+                 show_yticklabels=(idx==0)
+             )
+
+    # Add Legend
+    y_offset = 1.1 if n_apis == 1 else 1.0
+    grid.add_shared_legend(position="top", y_offset=y_offset)
+
     # Save
-    lat_path = output_dir / f'{figure_name}_latency_vs_load.pdf'
-    grid_lat.save(lat_path)
-    produced.append(lat_path)
-    
-    # === GOODPUT FIGURE ===
-    grid_gp = SubplotGrid(style, layout=layout)
-    
-    for idx, api in enumerate(all_apis):
-        ax = grid_gp.get_ax(0, idx)
-        display_api = api.replace('_all', '') if api.endswith('_all') else api
-        
-        # Plot each experiment
-        for exp_idx, (label, exp_info) in enumerate(all_experiment_data.items()):
-            exp_data = exp_info['data']
-            loads = exp_info['loads']
-            
-            if api not in exp_data:
-                continue
-            
-            # Extract goodput data with CI (convert to KRPS)
-            goodput_data = exp_data[api]['goodput']
-            means = [(item[0] / 1000.0) if item[0] is not None else None for item in goodput_data]
-            cis = [(item[2] / 1000.0) if item[2] is not None else 0.0 for item in goodput_data]
-            
-            # Filter out None values
-            valid_data = [(l, m, c) for l, m, c in zip(loads, means, cis)
-                         if m is not None and not (isinstance(m, float) and math.isnan(m))]
-            
-            if valid_data:
-                valid_loads, valid_means, valid_cis = zip(*valid_data)
-                
-                # Plot with error bars (using CI not std)
-                plot_line(
-                    ax, valid_loads, valid_means,
-                    yerr=valid_cis,
-                    label=label,
-                    style=style,
-                    color_idx=exp_idx,
-                    style_idx=exp_idx,
-                    show_markers=True  # Good for distinguishing experiments
-                )
-        
-        # Configure axis
-        ax.set_title(display_api, fontsize=style.title_size)
-        ax.grid(True, alpha=0.3)
-        ax.set_ylim(bottom=0)  # Goodput starts from 0
-        
-        # Set x-axis limits with padding
-        if all_loads:
-            span = all_loads[-1] - all_loads[0]
-            pad = 0.03 * span if span > 0 else 0.05
-            ax.set_xlim(all_loads[0] - pad, all_loads[-1] + pad)
-    
-    # Configure labels
-    grid_gp.configure_labels(
-        pattern="leftmost_y_bottom_x",
-        xlabel="Offered Load (KRPS)",
-        ylabel="Goodput (KRPS)"
-    )
-    
-    # Add legend (use two rows if many experiments)
-    grid_gp.add_shared_legend(position="top", two_rows=(len(all_experiment_data) > 3))
-    
-    # Save
-    goodput_path = output_dir / f'{figure_name}_goodput_vs_load.pdf'
-    grid_gp.save(goodput_path)
-    produced.append(goodput_path)
-    
+    comb_path = output_dir / f'{figure_name}_combined.pdf'
+    grid.save(comb_path)
+    produced.append(comb_path)
+
     return produced
 
 
@@ -1630,10 +1570,25 @@ def generate_latency_and_rate_vs_time_merged(
         global_configs = json.load(f)
     slo_map = global_configs.get('slos', {})
     
-    # TODO: Implement RWG-based merged latency-and-rate-vs-time plotting
-    # This requires realtime CSV data which is not yet fully integrated
+    # Implementation using SubplotGrid stub (waiting for data logic)
+    # User requested 240pt
+    style = ACM_COMPACT_HALF # 240pt
+    grid = SubplotGrid(style, layout="1x1")
+    
+    # Placeholder: Just save an empty plot for now to confirm structure work
+    # Once data loading is implemented, we can fill this in
+    ax = grid.get_ax(0, 0)
+    ax.text(0.5, 0.5, "Data Loading Not Implemented", ha='center', va='center')
+    
     print(f"Warning: generate_latency_and_rate_vs_time_merged not yet fully migrated to RWG")
     
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fig_path = output_dir / f'{figure_name}_latency_rate_vs_time.pdf'
+    try:
+        grid.save(fig_path)
+    except Exception:
+        pass
+        
     return produced
 
 
@@ -1693,7 +1648,7 @@ def generate_latency_vs_throughput_merged(
     n_apis = len(all_apis)
 
     # Use ACM compact style
-    style = PlotStyle(width_points=180)
+    style = PlotStyle(width_points=120)
     # Layout: 2 rows (P99, P95), N columns (one per API)
     grid = SubplotGrid(style, layout=f"1x{n_apis}")
     
@@ -1834,10 +1789,20 @@ def generate_latency_vs_throughput_merged(
         for label, data in plot_data[api].items():
             color_idx = color_idx_map.get(label, 0)
             
+            p99_vals = data['p99']
+            p99_cis = data['p99_ci']
+
+            p99_errs = None
+            if p99_cis:
+                # Clamp lower error bars to mean value (cannot go below 0)
+                p99_lower_errs = [min(ci if ci is not None else 0, mean if mean is not None else 0) for mean, ci in zip(p99_vals, p99_cis)]
+                p99_upper_errs = [ci if ci is not None else 0 for ci in p99_cis]
+                p99_errs = [p99_lower_errs, p99_upper_errs]
+
             # Plot P99 line (Row 0)
             plot_line(
-                ax_p99, data['tps'], data['p99'],
-                yerr=data['p99_ci'],
+                ax_p99, data['tps'], p99_vals,
+                yerr=p99_errs,
                 label=label,
                 style=style,
                 color_idx=color_idx,
