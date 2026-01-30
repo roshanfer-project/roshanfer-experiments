@@ -117,7 +117,7 @@
         "read-home-timeline"
       ],
       "system": "sidecar",
-      "repeat": 3,
+      "repeat": 1,
       "collector_freq": 200
     },
     {
@@ -135,7 +135,7 @@
       "apis": [
         "compose-post"
       ],
-      "system": "sidecar-queue",
+      "system": "sidecar",
       "repeat": 3,
       "collector_freq": 200,
       "services": [
@@ -145,7 +145,10 @@
         "user",
         "posts",
         "graph"
-      ]
+      ],
+      "deploy_env": {
+        "queuing_export": "true"
+      }
     },
     {
       "name": "max-queue-social-3-sidecar",
@@ -164,7 +167,7 @@
         "read-user-timeline",
         "read-home-timeline"
       ],
-      "system": "sidecar-queue",
+      "system": "sidecar",
       "repeat": 3,
       "collector_freq": 200,
       "services": [
@@ -174,7 +177,10 @@
         "user",
         "posts",
         "graph"
-      ]
+      ],
+      "deploy_env": {
+        "queuing_export": "true"
+      }
     },
     {
       "name": "latency-and-goodput-vs-load-social-1-rajomon",
