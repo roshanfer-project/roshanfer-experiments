@@ -570,15 +570,30 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
         print(f"[resource-waste] Final aggregated data (summed across APIs): {aggregated_data}")
 
     # Create the visualization
+    # Create the visualization
     try:
-        from experiments.canvas import canvas  # type: ignore
-    except Exception:
-        from canvas import canvas  # type: ignore
+        from ..plotting_primitives import (  # type: ignore
+            SubplotGrid, ACM_QUARTER
+        )
+    except ImportError:
+        try:
+            from exec.plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_QUARTER
+            )
+        except ImportError:
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_QUARTER
+            )
 
     import matplotlib.pyplot as plt  # type: ignore
     from matplotlib.patches import FancyBboxPatch  # type: ignore
 
-    fig, ax = canvas.create_canvas(width_in_inches=8, aspect_ratio=0.5, font_size=10)
+    # Use strict ACM_QUARTER style (120pt)
+    style = ACM_QUARTER
+    grid = SubplotGrid(style, layout="1x1")
+    ax = grid.get_ax(0, 0)
+    fig = grid.fig # Access underlying figure for patch color
+    
     ax.set_facecolor('#FAFAFA')
     fig.patch.set_facecolor('white')
     ax.grid(True, alpha=0.1, color='#BDC3C7', linestyle='-', linewidth=0.5)
@@ -868,8 +883,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
         
         # Save plot
         fig_path = out_dir / 'resource_waste_diagram.pdf'
-        fig.savefig(fig_path, bbox_inches='tight')
-        plt.close(fig)
+        grid.save(fig_path)
         
         #return [fig_path]
         bar_plot_path = _generate_resource_waste_bar_plot(aggregated_data, out_dir, len(repeat_metric_files))
@@ -1016,8 +1030,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
         ax.set_aspect('equal')
         ax.axis('off')
         fig_path = out_dir / 'resource_waste_diagram.pdf'
-        fig.savefig(fig_path, bbox_inches='tight')
-        plt.close(fig)
+        grid.save(fig_path)
         
         # Generate additional bar plot
         print(f"### Generating resource waste bar plot in {out_dir}")
@@ -1081,13 +1094,23 @@ def _generate_resource_waste_bar_plot(aggregated_data: Dict, out_dir: Path, num_
     
     # Create bar plot with max-queue styling
     try:
-        from experiments.canvas import canvas  # type: ignore
-    except Exception:
-        from canvas import canvas  # type: ignore
-    import matplotlib.pyplot as plt  # type: ignore
-    
-    fig, ax = canvas.create_canvas(width_in_inches=max(3.33, 0.5 * len(services)), aspect_ratio=0.6,
-                                   font_size=14, legend_size=12, line_width=1.5, marker_size=4)
+        from ..plotting_primitives import (  # type: ignore
+            SubplotGrid, ACM_QUARTER
+        )
+    except ImportError:
+        try:
+            from exec.plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_QUARTER
+            )
+        except ImportError:
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_QUARTER
+            )
+            
+    # Strict ACM_QUARTER style (120pt)
+    style = ACM_QUARTER
+    grid = SubplotGrid(style, layout="1x1")
+    ax = grid.get_ax(0, 0)
     
     # Create single-series bar plot (no grouping needed since we're showing total waste per service)
     x_indices = list(range(len(services)))
@@ -1105,49 +1128,26 @@ def _generate_resource_waste_bar_plot(aggregated_data: Dict, out_dir: Path, num_
     max_with_error = max(m + ci for m, ci in zip(means, ci_margins)) if means else 0
     
     # Plot bars with error bars
-    bars = ax.bar(x_indices, means, width=0.6, 
-                  color=bar_color, edgecolor='black', linewidth=0.6)
+    ax.bar(x_indices, means, yerr=ci_margins, width=0.6, 
+           color=bar_color, edgecolor='black', linewidth=0.6,
+           error_kw=dict(capsize=3, elinewidth=1.0))
 
-    # Add value labels on bars
-    for i, (mean_val, ci_margin) in enumerate(zip(means, ci_margins)):
-        label_height = mean_val + ci_margin + (0.02 * max_with_error if max_with_error > 0 else 0.1)
-        """ ax.text(i, label_height, f"{mean_val:.1f}%", 
-               ha='center', va='bottom', fontsize=9) """
-    
     # Styling similar to max-queue plots
     ax.set_xticks(x_indices)
     ax.set_xticklabels(services, rotation=30, ha='right')
-    ylab = ax.set_ylabel('Resource Waste (%)', labelpad=20)
-    ylab.set_position((ylab.get_position()[0], 0.35))
-    #ax.set_xlabel('Service')
-    ax.yaxis.grid(True, alpha=0.3)
     
     # Set y-axis limits and ticks
     import numpy as np
-    """ if max_with_error > 0:
-        # Set y ticks every 5% for waste percentages
-        tick_spacing = 5
-        max_tick = tick_spacing * np.ceil(max_with_error / tick_spacing)
-        if max_tick <= max_with_error:
-            max_tick += tick_spacing
-        
-        ticks = np.arange(0, max_tick + tick_spacing, tick_spacing)
-        ax.set_yticks(ticks)
-        ax.set_ylim(0, max_tick + 1)  # Small padding above highest tick
-    else:
-        ax.set_ylim(0, 10)  # Default range if no data """
-
     tick_spacing = 2
     max_tick = tick_spacing * np.ceil(max_value / tick_spacing)
     if max_tick <= max_value:
         max_tick += tick_spacing
-    ticks = np.arange(0, max_tick + tick_spacing, tick_spacing)
-    ax.set_yticks(ticks)
-    ax.set_ylim(0, max_tick + 1)  # Small padding above highest tick
     
+    # Use configure_ax for consistent styling
+    grid.configure_ax(ax, ylabel='Resource Waste (%)', ylim=(0, max_tick + 1))
+
     # Save bar plot
     bar_fig_path = out_dir / 'resource_waste_bar.pdf'
-    fig.savefig(bar_fig_path, bbox_inches='tight')
-    plt.close(fig)
+    grid.save(bar_fig_path)
     
     return bar_fig_path

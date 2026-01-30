@@ -115,9 +115,9 @@ class PlotStyle:
 
 
 # ACM Presets
-ACM_QUARTER = PlotStyle(width_points=120)  # 1.665 inches (quarter column)
-ACM_COMPACT_HALF = PlotStyle(width_points=240)  # 3.33 inches (half column)
-ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (full column)
+ACM_QUARTER = PlotStyle(width_points=120)  # 1.665 inches (half column)
+ACM_COMPACT_HALF = PlotStyle(width_points=240)  # 3.33 inches (full column)
+ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (double column)
 
 
 class SubplotGrid:
@@ -309,7 +309,7 @@ class SubplotGrid:
         
        
     def configure_labels(self, pattern: str = "leftmost_y_bottom_x",
-                        xlabel: str = "", ylabel: str = ""):
+                        xlabel: str = "", ylabel: str = "", **kwargs):
         """Apply common label pattern across all subplots.
         
         Provides convenient presets for typical multi-subplot configurations.
@@ -322,6 +322,7 @@ class SubplotGrid:
                 - "none": No labels or ticks on any subplot
             xlabel: X-axis label text (applied based on pattern)
             ylabel: Y-axis label text (applied based on pattern)
+            **kwargs: Additional arguments passed to configure_ax (e.g., x_step, y_step)
         """
         for idx, ax in enumerate(self.axes):
             row = idx // self.ncols
@@ -346,7 +347,8 @@ class SubplotGrid:
                 show_xlabel=show_xlabel,
                 show_ylabel=show_ylabel,
                 show_xticklabels=show_xticklabels,
-                show_yticklabels=show_yticklabels
+                show_yticklabels=show_yticklabels,
+                **kwargs
             )
     
     def add_shared_legend(self, position: str = "top", ncol: Optional[int] = None,

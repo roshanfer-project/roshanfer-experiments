@@ -106,6 +106,35 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
                 print(f"[max-queue-motivation][load {load}][repeat {repeat_idx}] scan start")
             
             for svc in services:
+                # Check for hierarchical data first (prometheus -> api -> service -> max_queue)
+                hierarchical_val = None
+                
+                if 'prometheus' in mf:
+                    prom_data = mf['prometheus']
+                    if api in prom_data:
+                        api_data = prom_data[api]
+                        # Look for service match (handling normalization)
+                        found_svc_stats = None
+                         # Try direct match first
+                        if svc in api_data:
+                             found_svc_stats = api_data[svc]
+                        
+                        # Try iterating to match normalized names if direct match failed
+                        if not found_svc_stats:
+                            for raw_svc, stats in api_data.items():
+                                if _normalize_service_name(raw_svc) == svc:
+                                    found_svc_stats = stats
+                                    break
+                                    
+                        if found_svc_stats and isinstance(found_svc_stats, dict) and 'max_queue' in found_svc_stats:
+                            hierarchical_val = float(found_svc_stats['max_queue'])
+                
+                if hierarchical_val is not None:
+                    data[svc][load].append(hierarchical_val)
+                    if os.environ.get('PLOT_DEBUG'):
+                         print(f"[max-queue-motivation][load {load}][repeat {repeat_idx}] found hier val={hierarchical_val} for svc={svc} api={api}")
+                    continue
+
                 # Candidate stems in priority order - include both normalized and original service names
                 original_service_variants = [svc]
                 # If normalized service is 'frontend' or 'nginx', also try their -grpc forms
@@ -152,99 +181,68 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
     
     # Prepare plotting arrays (grouped bars per service, one group per load)
     try:
-        from experiments.canvas import canvas  # type: ignore
-    except Exception:
-        from canvas import canvas  # type: ignore
-    import matplotlib.pyplot as plt  # type: ignore
+        from ..plotting_primitives import (
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_grouped_bars
+        )
+    except ImportError:
+        try:
+            from exec.plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_grouped_bars
+            )
+        except ImportError:
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_grouped_bars
+            )
+            
+    # Strict width: 120pt (1.665 inches)
+    style = ACM_QUARTER
     
-    fig, ax = canvas.create_canvas(width_in_inches=max(3.33, 0.5 * len(services)), aspect_ratio=0.6,
-                                   font_size=14, legend_size=12, line_width=1.5, marker_size=4)
+    grid = SubplotGrid(style, layout="1x1")
+    ax = grid.get_ax(0, 0)
     
-    # Grouped bar plotting
-    n_services = len(services)
-    n_loads = len(loads)
-    x_indices = list(range(n_services))
-    total_group_width = 0.8
-    if n_loads > 0:
-        bar_width = total_group_width / n_loads
-    else:
-        bar_width = total_group_width
+    # Prepare data for plot_grouped_bars
+    # bar_groups: List of (label, heights, errors)
+    bar_groups = []
     
-    try:
-        import matplotlib.pyplot as plt  # type: ignore
-        colors = [c['color'] for c in plt.rcParams['axes.prop_cycle']]
-    except Exception:
-        colors = []
-    
-    load_colors = {load: colors[i % len(colors)] if colors else None for i, load in enumerate(loads)}
-    
-    max_height = 0.0
-    max_error = 0.0
-    
-    for load_idx, load in enumerate(loads):
-        offsets = [x - total_group_width/2 + load_idx * bar_width + bar_width/2 for x in x_indices]
+    for load in loads:
         means = []
         stds = []
-        
         for svc in services:
             m, s = _mean_std(data[svc][load])
-            if m is None:
-                m = 0.0
-                s = 0.0
+            if m is None: m = 0.0
+            if s is None: s = 0.0
+            
             means.append(m)
-            stds.append(0.0001 if (s is None or s == 0) else s)
-            if m > max_height:
-                max_height = m
-            if m + (s if s is not None else 0) > max_error:
-                max_error = m + (s if s is not None else 0)
+            stds.append(s)
+            
+        # Label with KRPS
+        label = f'{round(load/1000)} KRPS'
+        bar_groups.append((label, means, stds))
         
-        ax.bar(offsets, means, yerr=stds, width=bar_width*0.9, label=f'{round(load/100)} KRPS',
-               color=load_colors.get(load), edgecolor='black', linewidth=0.6,
-               error_kw=dict(capsize=3, elinewidth=1.0, capthick=0.8))
-        
-        # Add value labels on bars
-        """ for ox, m in zip(offsets, means):
-            ax.text(ox, m + (0.02 * (max_error if max_error > 0 else 1.0)), f"{m:.0f}", 
-                   ha='center', va='bottom', fontsize=9) """
+    # Plot grouped bars
+    plot_grouped_bars(ax, list(range(len(services))), bar_groups, style=style)
     
-    ax.set_xticks(x_indices)
+    # Configure Axes
+    ax.set_xticks(list(range(len(services))))
     ax.set_xticklabels(services, rotation=30, ha='right')
-    ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
-    # Move the y-label a little lower (default is y=0.5, try y=0.42)
-    ylab.set_position((ylab.get_position()[0], 0.42))
-    #ax.set_xlabel('Service')
-    ax.yaxis.grid(True, alpha=0.3)
     
-    # Set y-limit to 1.2x (max value + error bar), or 1 if all zeros
-    ylim_max = 1.2 * max_error if max_error > 0 else 1.0
-    ax.set_ylim(0, ylim_max)
+    # Determine Y-limit
+    max_val = 0.0
+    for _, means, stds in bar_groups:
+        for m, s in zip(means, stds):
+            top = m + (s if s else 0)
+            if top > max_val:
+                max_val = top
     
-    # Set y ticks every 100 requests, ensuring the highest tick is above the maximum value
-    import numpy as np
-    if max_error > 0:
-        tick_spacing = 100
-        # Find the highest tick that exceeds max_error
-        max_tick = tick_spacing * np.ceil(max_error / tick_spacing)
-        if max_tick <= max_error:
-            max_tick += tick_spacing
-        
-        ticks = np.arange(0, max_tick + tick_spacing, tick_spacing)
-        ax.set_yticks(ticks)
-        ax.set_ylim(0, max_tick + 10)  # Small padding above highest tick
+    ylim_max = 1.2 * max_val if max_val > 0 else 1.0
     
-    # Always show legend for loads (since we have exactly 2 loads)
-    try:
-        handles, labels = ax.get_legend_handles_labels()
-        if handles:
-            fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.04),
-                       ncol=max(1, len(labels)), frameon=True, fancybox=True,
-                       framealpha=0.85, edgecolor='#bbbbbb')
-            fig.subplots_adjust(top=0.84)
-    except Exception:
-        pass
+    # Configure common axis properties
+    grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max))
+    
+    # Add legend
+    grid.add_shared_legend(position="top")
     
     fig_path = out_dir / 'max_queue_motivation_bar.pdf'
-    fig.savefig(fig_path, bbox_inches='tight')
-    plt.close(fig)
+    grid.save(fig_path)
     
     return [fig_path]

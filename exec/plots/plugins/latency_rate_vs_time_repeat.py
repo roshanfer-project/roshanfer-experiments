@@ -34,20 +34,20 @@ import os
 try:
     from ..data_loader import load_repeat_data, RealtimeData
     from ..plotting_primitives import (
-        SubplotGrid, PlotStyle, ACM_COMPACT_HALF,
+        SubplotGrid, PlotStyle, ACM_COMPACT_HALF, ACM_QUARTER,
         plot_line, plot_stacked_area
     )
 except ImportError:
     try:
         from exec.plots.data_loader import load_repeat_data, RealtimeData  # type: ignore
         from exec.plots.plotting_primitives import (  # type: ignore
-            SubplotGrid, PlotStyle, ACM_COMPACT_HALF,
+            SubplotGrid, PlotStyle, ACM_COMPACT_HALF, ACM_QUARTER,
             plot_line, plot_stacked_area
         )
     except ImportError:
         from data_loader import load_repeat_data, RealtimeData  # type: ignore
         from plotting_primitives import (  # type: ignore
-            SubplotGrid, PlotStyle, ACM_COMPACT_HALF,
+            SubplotGrid, PlotStyle, ACM_COMPACT_HALF, ACM_QUARTER,
             plot_line, plot_stacked_area
         )
 
@@ -407,7 +407,8 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
         return []
     
     # Use ACM compact half-column style
-    style = PlotStyle(width_points=150)
+    # Use ACM quarter column style
+    style = ACM_QUARTER
     
     produced: List[Path] = []
     

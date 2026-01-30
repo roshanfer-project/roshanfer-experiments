@@ -19,20 +19,20 @@ try:
     from ..data_loader import load_experiment_data
     from ..aggregation import aggregate_overall_metric
     from ..plotting_primitives import (
-        SubplotGrid, ACM_COMPACT_HALF, plot_line
+        SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
     )
 except ImportError:
     try:
         from exec.plots.data_loader import load_experiment_data  # type: ignore
         from exec.plots.aggregation import aggregate_overall_metric  # type: ignore
         from exec.plots.plotting_primitives import (  # type: ignore
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
     except ImportError:
         from data_loader import load_experiment_data  # type: ignore
         from aggregation import aggregate_overall_metric  # type: ignore
         from plotting_primitives import (  # type: ignore
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
 
 SUPPORTED_TYPES = ['latency-vs-throughput']
@@ -151,8 +151,8 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
             print("[latency_vs_throughput_experiment] No valid data points found")
         return produced
     
-    # Use ACM compact style
-    style = ACM_COMPACT_HALF
+    # Use ACM quarter style
+    style = ACM_QUARTER
     
     # Create single subplot
     grid = SubplotGrid(style, layout="1x1")

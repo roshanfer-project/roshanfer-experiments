@@ -31,20 +31,20 @@ try:
     from ..data_loader import load_unit_data
     from ..aggregation import aggregate_by_api
     from ..plotting_primitives import (
-        SubplotGrid, ACM_COMPACT_HALF, plot_line
+        SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
     )
 except ImportError:
     try:
         from exec.plots.data_loader import load_unit_data  # type: ignore
         from exec.plots.aggregation import aggregate_by_api  # type: ignore
         from exec.plots.plotting_primitives import (  # type: ignore
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
     except ImportError:
         from data_loader import load_unit_data  # type: ignore
         from aggregation import aggregate_by_api  # type: ignore
         from plotting_primitives import (  # type: ignore
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
 
 SUPPORTED_TYPES = ['latency-and-goodput-vs-load']
@@ -103,7 +103,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
         return produced
     
     # X-axis value: load * 10 / 1000 = KRPS
-    x_value = (load_val * 10) / 1000.0
+    x_value = load_val / 1000.0
     
     # Load data from all repeats using new data loader
     try:
@@ -130,8 +130,8 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
             traceback.print_exc()
         return produced
     
-    # Use ACM compact style
-    style = ACM_COMPACT_HALF
+    # Use ACM quarter style
+    style = ACM_QUARTER
     
     # === LATENCY FIGURE ===
     layout = f"row-{len(apis)}" if len(apis) > 1 else "1x1"

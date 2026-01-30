@@ -21,20 +21,20 @@ try:
     from ..data_loader import load_experiment_data
     from ..aggregation import aggregate_by_api
     from ..plotting_primitives import (
-        SubplotGrid, ACM_COMPACT_HALF, plot_line
+        SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
     )
 except ImportError:
     try:
         from exec.plots.data_loader import load_experiment_data  # type: ignore
         from exec.plots.aggregation import aggregate_by_api  # type: ignore
         from exec.plots.plotting_primitives import (  # type: ignore
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
     except ImportError:
         from data_loader import load_experiment_data  # type: ignore
         from aggregation import aggregate_by_api  # type: ignore
         from plotting_primitives import (  # type: ignore
-            SubplotGrid, ACM_COMPACT_HALF, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
 
 SUPPORTED_TYPES = ['latency-and-goodput-vs-load']
@@ -97,7 +97,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     
     for unit_entry in unit_entries:
         load = unit_entry['load_value']
-        x_val = (load * 10) / 1000.0  # Convert to KRPS
+        x_val = load / 1000.0  # Convert to KRPS
         loads.append(x_val)
         
         artifact_dirs = unit_entry.get('artifact_dirs', [])
@@ -143,8 +143,8 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
                 latency_series[api]['p99'].append((None, None, None))
                 goodput_series[api].append((None, None, None))
     
-    # Use ACM compact style
-    style = ACM_COMPACT_HALF
+    # Use ACM quarter style
+    style = ACM_QUARTER
     
     # === LATENCY FIGURE ===
     layout = f"row-{len(apis)}" if len(apis) > 1 else "1x1"
@@ -185,11 +185,12 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
         slo_val = _lookup_slo(slos, display_api)
         if slo_val is not None:
             ax.axhline(y=slo_val, color='r', linestyle='--',
-                      label='SLO', linewidth=style.line_width)
+                       label='SLO', linewidth=style.line_width)
             all_latency_values.append(slo_val)
         
         # Configure axis
-        ax.set_title(display_api, fontsize=style.title_size)
+        if len(apis) > 1:
+            ax.set_title(display_api, fontsize=style.title_size)
         ax.set_yscale('log')
         ax.grid(True, alpha=0.3)
         
@@ -214,11 +215,14 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     grid_lat.configure_labels(
         pattern="leftmost_y_bottom_x",
         xlabel="Offered Load (KRPS)",
-        ylabel="P99 Latency (ms)"
+        ylabel="P99 Latency (ms)",
+        x_step=2,  # 2 KRPS ticks
+        x_type="int",
+        x_data=loads
     )
     
-    # Add legend
-    grid_lat.add_shared_legend(position="top")
+    # Add legend (move slightly higher than default)
+    grid_lat.add_shared_legend(position="top", y_offset=1.15)
     
     # Save
     lat_path = out_dir / 'latency_vs_load.pdf'
@@ -255,7 +259,8 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
         
         # Configure axis
         display_api = api.replace('_all', '') if api.endswith('_all') else api
-        ax.set_title(display_api, fontsize=style.title_size)
+        if len(apis) > 1:
+            ax.set_title(display_api, fontsize=style.title_size)
         ax.grid(True, alpha=0.3)
         
         # Set x-axis limits with padding
@@ -268,11 +273,14 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     grid_gp.configure_labels(
         pattern="leftmost_y_bottom_x",
         xlabel="Offered Load (KRPS)",
-        ylabel="Goodput (KRPS)"
+        ylabel="Goodput (KRPS)",
+        x_step=2,  # 2 KRPS ticks
+        x_type="int",
+        x_data=loads
     )
     
-    # Add legend
-    grid_gp.add_shared_legend(position="top")
+    # No legend for Goodput plot as requested
+    # grid_gp.add_shared_legend(position="top")
     
     # Save
     goodput_path = out_dir / 'goodput_vs_load.pdf'
