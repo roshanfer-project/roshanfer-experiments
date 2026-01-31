@@ -286,12 +286,12 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
         prometheus_data = None
         try:
             from exec.plots.data_loader import load_repeat_data
-            loaded_data = load_repeat_data(artifact_dir)
-            if loaded_data:
+            rwg_data = load_repeat_data(artifact_dir)
+            if rwg_data:
                 # Extract Prometheus data (it's the same for all APIs in the repeat)
                 # Just take the first one
-                first_api = next(iter(loaded_data))
-                _, _, prometheus_data = loaded_data[first_api]
+                first_api = next(iter(rwg_data))
+                _, _, prometheus_data = rwg_data[first_api]
         except Exception:
             if os.environ.get('PLOT_DEBUG') == '1':
                 traceback.print_exc()
@@ -301,6 +301,9 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             if os.environ.get('PLOT_DEBUG') == '1':
                 print(f"[plot_runner] skip repeat {repeat_index}: no data (checked metrics_dir and output/)")
             continue
+        
+        # rwg_data might be None if load failed or empty
+        rwg_data = rwg_data if 'rwg_data' in locals() and rwg_data else {}
         
         if os.environ.get('PLOT_DEBUG') == '1':
             data_sources = []
@@ -329,6 +332,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             'output_dir': out_dir,
             'metric_files': metric_files,  # Legacy - for backward compatibility
             'prometheus_data': prometheus_data, # New - parsed Prometheus metrics
+            'rwg_data': rwg_data, # New - Full RWG data (Overall, Realtime, Prom)
             'record': rec,
             'slos': slos,
             "bench": config.get("bench")
@@ -358,6 +362,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             # Collect per-repeat metric_files for this unit
             repeat_metric_files = []
             repeat_prometheus_data = []
+            repeat_rwg_data = [] # New
             artifact_dirs = []
             
             for r in recs:
@@ -379,11 +384,18 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                     if loaded_data:
                         first_api = next(iter(loaded_data))
                         _, _, prom_data = loaded_data[first_api]
+                    else:
+                        loaded_data = {} # Ensure defined
                 except Exception:
+                    loaded_data = {}
                     pass
                 if prom_data:
                     repeat_prometheus_data.append(prom_data)
-                elif metric_files: 
+                
+                # Append RWG data for this repeat (or empty dict if failed)
+                repeat_rwg_data.append(loaded_data)
+                
+                if not prom_data and metric_files: 
                     # If we found legacy files but no loaded prom data, append None to keep indexing if needed?
                     # Generally plugins usually iterate lists.
                     pass
@@ -420,6 +432,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 'artifact_dirs': artifact_dirs,
                 'repeat_metric_files': repeat_metric_files,
                 'repeat_prometheus_data': repeat_prometheus_data,
+                'repeat_rwg_data': repeat_rwg_data, # New
                 'output_dir': unit_out_dir,
                 'load_value': load_value,
                 'apis': apis,
@@ -457,6 +470,8 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 # Collect metric files per repeat (legacy Prometheus) or RWG data
                 repeat_metric_files = []
                 repeat_prometheus_data = []
+                # Initialize RWG data list
+                repeat_rwg_data = [] 
                 artifact_dirs = []
                 
                 for r in recs:
@@ -470,11 +485,14 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                     prom_data = None
                     try:
                         from exec.plots.data_loader import load_repeat_data
-                        loaded_data = load_repeat_data(artifact_dir)
-                        if loaded_data:
-                            first_api = next(iter(loaded_data))
-                            _, _, prom_data = loaded_data[first_api]
+                        rwg_data = load_repeat_data(artifact_dir)
+                        if rwg_data:
+                            first_api = next(iter(rwg_data))
+                            _, _, prom_data = rwg_data[first_api]
+                        else:
+                            rwg_data = {}
                     except Exception:
+                        rwg_data = {}
                         pass
                     
                     if mf:
@@ -484,7 +502,11 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                         
                     if prom_data:
                         repeat_prometheus_data.append(prom_data)
-                        
+                    
+                    # Append RWG data
+                    repeat_rwg_data.append(rwg_data)
+
+
                     # Check for new RWG data
                     output_dir_data = artifact_dir / 'output'
                     has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
@@ -507,6 +529,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                     'run_unit_name': run_unit_name,
                     'repeat_metric_files': repeat_metric_files,
                     'repeat_prometheus_data': repeat_prometheus_data,
+                    'repeat_rwg_data': repeat_rwg_data, # New
                     'artifact_dirs': artifact_dirs,
                     'load_value': load_value,
                 })

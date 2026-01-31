@@ -27,13 +27,17 @@ try:
 except Exception:  # pragma: no cover
     from experiments.exec.plots.common import extract_series  # type: ignore
 
-def _calculate_waste_from_prometheus(prom_data, apis: list, bench: str) -> Dict[str, Dict[str, float]]:
+def _calculate_waste_from_prometheus(prom_data, rwg_data: dict, apis: list, bench: str) -> Dict[str, Dict[str, float]]:
     """
     Calculate resource waste using Prometheus data and the new 2-step algorithm.
     Algorithm:
     1. LocalFailed(S) = ReportedFailed(S) - Sum(ReportedFailed(DirectDownstream))
     2. FinalFailed(S) = LocalFailed(S) + FinalFailed(NextServiceInSequence) [Cumulative Suffix Sum in Reverse]
     3. Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+    
+    Refinements:
+    - BLO Violations: Use 'num_slo_violations' from overall-{api}.json
+    - Sanity Check: num_dropped_requests (overall) == failed_rpc_counter (entry point)
     """
     waste_results = {} # service -> api -> waste_pct
     
@@ -106,6 +110,9 @@ def _calculate_waste_from_prometheus(prom_data, apis: list, bench: str) -> Dict[
         local_failed = {} # service -> count
         final_failed = {} # service -> count
         
+        # Determine entry point service for sanity check
+        entry_service = 'nginx' if bench == 'social' else 'frontend'
+        
         # 1. Calculate Local Failed
         for service in seq:
             reported_failed = get_metric(api, service, 'failed_rpc_counter')
@@ -124,21 +131,37 @@ def _calculate_waste_from_prometheus(prom_data, apis: list, bench: str) -> Dict[
             accumulator += local_failed.get(service, 0.0)
             final_failed[service] = accumulator
             
+        # SANITY CHECK: Compare FinalFailed of entry point to num_dropped_requests from overall report.
+        # We expect ReportedFailed(Entry) ≈ num_dropped_requests.
+        
+        # Get overall data for this API
+        overall_obj = None
+        if rwg_data and api in rwg_data:
+             overall_tuple = rwg_data[api] 
+             # rwg_data[api] is (overall, realtime, prom)
+             if overall_tuple and len(overall_tuple) >= 1 and overall_tuple[0]:
+                 overall_obj = overall_tuple[0]
+        
+        num_dropped = overall_obj.num_dropped_requests if overall_obj else 0
+        entry_reported_failed = get_metric(api, entry_service, 'failed_rpc_counter')
+        
+        # Logging check (print for now, maybe warn?)
+        diff = abs(num_dropped - entry_reported_failed)
+        if diff > 0 and num_dropped > 10 and diff > (num_dropped * 0.1):
+             print(f"WARNING: [Sanity Check Failed] {api} - Dropped: {num_dropped}, {entry_service}.Failed: {entry_reported_failed} (Diff: {diff})")
+
         # 3. Calculate Waste %
+        # Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+        
+        # Get SLO Violations from overall stats
+        slo_violations = overall_obj.num_slo_violations if overall_obj else 0
+        
         for service in seq:
             accepted = get_metric(api, service, 'accepted_rpc_counter')
             
-            slo_violations = 0.0
-            if service in ['frontend', 'nginx']:
-                # Use ingress max_queue if available
-                # In prom_data.metrics[api]['ingress']['max_queue']
-                if 'ingress' in prom_data.metrics.get(api, {}):
-                     slo_violations = prom_data.metrics[api]['ingress'].get('max_queue', 0.0)
-                else:
-                     slo_violations = get_metric(api, service, 'max_queue')
-            else:
-                slo_violations = get_metric(api, service, 'max_queue')
-                
+            # Add Global SLO violations to the numerator for each service
+            # This follows the requirement: Total Waste = (FinalFailed + SLO_Violations) / Total_Accepted
+            
             total_waste_count = final_failed[service] + slo_violations
             
             if accepted > 0:
@@ -182,7 +205,7 @@ def _mean_std(vals: List[float]) -> Tuple[float | None, float | None]:
         return m, 0.0
 
 
-def _calculate_waste_per_repeat(metric_files: Dict[str, dict], apis: List[str], bench: str, prom_data=None) -> Dict[str, Dict[str, float]]:
+def _calculate_waste_per_repeat(metric_files: Dict[str, dict], apis: List[str], bench: str, prom_data=None, rwg_data=None) -> Dict[str, Dict[str, float]]:
     """Calculate resource waste percentages for each service and API in a single repeat.
     
     Args:
@@ -190,13 +213,14 @@ def _calculate_waste_per_repeat(metric_files: Dict[str, dict], apis: List[str], 
         apis: List of APIs to process
         bench: Benchmark name (hotel or social)
         prom_data: Optional PrometheusData object. If present, use new calculation method.
+        rwg_data: Optional RWG data containing OverallData for SLO violation counts.
     
     Returns: {service: {api: waste_percentage}}
     """
     # If Prometheus data is available, use the new algorithm
     if prom_data and prom_data.metrics:
         try:
-            return _calculate_waste_from_prometheus(prom_data, apis, bench)
+            return _calculate_waste_from_prometheus(prom_data, rwg_data, apis, bench)
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -472,6 +496,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
     debug = os.environ.get('PLOT_DEBUG') == '1'
     
     repeat_metric_files: List[Dict[str, dict]] = ctx['repeat_metric_files']
+    repeat_rwg_data = ctx.get('repeat_rwg_data', [])
     artifact_dirs = ctx.get('artifact_dirs', [])
     out_dir: Path = ctx['output_dir']
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -523,7 +548,11 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
 
         if debug:
             print(f"[resource-waste] Processing repeat {i+1}/{num_repeats}")
-        waste_data = _calculate_waste_per_repeat(repeat_files, apis, bench, prom_data=prom_data)
+        
+        # Get RWG data for this repeat if available
+        rwg_data = repeat_rwg_data[i] if i < len(repeat_rwg_data) else None
+        
+        waste_data = _calculate_waste_per_repeat(repeat_files, apis, bench, prom_data=prom_data, rwg_data=rwg_data)
         repeat_waste_data.append(waste_data)
         if debug:
             print(f"[resource-waste] Repeat {i+1} waste data: {waste_data}")
@@ -568,6 +597,24 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
 
     if debug:
         print(f"[resource-waste] Final aggregated data (summed across APIs): {aggregated_data}")
+
+    # Find and print max waste for visibility
+    if aggregated_data:
+        # Service with Max Mean
+        max_mean_service = max(aggregated_data, key=lambda s: aggregated_data[s]['mean'])
+        max_mean_val = aggregated_data[max_mean_service]['mean']
+        max_mean_std = aggregated_data[max_mean_service]['std']
+        
+        print(f"[resource-waste-unit] Max Mean Waste: {max_mean_val:.2f} \u00b1 {max_mean_std:.2f}% (Service: {max_mean_service})")
+        
+        # Service with Max Upper Bound (Mean + Std)
+        max_upper_service = max(aggregated_data, key=lambda s: aggregated_data[s]['mean'] + aggregated_data[s]['std'])
+        if max_upper_service != max_mean_service:
+            max_upper_mean = aggregated_data[max_upper_service]['mean']
+            max_upper_std = aggregated_data[max_upper_service]['std']
+            print(f"[resource-waste-unit] Max Upper Bound Waste: {max_upper_mean:.2f} \u00b1 {max_upper_std:.2f}% (Service: {max_upper_service})")
+    else:
+        print("[resource-waste-unit] No aggregated data to find max waste.")
 
     # Create the visualization
     # Create the visualization
@@ -1136,15 +1183,21 @@ def _generate_resource_waste_bar_plot(aggregated_data: Dict, out_dir: Path, num_
     ax.set_xticks(x_indices)
     ax.set_xticklabels(services, rotation=30, ha='right')
     
-    # Set y-axis limits and ticks
+    # Set y-axis limits and ticks dynamically based on max value + error
     import numpy as np
-    tick_spacing = 2
-    max_tick = tick_spacing * np.ceil(max_value / tick_spacing)
-    if max_tick <= max_value:
-        max_tick += tick_spacing
     
+    # Calculate dynamic ylim based on max_with_error with 15% padding
+    ylim_max = math.ceil(max_with_error * 1.15)
+    
+    # Ensure it's usually aligned to tens if possible for nicer ticks, but prioritize visibility
+    if ylim_max < 10:
+         ylim_max = math.ceil(ylim_max)
+    else:
+         # Round up to nearest 5 or 10
+         ylim_max = 5 * math.ceil(ylim_max / 5)
+
     # Use configure_ax for consistent styling
-    grid.configure_ax(ax, ylabel='Resource Waste (%)', ylim=(0, max_tick + 1))
+    grid.configure_ax(ax, ylabel='Resource Waste (%)', ylim=(0, ylim_max))
 
     # Save bar plot
     bar_fig_path = out_dir / 'resource_waste_bar.pdf'

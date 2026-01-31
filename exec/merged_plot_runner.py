@@ -606,10 +606,16 @@ def generate_resource_waste_bar_merged(
         
     # Set consistent y-axis limits and ticks for all subplots
     if global_max > 0:
-        if n_apis <= 1:
-            ylim_max = 10 * np.ceil(global_max / 10) + 2
+        # Calculate dynamic ylim based on global_max with padding
+        # Use 10% padding or at least +2 units
+        ylim_max = math.ceil(global_max * 1.15)
+        
+        # Ensure it's usually aligned to tens if possible for nicer ticks, but prioritize visibility
+        if ylim_max < 10:
+             ylim_max = math.ceil(ylim_max)
         else:
-            ylim_max = 72
+             # Round up to nearest 5 or 10
+             ylim_max = 5 * math.ceil(ylim_max / 5)
         
         for api_idx in range(len(all_apis)):
             ax = grid.get_ax(0, api_idx) if n_apis > 1 else grid.get_ax(0, 0)
@@ -1532,10 +1538,11 @@ def generate_latency_and_rate_vs_time_merged(
     global_config: str = None
 ) -> list:
     """
-    REWRITTEN to use new RWG data loading and plotting architecture.
-    Generate merged latency-and-rate-vs-time figure(s).
-    For one API: one figure, columns=experiments, rows=latency/rate.
-    For multiple APIs: one figure per API, same layout.
+    Generate merged latency-and-rate-vs-time figures.
+    Produces two separate figures:
+      1. {name}_rate_vs_time.pdf: Stacked Rate vs Time (1 row x N experiments)
+      2. {name}_latency_vs_time.pdf: Latency Percentiles vs Time (1 row x N experiments)
+    Constraint: Only supports 1 API.
     """
     # Import new RWG data loading and plotting
     try:
@@ -1558,6 +1565,8 @@ def generate_latency_and_rate_vs_time_merged(
     import matplotlib.pyplot as plt
     import numpy as np
     import json
+    import matplotlib.patches as mpatches
+    from matplotlib.lines import Line2D
     
     produced: list = []
     include_experiments = figure_config.get('include', {})
@@ -1566,29 +1575,208 @@ def generate_latency_and_rate_vs_time_merged(
         return produced
     
     # Load SLOs from config file
-    with open(global_config) as f:
-        global_configs = json.load(f)
-    slo_map = global_configs.get('slos', {})
+    slo_map = {}
+    if global_config:
+        try:
+            with open(global_config) as f:
+                global_configs = json.load(f)
+            slo_map = global_configs.get('slos', {})
+        except Exception:
+            pass
+            
+    # Scan all experiment runs once to build an index
+    run_index = {}
+    roots_to_scan = []
+    if experiments_root.name.startswith('exp-'):
+        roots_to_scan.append(experiments_root)
+    else:
+        for i in range(1, 51):
+            roots_to_scan.append(experiments_root / f'exp-{i:03d}')
+            
+    print(f"Scanning {len(roots_to_scan)} potential run directories...")
+    for run_root in roots_to_scan:
+        if not run_root.exists(): continue
+        try:
+            records = _load_summary(run_root)
+            for rec in records:
+                e_name = rec.get('experiment_name')
+                u_name = rec.get('unit', rec.get('run_unit_name'))
+                if e_name and u_name:
+                    key = (e_name, u_name)
+                    if key not in run_index: run_index[key] = []
+                    run_index[key].append(rec)
+        except Exception: continue
+
+    # Color map for Rate
+    RATE_COLOR_MAP = {
+        'goodput': '#4daf4a',       # Green
+        'SLO violation': '#e41a1c', # Red
+        'dropped': '#ff7f00',       # Orange
+        'errors': '#999999',        # Gray
+    }
+
+    # Collect data
+    plot_data = [] 
+    all_found_apis = set()
     
-    # Implementation using SubplotGrid stub (waiting for data logic)
-    # User requested 240pt
-    style = ACM_COMPACT_HALF # 240pt
-    grid = SubplotGrid(style, layout="1x1")
-    
-    # Placeholder: Just save an empty plot for now to confirm structure work
-    # Once data loading is implemented, we can fill this in
-    ax = grid.get_ax(0, 0)
-    ax.text(0.5, 0.5, "Data Loading Not Implemented", ha='center', va='center')
-    
-    print(f"Warning: generate_latency_and_rate_vs_time_merged not yet fully migrated to RWG")
+    for exp_name, cfg in include_experiments.items():
+        label = cfg.get('label', exp_name)
+        target_unit = cfg.get('unit')
+        target_repeat = cfg.get('repeat')
+        
+        if target_unit is None or target_repeat is None:
+            print(f"Skipping {exp_name}: 'unit' and 'repeat' must be specified")
+            continue
+            
+        key = (exp_name, target_unit)
+        candidates = run_index.get(key, [])
+        chosen_rec = None
+        for rec in candidates:
+            if str(rec.get('repeat_index')) == str(target_repeat):
+                chosen_rec = rec
+                break
+        
+        if not chosen_rec:
+            print(f"Warning: Could not find run for {exp_name} unit={target_unit} repeat={target_repeat}")
+            continue
+            
+        artifact_dir = Path(chosen_rec.get('artifact_dir', '.'))
+        try:
+            loaded = load_repeat_data(artifact_dir)
+            if not loaded: continue
+            for api, vals in loaded.items():
+                if len(vals) == 3: overall, realtime, _ = vals
+                else: overall, realtime = vals
+                if realtime and not realtime.df.empty:
+                    all_found_apis.add(api)
+                    plot_data.append({
+                        'label': label,
+                        'realtime': realtime,
+                        'api': api
+                    })
+        except Exception: continue
+
+    if not plot_data:
+        return []
+
+    if len(all_found_apis) != 1:
+        print(f"Warning: 'latency-and-rate-vs-time' merged expects 1 API, found {len(all_found_apis)}. Using first.")
+        
+    target_api = list(all_found_apis)[0]
+    final_data = [d for d in plot_data if d['api'] == target_api]
+    n_plots = len(final_data)
+    if n_plots == 0: return []
+
+    # Common lookup
+    slo_val = 60.0
+    for key in [target_api, target_api.replace('-', '_'), target_api.replace('_', '-')]:
+        if key in slo_map:
+            slo_val = slo_map[key]
+            break
     
     output_dir.mkdir(parents=True, exist_ok=True)
-    fig_path = output_dir / f'{figure_name}_latency_rate_vs_time.pdf'
-    try:
-        grid.save(fig_path)
-    except Exception:
-        pass
+    style = ACM_COMPACT_HALF
+
+    # --- 1. GENERATE RATE PLOT ---
+    print(f"Generating merged rate plot for {target_api}...")
+    grid_rate = SubplotGrid(style, layout=f"1x{n_plots}")
+    
+    rate_max = 0.0
+    for item in final_data:
+        df = item['realtime'].df
+        df = df[df['relative_time'] <= 15.0]
+        cols = ['goodput', 'slo_violations', 'dropped_requests', 'errors']
+        existing = [c for c in cols if c in df.columns]
+        if existing:
+            total = df[existing].sum(axis=1)
+            if not total.empty:
+                m = total.max() / 1000.0
+                if m > rate_max: rate_max = m
+    rate_ylim = (0, rate_max * 1.1 if rate_max > 0 else 1.0)
+
+    for i, item in enumerate(final_data):
+        ax = grid_rate.get_ax(0, i)
+        df = item['realtime'].df
+        df = df[df['relative_time'] <= 15.0].copy()
+        time_x = df['relative_time'].values
         
+        y_series = {}
+        if 'goodput' in df.columns: y_series['goodput'] = df['goodput'].values / 1000.0
+        if 'slo_violations' in df.columns: y_series['SLO violation'] = df['slo_violations'].values / 1000.0
+        if 'dropped_requests' in df.columns: y_series['dropped'] = df['dropped_requests'].values / 1000.0
+        if 'errors' in df.columns: y_series['errors'] = df['errors'].values / 1000.0
+        
+        if y_series:
+            plot_stacked_area(ax, time_x, y_series, style=style, color_map=RATE_COLOR_MAP)
+            
+        # Title & Axis
+        ax.set_title(item['label'], fontsize=style.title_size)
+        grid_rate.configure_ax(ax, 
+            ylabel="Rate (KRPS)" if i == 0 else "",
+            xlabel="Time (s)",
+            ylim=rate_ylim,
+            show_ylabel=(i==0),
+            show_yticklabels=(i==0)
+        )
+        
+    # Rate Legend
+    rate_handles = [mpatches.Patch(color=v, label=k.title()) for k, v in RATE_COLOR_MAP.items()]
+    rate_labels = [h.get_label() for h in rate_handles]
+    grid_rate.add_shared_legend(position="top", handles=rate_handles, labels=rate_labels, two_rows=True, y_offset=1.25)
+    
+    rate_path = output_dir / f'{figure_name}_rate_vs_time.pdf'
+    grid_rate.save(rate_path)
+    produced.append(rate_path)
+
+    # --- 2. GENERATE LATENCY PLOT ---
+    print(f"Generating merged latency plot for {target_api}...")
+    grid_lat = SubplotGrid(style, layout=f"1x{n_plots}")
+    
+    lat_max = 500.0 # Default cap
+    
+    for i, item in enumerate(final_data):
+        ax = grid_lat.get_ax(0, i)
+        df = item['realtime'].df
+        df = df[df['relative_time'] <= 15.0].copy()
+        time_x = df['relative_time'].values
+        
+        # Plot P50 (Red typically in ACM styles if color_idx=0)
+        if 'p50_latency' in df.columns:
+            plot_line(ax, time_x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
+            
+        # Plot P99 (Blue typically in ACM styles if color_idx=1)
+        if 'p99_latency' in df.columns:
+            plot_line(ax, time_x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
+            
+        # SLO Line
+        ax.axhline(y=slo_val, color='r', linestyle='--', linewidth=style.line_width, label='SLO')
+        
+        # Title & Axis
+        ax.set_title(item['label'], fontsize=style.title_size)
+        grid_lat.configure_ax(ax,
+            ylabel="Latency (ms)" if i == 0 else "",
+            xlabel="Time (s)",
+            ylim=(1, lat_max),
+            log_y=True,
+            show_ylabel=(i==0),
+            show_yticklabels=(i==0)
+        )
+        
+    # Latency Legend
+    # Since we used plot_line with indices, we should match handles.
+    # P50 (idx 0), P99 (idx 1), SLO (Red Dashed)
+    lat_handles = []
+    lat_handles.append(Line2D([0], [0], color=style.colors[0], linewidth=style.line_width, label='P50'))
+    lat_handles.append(Line2D([0], [0], color=style.colors[1], linewidth=style.line_width, label='P99'))
+    lat_handles.append(Line2D([0], [0], color='r', linestyle='--', linewidth=style.line_width, label='SLO'))
+    lat_labels = [h.get_label() for h in lat_handles]
+    
+    grid_lat.add_shared_legend(position="top", handles=lat_handles, labels=lat_labels, two_rows=False, y_offset=1.2)
+    
+    lat_path = output_dir / f'{figure_name}_latency_vs_time.pdf'
+    grid_lat.save(lat_path)
+    produced.append(lat_path)
+    
     return produced
 
 
