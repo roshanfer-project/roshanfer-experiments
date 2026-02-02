@@ -21,12 +21,12 @@ if [ "$protocol" == "grpc" ]; then
     echo "GRPC is not supported for test API"
     exit "$?"
 else
-    if [ "$API" = "app" ]; then
-        url="http://$address:3000/app"
-    elif [ "$API" = "app2" ]; then
-        url="http://$address:3000/app2"
-    elif [ "$API" = "app3" ]; then
-        url="http://$address:3000/app3"
+    if [ "$API" = "api1" ]; then
+        url="http://$address:3000/api1"
+    elif [ "$API" = "api2" ]; then
+        url="http://$address:3000/api2"
+    elif [ "$API" = "api3" ]; then
+        url="http://$address:3000/api3"
     else
         echo "Unknown test API: $API"
         exit 1
