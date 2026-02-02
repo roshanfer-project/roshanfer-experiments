@@ -189,10 +189,11 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
     
     # Configure axis
-    grid.configure_ax(ax, xlabel='Time (s)', ylabel='Rate (KRPS)', grid=True)
+    grid.configure_ax(ax, xlabel='Time (s)', ylabel='Rate (KRPS)', grid=True,
+    x_data=x, x_type='int', x_step=3, y_type='int', y_step=2, ylim=(0, 12))
     
     # Add legend
-    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
+    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.15)
     
     # Save
     grid.save(out_path)
@@ -258,7 +259,7 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
     grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Rate (KRPS)")
     
     # Add shared legend
-    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
+    grid.add_shared_legend(position="top")
     
     # Save
     grid.save(out_path)
@@ -294,11 +295,12 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     ax.axhline(y=slo_ms, color='r', linestyle='--', label='SLO', linewidth=style.line_width)
     
     # Configure axis (log scale for latency)
-    grid.configure_ax(ax, xlabel='Time (s)', ylabel='Latency (ms)', grid=True, log_y=True)
+    grid.configure_ax(ax, xlabel='Time (s)', ylabel='Latency (ms)', grid=True, log_y=True,
+    x_data=x, x_type='int', x_step=3)
     ax.set_ylim(1, 500)
     
     # Add legend
-    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
+    grid.add_shared_legend(position="top", y_offset=1.05)
     
     # Save
     grid.save(out_path)
@@ -352,7 +354,7 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
     grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Latency (ms)")
     
     # Add shared legend
-    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.3)
+    grid.add_shared_legend(position="top")
     
     # Save
     grid.save(out_path)
@@ -408,7 +410,8 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     
     # Use ACM compact half-column style
     # Use ACM quarter column style
-    style = ACM_QUARTER
+    style = ACM_COMPACT_HALF
+    style_one_api = ACM_COMPACT_HALF
     
     produced: List[Path] = []
     
@@ -416,7 +419,7 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     rate_path = out_dir / f"rate_vs_time_repeat_{repeat_index:03d}.pdf"
     if len(api_realtime) == 1:
         api_name, realtime = next(iter(api_realtime.items()))
-        _plot_single_api_rate(realtime, rate_path, style)
+        _plot_single_api_rate(realtime, rate_path, style_one_api)
     else:
         _plot_multi_api_rate(api_realtime, rate_path, style)
     produced.append(rate_path)
@@ -426,7 +429,7 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     if len(api_realtime) == 1:
         api_name, realtime = next(iter(api_realtime.items()))
         slo_ms = _lookup_slo(slos, api_name)
-        _plot_single_api_latency(realtime, lat_path, style, slo_ms)
+        _plot_single_api_latency(realtime, lat_path, style_one_api, slo_ms)
     else:
         _plot_multi_api_latency(api_realtime, lat_path, style, slos)
     produced.append(lat_path)

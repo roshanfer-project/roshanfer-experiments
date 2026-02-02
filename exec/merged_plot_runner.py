@@ -405,7 +405,7 @@ def generate_resource_waste_bar_merged(
     # Decide layout based on number of APIs
     if n_apis <= 1:
         # Single API case: one subplot
-        style = PlotStyle(width_points=240, aspect_ratio=0.6) # User requested 240pt
+        style = PlotStyle(width_points=240) # User requested 240pt
         grid = SubplotGrid(style, layout="1x1")
     else:
         # Multiple API case
@@ -430,7 +430,7 @@ def generate_resource_waste_bar_merged(
             c = api_service_counts[api]
             width_ratios.append(c if c > 0 else 1)
             
-        style = PlotStyle(width_points=240, aspect_ratio=0.35 * n_apis) # Aspect adjusted roughly
+        style = PlotStyle(width_points=240) # Aspect adjusted roughly
         # Actually aspect ratio applies to total height. 0.6 is default.
         # User requested 240pt total width.
         grid = SubplotGrid(style, layout=f"1x{n_apis}", width_ratios=width_ratios)
@@ -624,6 +624,8 @@ def generate_resource_waste_bar_merged(
             grid.configure_ax(ax,
                 ylabel='Resource Waste (%)' if api_idx == 0 else '',
                 ylim=(0, ylim_max),
+                y_type='int',
+                y_step=20,
                 show_ylabel=(api_idx == 0),
                 show_yticklabels=(api_idx == 0)
             )
@@ -843,10 +845,10 @@ def generate_max_queue_merged(
     # Prepare figure
     # Prepare figure
     if single_api_mode:
-        style = PlotStyle(width_points=120, aspect_ratio=0.66)
+        style = PlotStyle(width_points=240)
         grid = SubplotGrid(style, layout="1x1")
     else:
-        style = PlotStyle(width_points=240, aspect_ratio=0.66)
+        style = PlotStyle(width_points=240)
         grid = SubplotGrid(style, layout=f"1x{ncols}")
     
     # Color mapping - use experiment colors for single API mode, API colors for multi-API mode
@@ -924,7 +926,10 @@ def generate_max_queue_merged(
         ax.set_xticks(x_indices)
         ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
         
-        grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max))
+        grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max),
+            y_type='int',
+            y_step=500,
+        )
         # ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
         # ylab.set_position((ylab.get_position()[0], 0.42))
         
@@ -976,6 +981,8 @@ def generate_max_queue_merged(
                 title=ed['label'],
                 ylim=(0, ylim_max),
                 show_ylabel=(i==0),
+                y_type='int',
+                y_step=500,
                 show_yticklabels=(i==0)
             )
     # Legend logic for both modes
@@ -1722,7 +1729,7 @@ def generate_latency_and_rate_vs_time_merged(
     # Rate Legend
     rate_handles = [mpatches.Patch(color=v, label=k.title()) for k, v in RATE_COLOR_MAP.items()]
     rate_labels = [h.get_label() for h in rate_handles]
-    grid_rate.add_shared_legend(position="top", handles=rate_handles, labels=rate_labels, two_rows=True, y_offset=1.25)
+    grid_rate.add_shared_legend(position="top", handles=rate_handles, labels=rate_labels, y_offset=1.15)
     
     rate_path = output_dir / f'{figure_name}_rate_vs_time.pdf'
     grid_rate.save(rate_path)
@@ -1771,7 +1778,7 @@ def generate_latency_and_rate_vs_time_merged(
     lat_handles.append(Line2D([0], [0], color='r', linestyle='--', linewidth=style.line_width, label='SLO'))
     lat_labels = [h.get_label() for h in lat_handles]
     
-    grid_lat.add_shared_legend(position="top", handles=lat_handles, labels=lat_labels, two_rows=False, y_offset=1.2)
+    grid_lat.add_shared_legend(position="top", handles=lat_handles, labels=lat_labels, two_rows=False, y_offset=1.15)
     
     lat_path = output_dir / f'{figure_name}_latency_vs_time.pdf'
     grid_lat.save(lat_path)
@@ -1836,7 +1843,7 @@ def generate_latency_vs_throughput_merged(
     n_apis = len(all_apis)
 
     # Use ACM compact style
-    style = PlotStyle(width_points=120)
+    style = PlotStyle(width_points=240)
     # Layout: 2 rows (P99, P95), N columns (one per API)
     grid = SubplotGrid(style, layout=f"1x{n_apis}")
     
@@ -1897,7 +1904,11 @@ def generate_latency_vs_throughput_merged(
                 for artifact_dir in artifact_dirs:
                     repeat_data = load_repeat_data(artifact_dir)
                     if repeat_data and api in repeat_data:
-                        overall, _ = repeat_data[api]
+                        vals = repeat_data[api]
+                        if len(vals) == 3:
+                            overall, _, _ = vals
+                        else:
+                            overall, _ = vals
                         if overall is not None:
                              unit_throughputs.append(overall.throughput)
                              unit_p99_latencies.append(overall.p99_latency)
@@ -1972,7 +1983,7 @@ def generate_latency_vs_throughput_merged(
         #ax_p99 = grid.get_ax(1, api_idx)
         
         # Set titles for columns (API names)
-        ax_p99.set_title(api, fontsize=style.title_size)
+        #ax_p99.set_title(api, fontsize=style.title_size)
 
         for label, data in plot_data[api].items():
             color_idx = color_idx_map.get(label, 0)
@@ -2045,6 +2056,7 @@ def generate_latency_vs_throughput_merged(
         grid.configure_ax(
             ax_p99,
             ylabel="P99 Latency (ms)" if api_idx == 0 else "",
+            xlabel="Throughput (RPS)",
             y_data=None, # We set manual limits
             ylim=(0, 30),
             y_type='int',
@@ -2071,7 +2083,7 @@ def generate_latency_vs_throughput_merged(
 
     # Add shared legend
     # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top", y_offset=1.2, two_rows=True)
+    grid.add_shared_legend(position="top", y_offset=1.05)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
