@@ -44,8 +44,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -63,8 +63,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -206,8 +206,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 1000,
@@ -245,8 +245,8 @@
       "type": "max-queue",
       "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 500,
@@ -274,11 +274,11 @@
       "type": "max-queue-motivation",
       "script": "run-plain.sh",
       "loads": {
-        "start": 500,
-        "end": 8000,
-        "step": 7500
+        "start": 1000,
+        "end": 10000,
+        "step": 9000
       },
-      "base_rate": 500,
+      "base_rate": 1000,
       "duration_sec": 15,
       "bench": "hotel",
       "apis": [
@@ -333,8 +333,8 @@
       "type": "resource-waste",
       "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 500,
@@ -431,8 +431,8 @@
       "type": "latency-and-rate-vs-time",
       "script": "run-plain.sh",
       "loads": {
-        "start": 8000,
-        "end": 8000,
+        "start": 10000,
+        "end": 10000,
         "step": 1000
       },
       "base_rate": 1000,

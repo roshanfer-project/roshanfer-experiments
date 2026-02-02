@@ -24,16 +24,16 @@ figures:
     include:
       latency-and-rate-vs-time-hotel-1-dagor:
         label: Dagor
-        unit: "latency-and-rate-vs-time-hotel-1-dagor-rate-800"
-        repeat: 1
+        unit: "latency-and-rate-vs-time-hotel-1-dagor-rate-10000"
+        repeat: 0
       latency-and-rate-vs-time-hotel-1-rajomon:
         label: Rajomon
-        unit: "latency-and-rate-vs-time-hotel-1-rajomon-rate-800"
-        repeat: 13
+        unit: "latency-and-rate-vs-time-hotel-1-rajomon-rate-10000"
+        repeat: 0
       latency-and-rate-vs-time-hotel-1-sidecar:
         label: Roshanfer
-        unit: "latency-and-rate-vs-time-hotel-1-sidecar-rate-800"
-        repeat: 8
+        unit: "latency-and-rate-vs-time-hotel-1-sidecar-rate-10000"
+        repeat: 2
 
   max-queue-hotel-1:
     type: max-queue
@@ -70,3 +70,11 @@ figures:
         label: Dagor
       resource-waste-hotel-2-rajomon:
         label: Rajomon
+  
+  latency-vs-throughput-hotel:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-hotel-sidecar:
+        label: Roshanfer
+      latency-vs-throughput-hotel-plain:
+        label: Plain
