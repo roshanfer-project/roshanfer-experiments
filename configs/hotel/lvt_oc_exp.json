@@ -1,99 +1,99 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-0",
+            "name": "latency-vs-throughput-hotel-sidecar-oc-0",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
-                "start": 300,
-                "end": 300,
-                "step": 50
+                "start": 4500,
+                "end": 4500,
+                "step": 500
             },
-            "base_rate": 50,
+            "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "tests/test1",
+            "bench": "hotel",
             "apis": [
-                "api1",
-                "api2"
+                "search-hotel",
+                "reserve-hotel"
             ],
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
             "warmup": 2,
             "deploy_env": {
-                "APP_OC": "0"
+                "FRONTEND_SEARCH_OC": "0"
             }
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-20",
+            "name": "latency-vs-throughput-hotel-sidecar-oc-20",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
-                "start": 300,
-                "end": 300,
-                "step": 50
+                "start": 1000,
+                "end": 5000,
+                "step": 500
             },
-            "base_rate": 50,
+            "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "tests/test1",
+            "bench": "hotel",
             "apis": [
-                "api1",
-                "api2"
+                "search-hotel",
+                "reserve-hotel"
             ],
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
             "warmup": 2,
             "deploy_env": {
-                "APP_OC": "0.2"
+                "FRONTEND_SEARCH_OC": "0.2"
             }
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-60",
+            "name": "latency-vs-throughput-hotel-sidecar-oc-60",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
-                "start": 300,
-                "end": 300,
-                "step": 50
+                "start": 1000,
+                "end": 5000,
+                "step": 500
             },
-            "base_rate": 50,
+            "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "tests/test1",
+            "bench": "hotel",
             "apis": [
-                "api1",
-                "api2"
+                "search-hotel",
+                "reserve-hotel"
             ],
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
             "warmup": 2,
             "deploy_env": {
-                "APP_OC": "0.6"
+                "FRONTEND_SEARCH_OC": "0.6"
             }
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-100",
+            "name": "latency-vs-throughput-hotel-sidecar-oc-100",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
-                "start": 300,
-                "end": 300,
-                "step": 50
+                "start": 1000,
+                "end": 5000,
+                "step": 500
             },
-            "base_rate": 50,
+            "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "tests/test1",
+            "bench": "hotel",
             "apis": [
-                "api1",
-                "api2"
+                "search-hotel",
+                "reserve-hotel"
             ],
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
             "warmup": 2,
             "deploy_env": {
-                "APP_OC": "1"
+                "FRONTEND_SEARCH_OC": "1"
             }
         }
     ]

@@ -1,0 +1,12 @@
+figures:
+  latency-vs-throughput-hotel-oc:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-hotel-sidecar-oc-0:
+        label: 0%
+      latency-vs-throughput-hotel-sidecar-oc-20:
+        label: 20%
+      latency-vs-throughput-hotel-sidecar-oc-60:
+        label: 60%
+      latency-vs-throughput-hotel-sidecar-oc-100:
+        label: 100%

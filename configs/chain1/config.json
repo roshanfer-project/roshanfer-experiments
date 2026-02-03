@@ -1,7 +1,7 @@
 {
   "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
   "output_base_dir": "./exp_runs",
-  "experiment_index": "9",
+  "experiment_index": "test1-lvt-oc-exp-final7",
   "num_generators": 3,
   "prometheus_url": "http://192.168.1.100:9091",
   "raw_artifact_subdir": "raw",
@@ -27,9 +27,9 @@
     }
   },
   "slos": {
-    "app": 19,
-    "app2": 28,
-    "app3": 45
+    "api1": 150,
+    "api2": 300,
+    "api3": 600
   },
   "metrics": {},
   "report": {
