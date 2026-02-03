@@ -34,20 +34,20 @@ import os
 try:
     from ..data_loader import load_repeat_data, RealtimeData
     from ..plotting_primitives import (
-        SubplotGrid, PlotStyle, ACM_COMPACT_HALF, ACM_QUARTER,
+        SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER,
         plot_line, plot_stacked_area
     )
 except ImportError:
     try:
         from exec.plots.data_loader import load_repeat_data, RealtimeData  # type: ignore
         from exec.plots.plotting_primitives import (  # type: ignore
-            SubplotGrid, PlotStyle, ACM_COMPACT_HALF, ACM_QUARTER,
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER,
             plot_line, plot_stacked_area
         )
     except ImportError:
         from data_loader import load_repeat_data, RealtimeData  # type: ignore
         from plotting_primitives import (  # type: ignore
-            SubplotGrid, PlotStyle, ACM_COMPACT_HALF, ACM_QUARTER,
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER,
             plot_line, plot_stacked_area
         )
 
@@ -193,7 +193,7 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     x_data=x, x_type='int', x_step=3, y_type='int', y_step=2, ylim=(0, 12))
     
     # Add legend
-    grid.add_shared_legend(position="top", two_rows=True, y_offset=1.15)
+    grid.add_shared_legend(position="top-left", two_rows=True, y_offset=1.25)
     
     # Save
     grid.save(out_path)
@@ -256,10 +256,11 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
         ax.set_ylim(0, ylim_max)
     
     # Configure labels (leftmost gets Y-label, bottom row gets X-labels)
-    grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Rate (KRPS)")
+    grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Rate (KRPS)",
+    x_data=x, x_type='int', x_step=3)
     
     # Add shared legend
-    grid.add_shared_legend(position="top")
+    grid.add_shared_legend(position="top", y_offset=1.15)
     
     # Save
     grid.save(out_path)
@@ -300,7 +301,7 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     ax.set_ylim(1, 500)
     
     # Add legend
-    grid.add_shared_legend(position="top", y_offset=1.05)
+    grid.add_shared_legend(position="top-left", y_offset=1.1)
     
     # Save
     grid.save(out_path)
@@ -351,10 +352,11 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         ax.grid(True, alpha=0.3)
     
     # Configure labels
-    grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Latency (ms)")
+    grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Latency (ms)",
+    x_type='int', x_step=3, x_data=x)
     
     # Add shared legend
-    grid.add_shared_legend(position="top")
+    grid.add_shared_legend(position="top", y_offset=1.15)
     
     # Save
     grid.save(out_path)
@@ -411,7 +413,7 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     # Use ACM compact half-column style
     # Use ACM quarter column style
     style = ACM_COMPACT_HALF
-    style_one_api = ACM_COMPACT_HALF
+    style_one_api = ACM_QUARTER
     
     produced: List[Path] = []
     
@@ -419,6 +421,7 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     rate_path = out_dir / f"rate_vs_time_repeat_{repeat_index:03d}.pdf"
     if len(api_realtime) == 1:
         api_name, realtime = next(iter(api_realtime.items()))
+        style_one_api.legend_size = 7
         _plot_single_api_rate(realtime, rate_path, style_one_api)
     else:
         _plot_multi_api_rate(api_realtime, rate_path, style)
@@ -429,6 +432,7 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     if len(api_realtime) == 1:
         api_name, realtime = next(iter(api_realtime.items()))
         slo_ms = _lookup_slo(slos, api_name)
+        style_one_api.legend_size = 7
         _plot_single_api_latency(realtime, lat_path, style_one_api, slo_ms)
     else:
         _plot_multi_api_latency(api_realtime, lat_path, style, slos)

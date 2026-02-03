@@ -1197,7 +1197,7 @@ def _generate_resource_waste_bar_plot(aggregated_data: Dict, out_dir: Path, num_
          ylim_max = 5 * math.ceil(ylim_max / 5)
 
     # Use configure_ax for consistent styling
-    grid.configure_ax(ax, ylabel='Resource Waste (%)', ylim=(0, ylim_max))
+    grid.configure_ax(ax, ylabel='Waste (%)', ylim=(0, ylim_max))
 
     # Save bar plot
     bar_fig_path = out_dir / 'resource_waste_bar.pdf'

@@ -209,16 +209,16 @@ def generate_resource_waste_bar_merged(
         
     try:
         from exec.plots.plotting_primitives import (
-            SubplotGrid, PlotStyle, plot_grouped_bars
+            SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
         )
     except ImportError:
          try:
             from plots.plotting_primitives import (  # type: ignore
-                SubplotGrid, PlotStyle, plot_grouped_bars
+                SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
             )
          except ImportError:
             from plotting_primitives import (  # type: ignore
-                SubplotGrid, PlotStyle, plot_grouped_bars
+                SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
             )
     import matplotlib.pyplot as plt
 
@@ -405,7 +405,7 @@ def generate_resource_waste_bar_merged(
     # Decide layout based on number of APIs
     if n_apis <= 1:
         # Single API case: one subplot
-        style = PlotStyle(width_points=240) # User requested 240pt
+        style = ACM_QUARTER
         grid = SubplotGrid(style, layout="1x1")
     else:
         # Multiple API case
@@ -430,7 +430,7 @@ def generate_resource_waste_bar_merged(
             c = api_service_counts[api]
             width_ratios.append(c if c > 0 else 1)
             
-        style = PlotStyle(width_points=240) # Aspect adjusted roughly
+        style = ACM_COMPACT_HALF
         # Actually aspect ratio applies to total height. 0.6 is default.
         # User requested 240pt total width.
         grid = SubplotGrid(style, layout=f"1x{n_apis}", width_ratios=width_ratios)
@@ -622,7 +622,7 @@ def generate_resource_waste_bar_merged(
             
             # Configure axis using primitives
             grid.configure_ax(ax,
-                ylabel='Resource Waste (%)' if api_idx == 0 else '',
+                ylabel='Waste (%)' if api_idx == 0 else '',
                 ylim=(0, ylim_max),
                 y_type='int',
                 y_step=20,
@@ -631,7 +631,7 @@ def generate_resource_waste_bar_merged(
             )
 
     # Compact legend at the top center of the figure
-    grid.add_shared_legend(position="top")
+    grid.add_shared_legend(position="top", two_rows=True if n_apis == 1 else False, y_offset=(1.25 if n_apis == 1 else 1.15))
     
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -668,16 +668,16 @@ def generate_max_queue_merged(
         
     try:
         from exec.plots.plotting_primitives import (
-            SubplotGrid, PlotStyle, plot_grouped_bars
+            SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
         )
     except ImportError:
          try:
             from plots.plotting_primitives import (  # type: ignore
-                SubplotGrid, PlotStyle, plot_grouped_bars
+                SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
             )
          except ImportError:
             from plotting_primitives import (  # type: ignore
-                SubplotGrid, PlotStyle, plot_grouped_bars
+                SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
             )
     import matplotlib.pyplot as plt
 
@@ -845,10 +845,11 @@ def generate_max_queue_merged(
     # Prepare figure
     # Prepare figure
     if single_api_mode:
-        style = PlotStyle(width_points=240)
+        style = ACM_QUARTER
         grid = SubplotGrid(style, layout="1x1")
+        style.legend_size = 7
     else:
-        style = PlotStyle(width_points=240)
+        style = ACM_COMPACT_HALF
         grid = SubplotGrid(style, layout=f"1x{ncols}")
     
     # Color mapping - use experiment colors for single API mode, API colors for multi-API mode
@@ -915,13 +916,13 @@ def generate_max_queue_merged(
         n_groups = len(bar_groups)
         bar_width = total_group_width / n_groups
         
-        for g_i, (label, means, stds) in enumerate(bar_groups):
+        """ for g_i, (label, means, stds) in enumerate(bar_groups):
              if label.lower() == 'roshanfer':
                  offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 for x in x_indices]
                  for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
                     y_pos = mean + std + ylim_max * 0.02
                     ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                           fontsize=6, fontweight='normal')
+                           fontsize=6, fontweight='normal') """
 
         ax.set_xticks(x_indices)
         ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
@@ -965,13 +966,13 @@ def generate_max_queue_merged(
             n_groups = len(bar_groups)
             bar_width = total_group_width / n_groups
             
-            if ed['label'].lower() == 'roshanfer':
+            """ if ed['label'].lower() == 'roshanfer':
                for g_i, (api, means, stds) in enumerate(bar_groups):
                    offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 for x in x_indices]
                    for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
                         y_pos = mean + std + ylim_max * 0.02
                         ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                               fontsize=6, fontweight='normal')
+                               fontsize=6, fontweight='normal') """
 
             ax.set_xticks(x_indices)
             ax.set_xticklabels([service.title() for service in services], rotation=30, ha='right')
@@ -987,7 +988,7 @@ def generate_max_queue_merged(
             )
     # Legend logic for both modes
     # Legend logic
-    grid.add_shared_legend(position="top")
+    grid.add_shared_legend(position="top", two_rows=True if single_api_mode else False, y_offset=(1.25 if single_api_mode else 1.15))
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_path = output_dir / f'{figure_name}_max_queue.pdf'
@@ -1410,8 +1411,7 @@ def generate_latency_goodput_vs_load_merged(
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
-                          log_y=True,
-                          title=f"{all_apis[0]}")
+                          log_y=True)
         
         # Goodput (0,1)
         grid.configure_ax(grid.get_ax(0,1), 
@@ -1419,8 +1419,7 @@ def generate_latency_goodput_vs_load_merged(
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
-                          log_y=False,
-                          title=f"{all_apis[0]}")
+                          log_y=False)
                           
     else:
         # Layout 2xN. Row 0 Goodput. Row 1 Latency.
@@ -1458,7 +1457,7 @@ def generate_latency_goodput_vs_load_merged(
              )
 
     # Add Legend
-    y_offset = 1.1 if n_apis == 1 else 1.0
+    y_offset = 1.1 if n_apis == 1 else 1.02
     grid.add_shared_legend(position="top", y_offset=y_offset)
 
     # Save
@@ -1723,7 +1722,8 @@ def generate_latency_and_rate_vs_time_merged(
             xlabel="Time (s)",
             ylim=rate_ylim,
             show_ylabel=(i==0),
-            show_yticklabels=(i==0)
+            show_yticklabels=(i==0),
+            x_data=time_x, x_type='int', x_step=3
         )
         
     # Rate Legend
@@ -1766,7 +1766,8 @@ def generate_latency_and_rate_vs_time_merged(
             ylim=(1, lat_max),
             log_y=True,
             show_ylabel=(i==0),
-            show_yticklabels=(i==0)
+            show_yticklabels=(i==0),
+            x_data=time_x, x_type='int', x_step=3
         )
         
     # Latency Legend
@@ -1804,20 +1805,20 @@ def generate_latency_vs_throughput_merged(
         from exec.plots.data_loader import load_repeat_data
         from exec.plots.aggregation import aggregate_overall_metric
         from exec.plots.plotting_primitives import (
-            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, PlotStyle, plot_line
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line, plot_grouped_bars
         )
     except ImportError:
         try:
             from plots.data_loader import load_repeat_data  # type: ignore
             from plots.aggregation import aggregate_overall_metric  # type: ignore
             from plots.plotting_primitives import (  # type: ignore
-                SubplotGrid, ACM_COMPACT_HALF, plot_line
+                SubplotGrid, ACM_COMPACT_HALF, plot_line, ACM_QUARTER
             )
         except ImportError:
             from data_loader import load_repeat_data  # type: ignore
             from aggregation import aggregate_overall_metric  # type: ignore
             from plotting_primitives import (  # type: ignore
-                SubplotGrid, ACM_COMPACT_HALF, plot_line
+                SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_grouped_bars, ACM_QUARTER
             )
 
     include_experiments = figure_config.get('include', {})
@@ -1843,7 +1844,9 @@ def generate_latency_vs_throughput_merged(
     n_apis = len(all_apis)
 
     # Use ACM compact style
-    style = PlotStyle(width_points=240)
+    style = ACM_QUARTER if n_apis == 1 else ACM_COMPACT_HALF
+    if n_apis == 1:
+        style.legend_size = 8
     # Layout: 2 rows (P99, P95), N columns (one per API)
     grid = SubplotGrid(style, layout=f"1x{n_apis}")
     
@@ -1898,7 +1901,7 @@ def generate_latency_vs_throughput_merged(
 
             for unit_name, artifact_dirs in found_units.items():
                 unit_throughputs = []
-                unit_p99_latencies = []
+                unit_goodputs = []
                 unit_p99_latencies = []
                 
                 for artifact_dir in artifact_dirs:
@@ -1910,8 +1913,8 @@ def generate_latency_vs_throughput_merged(
                         else:
                             overall, _ = vals
                         if overall is not None:
-                             unit_throughputs.append(overall.throughput)
-                             unit_p99_latencies.append(overall.p99_latency)
+                             unit_throughputs.append(overall.throughput / 1000.0)
+                             unit_goodputs.append(overall.goodput)
                              unit_p99_latencies.append(overall.p99_latency)
                         else:
                             if os.environ.get('PLOT_DEBUG') == '1':
@@ -1921,15 +1924,16 @@ def generate_latency_vs_throughput_merged(
                             print(f"    [DEBUG] No data for {api} in {artifact_dir}")
                 
                 if unit_throughputs and unit_p99_latencies:
-                    tp_mean, _, _ = aggregate_overall_metric(unit_throughputs)
-                    p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
+                    tp_mean, _, tp_ci = aggregate_overall_metric(unit_throughputs)
+                    gp_mean, _, gp_ci = aggregate_overall_metric(unit_goodputs)
                     p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
                     
                     if tp_mean is not None and p99_mean is not None:
                         exp_points.append({
                             'tp': tp_mean,
-                            'p99': p99_mean,
-                            'p99_ci': p99_ci if p99_ci is not None else 0.0,
+                            'tp_ci': tp_ci if tp_ci is not None else 0.0,
+                            'gp': gp_mean if gp_mean is not None else 0.0,
+                            'gp_ci': gp_ci if gp_ci is not None else 0.0,
                             'p99': p99_mean,
                             'p99_ci': p99_ci if p99_ci is not None else 0.0
                         })
@@ -1938,7 +1942,7 @@ def generate_latency_vs_throughput_merged(
                             print(f"    Samples: {len(unit_throughputs)}")
                             print(f"    Throughput: {tp_mean:.2f}")
                             print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
-                            print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
+
 
             # Sort by throughput per API
             exp_points.sort(key=lambda x: x['tp'])
@@ -1955,8 +1959,9 @@ def generate_latency_vs_throughput_merged(
             # Store aggregated data to be plotted later
             plot_data[api][label] = {
                 'tps': [p['tp'] for p in exp_points],
-                'p99': [p['p99'] for p in exp_points],
-                'p99_ci': [p['p99_ci'] for p in exp_points],
+                'tp_ci': [p['tp_ci'] for p in exp_points],
+                'goodputs': [p['gp'] for p in exp_points],
+                'goodput_ci': [p['gp_ci'] for p in exp_points],
                 'p99': [p['p99'] for p in exp_points],
                 'p99_ci': [p['p99_ci'] for p in exp_points]
             }
@@ -1965,10 +1970,8 @@ def generate_latency_vs_throughput_merged(
             if exp_points:
                 max_tp = max(p['tp'] for p in exp_points)
                 max_p99 = max(p['p99'] + (p['p99_ci'] or 0) for p in exp_points)
-                max_p99 = max(p['p99'] + (p['p99_ci'] or 0) for p in exp_points)
                 
                 if max_tp > api_limits[api]['max_tp']: api_limits[api]['max_tp'] = max_tp
-                if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
                 if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
 
     # 3. Plotting Loop
@@ -1983,7 +1986,8 @@ def generate_latency_vs_throughput_merged(
         #ax_p99 = grid.get_ax(1, api_idx)
         
         # Set titles for columns (API names)
-        #ax_p99.set_title(api, fontsize=style.title_size)
+        if len(all_apis) > 1:
+            ax_p99.set_title(api, fontsize=style.title_size)
 
         for label, data in plot_data[api].items():
             color_idx = color_idx_map.get(label, 0)
@@ -2050,22 +2054,24 @@ def generate_latency_vs_throughput_merged(
         if y_max < 10: y_max = 10
         
         max_tp = limits['max_tp']
-        x_max = math.ceil(max_tp / 100.0) * 100 if max_tp > 0 else 1000
+        x_max = math.ceil(max_tp / 10.0) * 10 if max_tp > 0 else 100
 
         # Configure P99 axis (Row 0)
         grid.configure_ax(
             ax_p99,
             ylabel="P99 Latency (ms)" if api_idx == 0 else "",
-            xlabel="Throughput (RPS)",
+            xlabel="Throughput (KRPS)",
             y_data=None, # We set manual limits
-            ylim=(0, 30),
-            y_type='int',
-            y_step=5,
+            log_y=False,
+            ylim=(0, y_max*1.1),
+            #y_type='int',
+            #y_step=5,
             grid=True,
             show_xticklabels=True,
             show_xlabel=True,
             show_ylabel=(api_idx == 0),
-            show_yticklabels=(api_idx == 0)
+            show_yticklabels=True,
+            x_type='int',
         )
 
         """ # Configure P95 axis (Row 1)
@@ -2083,13 +2089,97 @@ def generate_latency_vs_throughput_merged(
 
     # Add shared legend
     # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top", y_offset=1.05)
+    grid.add_shared_legend(position="top", y_offset=1.25 if len(all_apis) == 1 else 1.15,
+        two_rows=True if n_apis == 1 else False)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
     line_path = output_dir / f'{figure_name}_latency_vs_throughput.pdf'
     grid.save(line_path)
     produced.append(line_path)
+    
+
+    
+    # 4. Generate Latency vs Throughput Bar Plot (Goodput at Max Rate)
+    # This plot visualizes the peak goodput for each included experiment/API as a grouped bar chart
+    
+    print(f"Generating merged latency-vs-throughput bar plot...")
+    
+    # Create grid (1x1) using user-specified width
+    bar_style = ACM_QUARTER
+    bar_grid = SubplotGrid(bar_style, layout="1x1")
+    ax_bar = bar_grid.get_ax(0, 0)
+    
+    # Prepare data for plot_grouped_bars
+    # Grouping: Experiments (X-axis)
+    # Bars: APIs (Colors/Legend)
+    
+    # We need to preserve the order from include_experiments
+    sorted_exp_items = []
+    for exp_idx, (exp_name, exp_cfg) in enumerate(include_experiments.items()):
+        if exp_name in experiment_configs:
+            sorted_exp_items.append((exp_name, exp_cfg))
+    
+    x_positions = list(range(len(sorted_exp_items)))
+    exp_labels = [item[1].get('label', item[0]) for item in sorted_exp_items]
+    
+    bar_groups = []
+    max_goodput = 0
+    
+    for api in all_apis:
+        heights = []
+        errors = []
+        
+        has_data = False
+        for exp_name, exp_cfg in sorted_exp_items:
+            label = exp_cfg.get('label', exp_name)
+            
+            # Get data for this API and Experiment
+            if label in plot_data[api]:
+                d = plot_data[api][label]
+                if d['goodputs']:
+                    # Use last point (max rate) as 'tps' is sorted by tp
+                    heights.append(d['goodputs'][-1])
+                    errors.append(d['goodput_ci'][-1] if 'goodput_ci' in d else 0.0)
+                    has_data = True
+                else:
+                    heights.append(0.0)
+                    errors.append(0.0)
+            else:
+                heights.append(0.0)
+                errors.append(0.0)
+        
+        # Add API to groups if it has any data (or maybe just add anyway for consistency)
+        if has_data:
+            bar_groups.append((api, heights, errors))
+        if max(heights) > max_goodput:
+            max_goodput = max(heights)
+            
+    if bar_groups:
+        plot_grouped_bars(ax_bar, x_positions, bar_groups, style=bar_style)
+        
+        # Configure Axis
+        bar_grid.configure_ax(ax_bar,
+            xlabel="",
+            ylabel="Goodput (RPS)",
+            show_xticklabels=True,
+            y_guard=0.05,
+            ylim=(0, max_goodput * 1.1),
+            y_step=100,
+            y_type='int'
+        )
+        
+        # Set X-tick labels to Experiment Labels
+        ax_bar.set_xticks(x_positions)
+        ax_bar.set_xticklabels(exp_labels, rotation=0 if len(exp_labels) < 4 else 30, ha='center', fontsize=bar_style.font_size - 1)
+        
+        # Legend
+        bar_grid.add_shared_legend(position="top", y_offset=1.2)
+        
+        # Save
+        bar_path = output_dir / f'{figure_name}_goodput_bar.pdf'
+        bar_grid.save(bar_path)
+        produced.append(bar_path)
     
     return produced
 

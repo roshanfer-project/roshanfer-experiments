@@ -115,8 +115,8 @@ class PlotStyle:
 
 
 # ACM Presets
-ACM_QUARTER = PlotStyle(width_points=120)  # 1.665 inches (half column)
-ACM_COMPACT_HALF = PlotStyle(width_points=240)  # 3.33 inches (full column)
+ACM_QUARTER = PlotStyle(width_points=120, font_size=9, title_size=9, legend_size=9)  # 1.665 inches (half column)
+ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=11, title_size=11, legend_size=11)  # 3.33 inches (full column)
 ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (double column)
 
 
@@ -201,6 +201,11 @@ class SubplotGrid:
                 self.axes = [axes]
             else:
                 self.axes = np.array(axes).flatten().tolist()
+            
+            # Apply tick params to all axes for consistency
+            for ax in self.axes:
+                ax.tick_params(labelsize=self.style.font_size - 1)
+                
             self.fig = plt.gcf()
     
     def _apply_compact_spacing(self):
@@ -270,6 +275,9 @@ class SubplotGrid:
             ax.set_ylabel(ylabel, fontsize=self.style.font_size)
         if title:
             ax.set_title(title, fontsize=self.style.title_size, pad=4)
+            
+        # Enforce tick label size
+        ax.tick_params(labelsize=self.style.font_size - 1)
         
         
         if grid:
@@ -393,6 +401,9 @@ class SubplotGrid:
             # Two-row legends need more vertical clearance to avoid overlapping plot
             bbox = (0.5, y_offset)
             loc = 'upper center'
+        elif position == "top-left":
+            bbox = (-0.15, y_offset) 
+            loc = 'upper left'
         elif position == "bottom":
             y_offset = -0.08 if two_rows else -0.05
             bbox = (0.5, y_offset)
@@ -494,7 +505,7 @@ def configure_x_axis_ticks(ax, x_data=None, style: Optional[PlotStyle] = None,
             x_labels = [f"{t:g}" for t in x_ticks]
         
         ax.set_xticks(x_ticks)
-        ax.set_xticklabels(x_labels)
+        ax.set_xticklabels(x_labels, fontsize=style.font_size - 1)
         
         # Set limits with guards (only if xlim was not explicitly provided)
         if xlim is None:
@@ -571,7 +582,7 @@ def configure_y_axis_ticks(ax, y_data=None, style: Optional[PlotStyle] = None,
             y_labels = [f"{t:g}" for t in y_ticks]
         
         ax.set_yticks(y_ticks)
-        ax.set_yticklabels(y_labels)
+        ax.set_yticklabels(y_labels, fontsize=style.font_size - 1)
         
         # Set limits with guards (only if ylim was not explicitly provided)
         if ylim is None:
@@ -664,7 +675,7 @@ def plot_stacked_area(ax, x, y_series: Dict[str, np.ndarray],
 
 
 def plot_grouped_bars(ax, x_positions, bar_groups: List[Tuple[str, List[float], Optional[List[float]]]],
-                     style: Optional[PlotStyle] = None, **kwargs):
+                     style: Optional[PlotStyle] = None, show_values: bool = False, **kwargs):
     """Generic grouped bar plot.
     
     Creates bars grouped at each x position, with different colored bars per group.
@@ -701,6 +712,16 @@ def plot_grouped_bars(ax, x_positions, bar_groups: List[Tuple[str, List[float], 
               color=style.colors[i % len(style.colors)],
               edgecolor='black', linewidth=0.6,
               error_kw=dict(capsize=3, elinewidth=1.0), **kwargs)
+
+        if show_values:
+            for x, h, err in zip(offsets, heights, errors if errors is not None else [0]*len(heights)):
+                # Ensure h is not 0 to avoid clutter if desired, or just plot it
+                if h > 0:
+                    label_text = f"{h:.0f}"
+                    # Position slightly above bar + error
+                    y_pos = h + (err if err else 0) + (max(heights)*0.01)
+                    ax.text(x, y_pos, label_text, ha='center', va='bottom', 
+                           fontsize=style.font_size*0.8, rotation=0)
     return ax
 
 
