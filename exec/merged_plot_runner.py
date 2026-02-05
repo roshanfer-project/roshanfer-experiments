@@ -27,7 +27,18 @@ import math
 from matplotlib.ticker import LogLocator
 import statistics
 
-def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, bench: str) -> Dict[str, Dict[str, float]]:
+try:
+    from exec.plots.data_loader import PrometheusData
+except ImportError:
+    PrometheusData = None
+
+
+def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, bench: str, is_roshanfer: bool = False) -> Dict[str, Dict[str, float]]:
+    try:
+        from exec.plots.plugins.resource_waste_unit import _normalize_service_name
+    except ImportError:
+        from experiments.exec.plots.plugins.resource_waste_unit import _normalize_service_name
+
     """
     Calculate resource waste using Prometheus data and the new 2-step algorithm.
     Algorithm:
@@ -38,6 +49,7 @@ def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, b
     Refinements:
     - BLO Violations: Use 'num_slo_violations' from overall-{api}.json
     - Sanity Check: num_dropped_requests (overall) == failed_rpc_counter (entry point)
+    - Roshanfer: Only SLO violations contribute to waste (no propagated failures).
     """
     waste_results = {} # service -> api -> waste_pct
     
@@ -98,6 +110,13 @@ def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, b
         for v in variants:
             if v in prom_data.metrics[api]:
                 return prom_data.metrics[api][v].get(metric, 0.0)
+        
+        # DEBUG: If metric not found and it's roshanfer, print available keys
+        if is_roshanfer and metric == 'accepted_rpc_counter':
+             print(f"DEBUG: {service} {metric} not found. Available services in {api}: {list(prom_data.metrics[api].keys())}")
+             if service in prom_data.metrics[api]:
+                 print(f"DEBUG: Available metrics for {service}: {list(prom_data.metrics[api][service].keys())}")
+        
         return 0.0
 
     for api in apis:
@@ -136,12 +155,35 @@ def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, b
         
         # Get overall data for this API
         overall_obj = None
-        if api in loaded_data:
+        if loaded_data and api in loaded_data:
              overall_tuple = loaded_data[api] 
              # loaded_data[api] is (overall, realtime, prom)
              if overall_tuple and len(overall_tuple) >= 1 and overall_tuple[0]:
                  overall_obj = overall_tuple[0]
         
+        # Special logic for Roshanfer: Use global stats only (no per-service propogation)
+        if is_roshanfer:
+            slo_violations = overall_obj.num_slo_violations if overall_obj else 0
+            # User specified: use num_throughput as total accepted
+            total_accepted = overall_obj.num_throughput if overall_obj else 0
+            
+            waste_pct = 0.0
+            if total_accepted > 0:
+                waste_pct = (slo_violations / total_accepted) * 100.0
+            
+            # Assign same global waste to all services in sequence
+            for service in seq:
+                 if service not in waste_results: waste_results[service] = {}
+                 waste_results[service][api] = waste_pct
+                 
+                 # Normalize
+                 norm_service = _normalize_service_name(service)
+                 if norm_service != service:
+                    if norm_service not in waste_results: waste_results[norm_service] = {}
+                    waste_results[norm_service][api] = waste_pct
+            
+            continue # Skip rest of loop for this API
+
         num_dropped = overall_obj.num_dropped_requests if overall_obj else 0
         entry_reported_failed = get_metric(api, entry_service, 'failed_rpc_counter')
         
@@ -166,7 +208,11 @@ def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, b
             # Add Global SLO violations to the numerator for each service
             # This follows the requirement: Total Waste = (FinalFailed + SLO_Violations) / Total_Accepted
             
-            total_waste_count = final_failed[service] + slo_violations
+            if is_roshanfer:
+                # For Roshanfer, only SLO violations contribute to waste.
+                total_waste_count = float(slo_violations)
+            else:
+                total_waste_count = final_failed[service] + slo_violations
             
             if accepted > 0:
                 waste_pct = (total_waste_count / accepted) * 100.0
@@ -290,9 +336,11 @@ def generate_resource_waste_bar_merged(
                         first_valid_api = next(iter(loaded_data))
                         _, _, prom_data = loaded_data[first_valid_api]
                         
-                        if prom_data and prom_data.metrics:
-                            # Use Prometheus data
-                            waste_data = _calculate_waste_from_prometheus(prom_data, loaded_data, apis, bench)
+                        # Check condition: Prom data exists OR it is Roshanfer (which can use overall data)
+                        is_roshanfer_exp = (label == 'Roshanfer' or 'sidecar' in exp_name)
+                        
+                        if (prom_data and prom_data.metrics) or is_roshanfer_exp:
+                            waste_data = _calculate_waste_from_prometheus(prom_data, loaded_data, apis, bench, is_roshanfer=is_roshanfer_exp)
                             repeat_waste_data.append(waste_data)
                         else:
                             # Fallback to legacy logic
@@ -465,7 +513,7 @@ def generate_resource_waste_bar_merged(
     
     # Step 1: Set a fixed bar width (consistent across all APIs)
     # Include sidecar bar in the total count
-    total_bars = n_exps + 1  # +1 for the sidecar bar
+    total_bars = n_exps
     fixed_total_group_width = 0.7  # Fixed total width of grouped bars as fraction of x-unit
     fixed_bar_width = fixed_total_group_width / total_bars if total_bars > 0 else fixed_total_group_width
     
@@ -542,26 +590,27 @@ def generate_resource_waste_bar_merged(
             
             bar_groups.append((label, means, stds))
             
-        # Add Sidecar bars (zero values)
-        sidecar_means = [0.0] * len(services_for_this_api)
-        sidecar_stds = [0.0] * len(services_for_this_api)
-        bar_groups.append(('Roshanfer', sidecar_means, sidecar_stds))
-        
         plot_grouped_bars(ax, api_x_indices, bar_groups, style=style)
         
-        # Annotations for Roshanfer
+        # Add labels for Roshanfer
         n_groups = len(bar_groups)
-        total_group_width = style.bar_width_fraction
-        bar_width = total_group_width / n_groups
+        bar_width = style.bar_width_fraction / n_groups
         
-        # Last group is Roshanfer
-        g_i = n_groups - 1
-        offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 
-                           for x in api_x_indices]
-        for j, (offset, mean, std) in enumerate(zip(offsets, sidecar_means, sidecar_stds)):
-             y_pos = mean + std + 1.0
-             ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                    fontsize=6, fontweight='normal')
+        for g_i, (label, heights, errors) in enumerate(bar_groups):
+            if label == 'Roshanfer' or 'sidecar' in label.lower():
+                 offsets = [x - style.bar_width_fraction/2 + g_i*bar_width + bar_width/2
+                          for x in api_x_indices]
+                 
+                 for x, h, err in zip(offsets, heights, errors):
+                     # Always plot or maybe only if > 0? User asked for value.
+                     # Let's verify if h is 0. 
+                     label_text = f"{h:.1f}" if h < 10 else f"{int(round(h))}"
+                     
+                     # Position above bar + error
+                     y_pos = h + (err if err else 0) + (global_max * 0.2 if global_max > 0 else 1.0)
+                     
+                     ax.text(x, y_pos, label_text, ha='center', va='bottom',
+                            fontsize=style.font_size*0.6, fontweight='normal')
 
         # Store filtered services for this API for axis formatting
         if api_idx == 0:
@@ -616,6 +665,9 @@ def generate_resource_waste_bar_merged(
         else:
              # Round up to nearest 5 or 10
              ylim_max = 5 * math.ceil(ylim_max / 5)
+        
+        # Override ylim_max to 100 as requested
+        ylim_max = 100
         
         for api_idx in range(len(all_apis)):
             ax = grid.get_ax(0, api_idx) if n_apis > 1 else grid.get_ax(0, 0)
@@ -1721,6 +1773,7 @@ def generate_latency_and_rate_vs_time_merged(
             ylabel="Rate (KRPS)" if i == 0 else "",
             xlabel="Time (s)",
             ylim=rate_ylim,
+            y_step=2,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
             x_data=time_x, x_type='int', x_step=3

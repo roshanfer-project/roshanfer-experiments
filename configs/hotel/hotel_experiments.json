@@ -398,6 +398,36 @@
       ]
     },
     {
+      "name": "resource-waste-hotel-1-sidecar",
+      "type": "resource-waste",
+      "script": "run.sh",
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1000
+      },
+      "base_rate": 500,
+      "duration_sec": 15,
+      "bench": "hotel",
+      "apis": [
+        "search-hotel"
+      ],
+      "system": "sidecar",
+      "repeat": 3,
+      "warmup": 2,
+      "collector_freq": 200,
+      "services": [
+        "ingress",
+        "frontend",
+        "search",
+        "reservation",
+        "profile",
+        "user",
+        "rate",
+        "geo"
+      ]
+    },
+    {
       "name": "resource-waste-hotel-2-rajomon",
       "type": "resource-waste",
       "script": "run-plain.sh",

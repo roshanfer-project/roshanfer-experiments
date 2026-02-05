@@ -62,6 +62,8 @@ figures:
         label: Dagor
       resource-waste-hotel-1-rajomon:
         label: Rajomon
+      resource-waste-hotel-1-sidecar:
+        label: Roshanfer
   
   resource-waste-bar-hotel-2:
     type: resource-waste-bar

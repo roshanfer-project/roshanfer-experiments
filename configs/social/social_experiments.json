@@ -373,6 +373,34 @@
       ]
     },
     {
+      "name": "resource-waste-social-1-sidecar",
+      "type": "resource-waste",
+      "script": "run.sh",
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1000
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "bench": "social",
+      "apis": [
+        "compose-post"
+      ],
+      "system": "sidecar",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2,
+      "services": [
+        "nginx",
+        "compose",
+        "home",
+        "user",
+        "posts",
+        "graph"
+      ]
+    },
+    {
       "name": "resource-waste-social-3-rajomon",
       "type": "resource-waste",
       "script": "run-plain.sh",

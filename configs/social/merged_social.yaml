@@ -25,7 +25,7 @@ figures:
       latency-and-rate-vs-time-social-1-dagor:
         label: Dagor
         unit: "latency-and-rate-vs-time-social-1-dagor-rate-10000"
-        repeat: 0
+        repeat: 4
       latency-and-rate-vs-time-social-1-rajomon:
         label: Rajomon
         unit: "latency-and-rate-vs-time-social-1-rajomon-rate-10000"
@@ -62,3 +62,5 @@ figures:
         label: Dagor
       resource-waste-social-1-rajomon:
         label: Rajomon
+      resource-waste-social-1-sidecar:
+        label: Roshanfer
