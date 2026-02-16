@@ -281,10 +281,18 @@ class SubplotGrid:
         
         
         if grid:
-            ax.grid(True, alpha=0.3, linewidth=0.5)
+            if log_y or log_x:
+                ax.grid(True, which='both', alpha=0.15, linewidth=0.5)
+            else:
+                ax.grid(True, alpha=0.3, linewidth=0.5)
         
         if log_y:
+            from matplotlib.ticker import LogLocator, NullFormatter
             ax.set_yscale('log')
+            # Show minor ticks 2..9
+            locmin = LogLocator(base=10.0, subs=np.arange(2, 10) * 1.0, numticks=100)
+            ax.yaxis.set_minor_locator(locmin)
+            ax.yaxis.set_minor_formatter(NullFormatter())
 
             if ylim is not None:
                 ax.set_ylim(ylim[0], ylim[1])
@@ -298,7 +306,12 @@ class SubplotGrid:
                 ax.set_ylim(ylim[0], ylim[1])
 
         if log_x:
+            from matplotlib.ticker import LogLocator, NullFormatter
             ax.set_xscale('log')
+            # Show minor ticks 2..9
+            locmin = LogLocator(base=10.0, subs=np.arange(2, 10) * 1.0, numticks=100)
+            ax.xaxis.set_minor_locator(locmin)
+            ax.xaxis.set_minor_formatter(NullFormatter())
         
         # Configure ticks automatically if requested and data/range is provided
         if auto_ticks and (x_data is not None or xlim is not None):

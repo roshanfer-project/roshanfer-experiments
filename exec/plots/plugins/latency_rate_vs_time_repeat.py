@@ -163,9 +163,7 @@ def _prepare_rate_data_for_stack(realtime: RealtimeData) -> Dict[str, np.ndarray
     if 'dropped_requests' in df.columns:
         y_series['dropped'] = (df['dropped_requests'] / 1000.0).values
     
-    # 4. Errors (top layer)
-    if 'errors' in df.columns:
-        y_series['errors'] = (df['errors'] / 1000.0).values
+
     
     return y_series
 

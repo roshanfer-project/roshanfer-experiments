@@ -252,6 +252,28 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
     if os.environ.get('PLOT_DEBUG'):
         counts = {svc: {api: len(lst) for api, lst in apis_dict.items()} for svc, apis_dict in data.items()}
         print(f"[max-queue][aggregate] repeat_counts={counts}")
+
+    # FILTER: Remove services with all-zero values across all APIs
+    non_zero_services = []
+    for svc in services:
+        has_nonzero = False
+        for api in apis:
+            vals = data[svc][api]
+            # check if any value in the list is > 0
+            if any(v > 0 for v in vals):
+                has_nonzero = True
+                break
+        if has_nonzero:
+            non_zero_services.append(svc)
+    
+    if os.environ.get('PLOT_DEBUG'):
+        print(f"[max-queue] Filtering services: original={len(services)} kept={len(non_zero_services)} dropped={set(services)-set(non_zero_services)}")
+    services = non_zero_services
+
+    if not services:
+        print("[max-queue] All services have zero max queue length; skipping plot.")
+        return []
+
     # Prepare plotting arrays (single bar per service)
     try:
         from ..plotting_primitives import (
@@ -308,10 +330,12 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
             if top > max_val:
                 max_val = top
     
-    ylim_max = 1.2 * max_val if max_val > 0 else 1.0
+    ylim_max = 1.2 * max_val if max_val > 0 else 10.0
+    # For log scale, start at something small but positive, e.g. 0.9 or 1
+    ylim_min = 0.9
     
     # Configure common axis properties
-    grid.configure_ax(ax, ylabel='Max Concurrency (req)', ylim=(0, ylim_max))
+    grid.configure_ax(ax, ylabel='Max Concurrency (req)', ylim=(ylim_min, ylim_max), log_y=True)
     
     # Add legend if multiple APIs
     if len(apis) > 1:

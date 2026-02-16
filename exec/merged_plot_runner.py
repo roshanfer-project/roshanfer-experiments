@@ -891,6 +891,31 @@ def generate_max_queue_merged(
     all_services = unique_ordered([svc for ed in exp_data for svc in ed['services']])
     all_apis = unique_ordered([api for ed in exp_data for api in ed['apis']])
     
+    # FILTER: Remove services with all-zero values across all experiments and APIs
+    non_zero_services = []
+    for svc in all_services:
+        has_nonzero = False
+        for ed in exp_data:
+            data = ed['data']
+            if svc in data:
+                for api in all_apis:
+                    vals = data[svc].get(api, [])
+                    if any(v > 0 for v in vals):
+                        has_nonzero = True
+                        break
+            if has_nonzero:
+                break
+        if has_nonzero:
+            non_zero_services.append(svc)
+            
+    if os.environ.get('PLOT_DEBUG'):
+        print(f"[max-queue-merged] Filtering services: original={len(all_services)} kept={len(non_zero_services)} dropped={set(all_services)-set(non_zero_services)}")
+    all_services = non_zero_services
+    
+    if not all_services:
+        print("[max-queue-merged] All services have zero max queue length; skipping plot.")
+        return []
+
     # Check if we have only one API - use single bar plot instead of subplots
     single_api_mode = len(all_apis) == 1
     
@@ -925,8 +950,11 @@ def generate_max_queue_merged(
                     s = 0.0
                 if m + s > global_max:
                     global_max = m + s
-    ylim_max = 1.2 * global_max if global_max > 0 else 1.0
     
+    ylim_max = 1.2 * global_max if global_max > 0 else 10.0
+    # For log scale, start at something small but positive
+    ylim_min = 0.9
+
     if single_api_mode:
         # Single API mode: one bar plot with each experiment as a different bar
         ax = grid.get_ax(0, 0)
@@ -979,9 +1007,8 @@ def generate_max_queue_merged(
         ax.set_xticks(x_indices)
         ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
         
-        grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max),
-            y_type='int',
-            y_step=500,
+        grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(ylim_min, ylim_max),
+            log_y=True
         )
         # ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
         # ylab.set_position((ylab.get_position()[0], 0.42))
@@ -1032,10 +1059,9 @@ def generate_max_queue_merged(
             grid.configure_ax(ax, 
                 ylabel='Max Queueing (req)' if i == 0 else '',
                 title=ed['label'],
-                ylim=(0, ylim_max),
+                ylim=(ylim_min, ylim_max),
                 show_ylabel=(i==0),
-                y_type='int',
-                y_step=500,
+                log_y=True,
                 show_yticklabels=(i==0)
             )
     # Legend logic for both modes
@@ -1743,7 +1769,7 @@ def generate_latency_and_rate_vs_time_merged(
     for item in final_data:
         df = item['realtime'].df
         df = df[df['relative_time'] <= 15.0]
-        cols = ['goodput', 'slo_violations', 'dropped_requests', 'errors']
+        cols = ['goodput', 'slo_violations', 'dropped_requests']
         existing = [c for c in cols if c in df.columns]
         if existing:
             total = df[existing].sum(axis=1)
@@ -1762,7 +1788,7 @@ def generate_latency_and_rate_vs_time_merged(
         if 'goodput' in df.columns: y_series['goodput'] = df['goodput'].values / 1000.0
         if 'slo_violations' in df.columns: y_series['SLO violation'] = df['slo_violations'].values / 1000.0
         if 'dropped_requests' in df.columns: y_series['dropped'] = df['dropped_requests'].values / 1000.0
-        if 'errors' in df.columns: y_series['errors'] = df['errors'].values / 1000.0
+
         
         if y_series:
             plot_stacked_area(ax, time_x, y_series, style=style, color_map=RATE_COLOR_MAP)
@@ -1780,7 +1806,7 @@ def generate_latency_and_rate_vs_time_merged(
         )
         
     # Rate Legend
-    rate_handles = [mpatches.Patch(color=v, label=k.title()) for k, v in RATE_COLOR_MAP.items()]
+    rate_handles = [mpatches.Patch(color=v, label=k.title()) for k, v in RATE_COLOR_MAP.items() if k != 'errors']
     rate_labels = [h.get_label() for h in rate_handles]
     grid_rate.add_shared_legend(position="top", handles=rate_handles, labels=rate_labels, y_offset=1.15)
     

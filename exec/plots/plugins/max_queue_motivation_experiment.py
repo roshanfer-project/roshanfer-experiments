@@ -179,6 +179,26 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
         counts = {svc: {load: len(lst) for load, lst in loads_dict.items()} for svc, loads_dict in data.items()}
         print(f"[max-queue-motivation][aggregate] repeat_counts={counts}")
     
+    # FILTER: Remove services with all-zero values across all loads
+    non_zero_services = []
+    for svc in services:
+        has_nonzero = False
+        for load in loads:
+            vals = data[svc][load]
+            if any(v > 0 for v in vals):
+                has_nonzero = True
+                break
+        if has_nonzero:
+            non_zero_services.append(svc)
+            
+    if os.environ.get('PLOT_DEBUG'):
+        print(f"[max-queue-motivation] Filtering services: original={len(services)} kept={len(non_zero_services)} dropped={set(services)-set(non_zero_services)}")
+    services = non_zero_services
+    
+    if not services:
+        print("[max-queue-motivation] All services have zero max queue length; skipping plot.")
+        return []
+
     # Prepare plotting arrays (grouped bars per service, one group per load)
     try:
         from ..plotting_primitives import (
@@ -234,10 +254,12 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
             if top > max_val:
                 max_val = top
     
-    ylim_max = 1.2 * max_val if max_val > 0 else 1.0
+    ylim_max = 1.2 * max_val if max_val > 0 else 10.0
+    # For log scale, start at something small but positive, e.g. 0.9 or 1
+    ylim_min = 0.9
     
     # Configure common axis properties
-    grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(0, ylim_max))
+    grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(ylim_min, ylim_max), log_y=True)
     
     # Add legend
     grid.add_shared_legend(position="top", y_offset=1.15)
