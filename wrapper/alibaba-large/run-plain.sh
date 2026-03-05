@@ -30,7 +30,7 @@ if [ "$protocol" == "grpc" ]; then
     exit 1
 else
     if [ "$API" = "Z8trRkp4mp" ]; then
-        url="http://$address:3000/"
+        url="http://$address:3000/Z8trRkp4mp"
         echo "url: $url"
     else
         echo "Unknown social API: $API"
