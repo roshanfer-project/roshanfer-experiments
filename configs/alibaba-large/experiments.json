@@ -1,0 +1,24 @@
+{
+    "experiments": [
+        {
+            "name": "latency-vs-throughput-alibaba-plain",
+            "type": "latency-vs-throughput",
+            "script": "run-plain.sh",
+            "loads": {
+                "start": 50,
+                "end": 400,
+                "step": 50
+            },
+            "base_rate": 50,
+            "duration_sec": 10,
+            "bench": "alibaba-large",
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "plain",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        }
+    ]
+}
