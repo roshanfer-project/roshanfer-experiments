@@ -22,8 +22,8 @@ if [ "$protocol" == "grpc" ]; then
     echo "GRPC is not supported"
     exit 1
 else
-    if [ "$API" = "Z8trRkp4mp" ]; then
-        url="http://$address:3000/Z8trRkp4mp"
+    if [ "$API" = "f1" ]; then
+        url="http://$address:3000/f1"
         echo "url: $url"
     else
         echo "Unknown social API: $API"
