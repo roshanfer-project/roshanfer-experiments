@@ -1,16 +1,16 @@
 {
     "output_base_dir": "./exp_runs",
-    "experiment_index": "alibaba-large-test5",
+    "experiment_index": "testbench-test8",
     "num_generators": 1,
     "raw_artifact_subdir": "raw",
     "metrics_subdir": "metrics",
     "rwg_binary_path": "./rwg/rwg",
-    "bench": "alibaba-large",
-    "hosts_file": "configs/alibaba-large/hosts.txt",
+    "bench": "testbench",
+    "hosts_file": "configs/testbench/hosts.txt",
     "ssh_binary": "ssh",
     "git_root": "..",
     "slos": {
-      "Z8trRkp4mp": "1125"
+      "f1": "20"
     },
     "metrics": {}
   }
