@@ -320,6 +320,11 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             deploy_log = logs_dir / f"deploy_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
                             runner.deploy_system(bench, system, final_env_vars, deployment, tag=tag, log_path=deploy_log)
                             
+                            wait_sec = getattr(config, "post_deploy_wait_sec", 0.1)
+                            if wait_sec > 0:
+                                logging.info(f"    Waiting {wait_sec}s for service readiness...")
+                                time.sleep(wait_sec)
+                            
                             # Add tuning metadata
                             unit.metadata["tuning_params"] = deploy_params
                             

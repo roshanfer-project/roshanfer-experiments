@@ -39,6 +39,7 @@ class Config:
 
     # --- Retry / reliability ---
     default_retries: int = 10
+    post_deploy_wait_sec: float = 0.1  # Wait after deploy before starting workload (avoids connection refused)
 
     # --- Remote execution (CloudLab Infrastructure) ---
     hosts_file: str = "hosts.txt"
