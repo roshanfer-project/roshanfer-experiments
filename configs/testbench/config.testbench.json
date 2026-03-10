@@ -1,6 +1,6 @@
 {
     "output_base_dir": "./exp_runs",
-    "experiment_index": "testbench-test8",
+    "experiment_index": "testbench-test12",
     "num_generators": 1,
     "raw_artifact_subdir": "raw",
     "metrics_subdir": "metrics",
@@ -12,5 +12,6 @@
     "slos": {
       "f1": "20"
     },
-    "metrics": {}
+    "metrics": {},
+    "post_deploy_wait_sec": 0.5
   }
