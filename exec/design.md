@@ -19,7 +19,3 @@ This module is a parameter tuning tool. It relies on some parts of `exec` (the r
 # configs
 This directory holds config files reuqired to run the `exec` module
 
-
-# wrapper
-This directory holds wrapper scripts that makes it easier to run `rwg`
-
