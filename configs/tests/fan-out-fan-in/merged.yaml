@@ -1,0 +1,8 @@
+figures:
+  latency-vs-throughput-fan-out-fan-in:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-fan-out-fan-in-plain:
+        label: Plain
+      latency-vs-throughput-fan-out-fan-in-sidecar:
+        label: Roshanfer
