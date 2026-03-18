@@ -1,9 +1,7 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-alibaba-plain",
             "type": "latency-vs-throughput",
-            "script": "run-plain.sh",
             "loads": {
                 "start": 50,
                 "end": 400,
@@ -11,7 +9,6 @@
             },
             "base_rate": 50,
             "duration_sec": 10,
-            "bench": "alibaba-large",
             "apis": [
                 "Z8trRkp4mp"
             ],
@@ -21,9 +18,7 @@
             "warmup": 2
         },
         {
-            "name": "latency-vs-throughput-alibaba-sidecar",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
             "loads": {
                 "start": 50,
                 "end": 400,
@@ -31,7 +26,6 @@
             },
             "base_rate": 50,
             "duration_sec": 10,
-            "bench": "alibaba-large",
             "apis": [
                 "Z8trRkp4mp"
             ],

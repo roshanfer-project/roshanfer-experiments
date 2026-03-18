@@ -1,7 +1,6 @@
 {
     "experiments": [
         {
-            "name": "latency-and-rate-vs-time-fanout-sidecar-3api",
             "type": "latency-and-rate-vs-time",
             "script": "run-multi-api.sh",
             "loads": {

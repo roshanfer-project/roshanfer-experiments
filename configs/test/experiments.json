@@ -1,7 +1,6 @@
 {
   "experiments": [
     {
-      "name": "latency-and-goodput-vs-load-hotel-1-sidecar",
       "type": "latency-and-goodput-vs-load",
       "script": "run.sh",
       "loads": {

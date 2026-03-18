@@ -13,5 +13,5 @@
       "f1": "20"
     },
     "metrics": {},
-    "post_deploy_wait_sec": 0.5
+    "post_deploy_wait_sec": 1
   }

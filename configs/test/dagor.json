@@ -1,7 +1,6 @@
 {
     "experiments": [
         {
-            "name": "latency-and-rate-vs-time-hotel-1-dagor",
             "type": "latency-and-rate-vs-time",
             "script": "run.sh",
             "loads": {

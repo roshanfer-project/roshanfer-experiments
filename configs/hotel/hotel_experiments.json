@@ -1,9 +1,7 @@
 {
   "experiments": [
     {
-      "name": "latency-vs-throughput-hotel-plain",
       "type": "latency-vs-throughput",
-      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 6000,
@@ -11,7 +9,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -21,9 +18,7 @@
       "warmup": 2
     },
     {
-      "name": "latency-vs-throughput-hotel-sidecar",
       "type": "latency-vs-throughput",
-      "script": "run.sh",
       "loads": {
         "start": 1000,
         "end": 6000,
@@ -31,7 +26,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -41,9 +35,7 @@
       "warmup": 2
     },
     {
-      "name": "latency-and-goodput-vs-load-hotel-1-sidecar",
       "type": "latency-and-goodput-vs-load",
-      "script": "run.sh",
       "loads": {
         "start": 1000,
         "end": 14000,
@@ -51,7 +43,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -60,9 +51,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-goodput-vs-load-hotel-2-sidecar",
       "type": "latency-and-goodput-vs-load",
-      "script": "run.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -70,7 +59,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -80,9 +68,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-1-sidecar",
       "type": "latency-and-rate-vs-time",
-      "script": "run.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -90,7 +76,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -99,9 +84,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-1-plain",
       "type": "latency-and-rate-vs-time",
-      "script": "run-plain.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -109,7 +92,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -118,9 +100,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-2-sidecar",
       "type": "latency-and-rate-vs-time",
-      "script": "run.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -128,7 +108,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -138,9 +117,7 @@
       "collector_freq": 200
     },
     {
-      "name": "max-queue-hotel-1-sidecar",
       "type": "max-queue",
-      "script": "run.sh",
       "loads": {
         "start": 8000,
         "end": 8000,
@@ -148,7 +125,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -170,9 +146,7 @@
       }
     },
     {
-      "name": "max-queue-hotel-2-sidecar",
       "type": "max-queue",
-      "script": "run.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -180,7 +154,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -203,9 +176,7 @@
       }
     },
     {
-      "name": "latency-and-goodput-vs-load-hotel-1-rajomon",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 14000,
@@ -213,7 +184,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -222,9 +192,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-goodput-vs-load-hotel-2-rajomon",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -232,7 +200,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -242,9 +209,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-1-rajomon",
       "type": "latency-and-rate-vs-time",
-      "script": "run-plain.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -252,7 +217,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -261,9 +225,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-2-rajomon",
       "type": "latency-and-rate-vs-time",
-      "script": "run-plain.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -271,7 +233,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -281,9 +242,7 @@
       "collector_freq": 200
     },
     {
-      "name": "max-queue-hotel-1-rajomon",
       "type": "max-queue",
-      "script": "run-plain.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -291,7 +250,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -310,9 +268,7 @@
       ]
     },
     {
-      "name": "max-queue-motivation-hotel-1-rajomon",
       "type": "max-queue-motivation",
-      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -320,7 +276,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -339,9 +294,7 @@
       ]
     },
     {
-      "name": "max-queue-hotel-2-rajomon",
       "type": "max-queue",
-      "script": "run-plain.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -349,7 +302,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -369,9 +321,7 @@
       ]
     },
     {
-      "name": "resource-waste-hotel-1-rajomon",
       "type": "resource-waste",
-      "script": "run-plain.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -379,7 +329,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -398,9 +347,7 @@
       ]
     },
     {
-      "name": "resource-waste-hotel-1-sidecar",
       "type": "resource-waste",
-      "script": "run.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -408,7 +355,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -428,9 +374,7 @@
       ]
     },
     {
-      "name": "resource-waste-hotel-2-rajomon",
       "type": "resource-waste",
-      "script": "run-plain.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -438,7 +382,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -458,9 +401,7 @@
       ]
     },
     {
-      "name": "latency-and-goodput-vs-load-hotel-1-dagor",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 14000,
@@ -468,7 +409,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -477,9 +417,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-goodput-vs-load-hotel-2-dagor",
       "type": "latency-and-goodput-vs-load",
-      "script": "run-plain.sh",
       "loads": {
         "start": 1000,
         "end": 10000,
@@ -487,7 +425,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -497,9 +434,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-1-dagor",
       "type": "latency-and-rate-vs-time",
-      "script": "run-plain.sh",
       "loads": {
         "start": 10000,
         "end": 10000,
@@ -507,7 +442,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -516,9 +450,7 @@
       "collector_freq": 200
     },
     {
-      "name": "latency-and-rate-vs-time-hotel-2-dagor",
       "type": "latency-and-rate-vs-time",
-      "script": "run-plain.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -526,7 +458,6 @@
       },
       "base_rate": 1000,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -536,9 +467,7 @@
       "collector_freq": 200
     },
     {
-      "name": "max-queue-hotel-1-dagor",
       "type": "max-queue",
-      "script": "run-plain.sh",
       "loads": {
         "start": 8000,
         "end": 8000,
@@ -546,7 +475,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -565,9 +493,7 @@
       ]
     },
     {
-      "name": "max-queue-hotel-2-dagor",
       "type": "max-queue",
-      "script": "run-plain.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -575,7 +501,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"
@@ -595,9 +520,7 @@
       ]
     },
     {
-      "name": "resource-waste-hotel-1-dagor",
       "type": "resource-waste",
-      "script": "run-plain.sh",
       "loads": {
         "start": 8000,
         "end": 8000,
@@ -605,7 +528,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel"
       ],
@@ -624,9 +546,7 @@
       ]
     },
     {
-      "name": "resource-waste-hotel-2-dagor",
       "type": "resource-waste",
-      "script": "run-plain.sh",
       "loads": {
         "start": 5000,
         "end": 5000,
@@ -634,7 +554,6 @@
       },
       "base_rate": 500,
       "duration_sec": 15,
-      "bench": "hotel",
       "apis": [
         "search-hotel",
         "reserve-hotel"

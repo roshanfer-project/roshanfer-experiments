@@ -1,7 +1,6 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-chain1-plain",
             "type": "latency-vs-throughput",
             "script": "run-multi-api-plain.sh",
             "loads": {
@@ -30,7 +29,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-10",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -61,7 +59,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-12",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -92,7 +89,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-14",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -123,7 +119,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-16",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -154,7 +149,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-15",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -185,7 +179,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-20",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -216,7 +209,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-25",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {
@@ -247,7 +239,6 @@
             ]
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-30",
             "type": "latency-vs-throughput",
             "script": "run-multi-api.sh",
             "loads": {

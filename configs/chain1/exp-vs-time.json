@@ -1,7 +1,6 @@
 {
     "experiments": [
         {
-            "name": "latency-and-rate-vs-time-chain1-sidecar",
             "type": "latency-and-rate-vs-time",
             "script": "run.sh",
             "loads": {
@@ -20,7 +19,6 @@
             "collector_freq": 200
         },
         {
-            "name": "latency-and-rate-vs-time-chain1-sidecar-2api",
             "type": "latency-and-rate-vs-time",
             "script": "run.sh",
             "loads": {
@@ -40,7 +38,6 @@
             "collector_freq": 200
         },
         {
-            "name": "latency-and-rate-vs-time-chain1-sidecar-3api",
             "type": "latency-and-rate-vs-time",
             "script": "run.sh",
             "loads": {

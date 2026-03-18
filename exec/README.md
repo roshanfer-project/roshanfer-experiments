@@ -34,9 +34,16 @@ python -m exec.executor \
 ```
 
 **Options:**
-- `--only-names "exp1,exp2"`: Run specific experiments.
+- `--only-names "exp1,exp2"`: Run specific experiments (use derived names).
 - `--only-types "type1"`: Run specific types.
-- `--name-contains "substring"`: Filter by name.
+- `--name-contains "substring"`: Filter by name substring.
+
+Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}-{system}` (or `{type}-{bench}-{n}-{system}` for multi-API). Examples:
+```bash
+--only-names "latency-vs-throughput-one-service-plain,latency-vs-throughput-one-service-sidecar"
+--name-contains "sidecar"
+--only-types "latency-vs-throughput" --name-contains "plain"
+```
 
 ## Tuning
 

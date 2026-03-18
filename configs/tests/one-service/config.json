@@ -1,6 +1,6 @@
 {
     "output_base_dir": "./exp_runs",
-    "experiment_index": "test-one-service2",
+    "experiment_index": "test-one-service3",
     "num_generators": 1,
     "raw_artifact_subdir": "raw",
     "metrics_subdir": "metrics",

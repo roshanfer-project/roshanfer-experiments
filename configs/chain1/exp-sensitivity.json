@@ -1,7 +1,6 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-0",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
@@ -25,7 +24,6 @@
             }
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-20",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
@@ -49,7 +47,6 @@
             }
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-60",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {
@@ -73,7 +70,6 @@
             }
         },
         {
-            "name": "latency-vs-throughput-chain1-sidecar-oc-100",
             "type": "latency-vs-throughput",
             "script": "run.sh",
             "loads": {

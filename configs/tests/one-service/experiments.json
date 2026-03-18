@@ -1,7 +1,6 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-one-service-plain",
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 50,
@@ -19,7 +18,6 @@
             "warmup": 2
         },
         {
-            "name": "latency-vs-throughput-one-service-sidecar",
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 10,

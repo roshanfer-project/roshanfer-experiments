@@ -1,9 +1,7 @@
 {
     "experiments": [
         {
-            "name": "latency-and-rate-vs-time-hotel-1-sidecar",
             "type": "latency-and-rate-vs-time",
-            "script": "run.sh",
             "loads": {
               "start": 8000,
               "end": 8000,
@@ -11,7 +9,6 @@
             },
             "base_rate": 3000,
             "duration_sec": 10,
-            "bench": "hotel",
             "apis": ["search-hotel"],
             "system": "sidecar",
             "repeat": 1,

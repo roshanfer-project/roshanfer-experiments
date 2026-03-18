@@ -14,9 +14,10 @@ import sys
 import time
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Sequence, Tuple
 import subprocess
 
+from dataclasses import replace as dc_replace
 from .config import load_config, Config
 from .models import ExperimentConfig, RunUnit, RunResult, CollectorResult
 from .runner import Runner
@@ -36,6 +37,32 @@ def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
     for raw in exps_raw:
         exps.append(ExperimentConfig.from_dict(raw))
     return exps
+
+def _derive_experiment_name(exp: ExperimentConfig, bench: str) -> str:
+    """Derive name from type, bench, system. Include api count when > 1 for uniqueness."""
+    bench_slug = bench.split("/")[-1] if bench else ""
+    if len(exp.apis) > 1:
+        return f"{exp.type}-{bench_slug}-{len(exp.apis)}-{exp.system}"
+    return f"{exp.type}-{bench_slug}-{exp.system}"
+
+def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[ExperimentConfig]:
+    """Assign derived names when missing, adding suffix for duplicates."""
+    seen: Dict[str, int] = {}
+    result = []
+    for exp in exps:
+        if exp.name:
+            result.append(exp)
+            continue
+        bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
+        base = _derive_experiment_name(exp, bench)
+        if base in seen:
+            seen[base] += 1
+            name = f"{base}-{seen[base]}"
+        else:
+            seen[base] = 0
+            name = base
+        result.append(dc_replace(exp, name=name))
+    return result
 
 def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generators: List[str], deployment: List[str]) -> Iterable[RunUnit]:
     # Custom expansion logic mapping exp params to units
@@ -168,7 +195,8 @@ def _run_tuner(system: str, bench: str, tuning_dir: Path, logs_dir: Path, config
 def execute(experiments_file: Path, config: Config, config_path: Path, filters: Dict[str, Any] = None) -> int:
     start_all = time.time()
     all_exps = _load_experiments_file(experiments_file)
-    
+    all_exps = _assign_derived_names(all_exps, config)
+
     if filters:
         if filters.get("only_names"):
             names = set(filters["only_names"].split(","))

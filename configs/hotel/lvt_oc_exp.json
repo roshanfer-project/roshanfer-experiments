@@ -1,9 +1,7 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-hotel-sidecar-oc-0",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
             "loads": {
                 "start": 4500,
                 "end": 4500,
@@ -11,7 +9,6 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "hotel",
             "apis": [
                 "search-hotel",
                 "reserve-hotel"
@@ -25,9 +22,7 @@
             }
         },
         {
-            "name": "latency-vs-throughput-hotel-sidecar-oc-20",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
             "loads": {
                 "start": 1000,
                 "end": 5000,
@@ -35,7 +30,6 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "hotel",
             "apis": [
                 "search-hotel",
                 "reserve-hotel"
@@ -49,9 +43,7 @@
             }
         },
         {
-            "name": "latency-vs-throughput-hotel-sidecar-oc-60",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
             "loads": {
                 "start": 1000,
                 "end": 5000,
@@ -59,7 +51,6 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "hotel",
             "apis": [
                 "search-hotel",
                 "reserve-hotel"
@@ -73,9 +64,7 @@
             }
         },
         {
-            "name": "latency-vs-throughput-hotel-sidecar-oc-100",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
             "loads": {
                 "start": 1000,
                 "end": 5000,
@@ -83,7 +72,6 @@
             },
             "base_rate": 1000,
             "duration_sec": 10,
-            "bench": "hotel",
             "apis": [
                 "search-hotel",
                 "reserve-hotel"

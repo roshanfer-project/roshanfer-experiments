@@ -60,7 +60,7 @@ class ExperimentConfig:
         loads_obj = merged.get("loads")
         loads = LoadRange.from_dict(loads_obj) if isinstance(loads_obj, dict) else None
         return ExperimentConfig(
-            name=merged["name"],
+            name=merged.get("name", ""),
             type=merged["type"],
             script=merged.get("script"),
             loads=loads,

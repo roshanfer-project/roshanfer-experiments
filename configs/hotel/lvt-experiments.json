@@ -1,9 +1,7 @@
 {
     "experiments": [
         {
-            "name": "latency-vs-throughput-hotel-plain",
             "type": "latency-vs-throughput",
-            "script": "run-plain.sh",
             "loads": {
                 "start": 1000,
                 "end": 6000,
@@ -11,7 +9,6 @@
             },
             "base_rate": 1000,
             "duration_sec": 15,
-            "bench": "hotel",
             "apis": [
                 "search-hotel"
             ],
@@ -21,9 +18,7 @@
             "warmup": 2
         },
         {
-            "name": "latency-vs-throughput-hotel-sidecar",
             "type": "latency-vs-throughput",
-            "script": "run.sh",
             "loads": {
                 "start": 1000,
                 "end": 6000,
@@ -31,7 +26,6 @@
             },
             "base_rate": 1000,
             "duration_sec": 15,
-            "bench": "hotel",
             "apis": [
                 "search-hotel"
             ],

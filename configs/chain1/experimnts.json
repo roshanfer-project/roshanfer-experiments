@@ -1,7 +1,6 @@
 {
   "experiments": [
     {
-      "name": "latency-vs-throughput-chain1-plain",
       "type": "latency-vs-throughput",
       "script": "run.sh",
       "loads": {
@@ -21,7 +20,6 @@
       "warmup": 2
     },
     {
-      "name": "latency-vs-throughput-chain1-sidecar",
       "type": "latency-vs-throughput",
       "script": "run.sh",
       "loads": {
