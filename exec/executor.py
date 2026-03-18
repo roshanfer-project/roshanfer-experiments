@@ -461,11 +461,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
+    p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
     return p.parse_args(argv)
 
 def main(argv: List[str] | None = None) -> int:
     ns = parse_args(argv or sys.argv[1:])
     config = load_config(ns.config)
+    if ns.output_base_dir:
+        config = dc_replace(config, output_base_dir=ns.output_base_dir)
     cfg_path = Path(ns.config) if ns.config else Path("config.json")
     
     filters = {
