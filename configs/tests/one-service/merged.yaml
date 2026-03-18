@@ -1,0 +1,8 @@
+figures:
+  latency-vs-throughput-one-service:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-one-service-plain:
+        label: Plain
+      latency-vs-throughput-one-service-sidecar:
+        label: Roshanfer
