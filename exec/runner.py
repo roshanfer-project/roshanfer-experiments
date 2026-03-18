@@ -53,6 +53,7 @@ class ResourceMonitor:
         self.stop_event.set()
         if self.thread.is_alive():
             self.thread.join(timeout=5)
+        self._write_utilization_summary()
 
     def _get_container_metadata(self) -> Dict[str, Dict[str, any]]:
         """Fetch container metadata from kubectl to map container ID -> pod info"""
@@ -181,7 +182,9 @@ class ResourceMonitor:
                     if not metadata:
                         logging.debug(f"No metadata for container {container_id[:12]}")
                         continue
-                    
+                    if metadata["namespace"] != "default":
+                        continue
+
                     ns = metadata["namespace"]
                     pod = metadata["pod"]
                     container = metadata["container"]
@@ -223,6 +226,39 @@ class ResourceMonitor:
             sleep_time = max(0.0, self.interval - elapsed)
             self.stop_event.wait(sleep_time)
 
+    def _write_utilization_summary(self):
+        """Write min/avg/max utilization per container to cpu_utilization_summary.csv"""
+        if not self.cpu_output_file.exists():
+            return
+        summary_path = self.cpu_output_file.parent / "cpu_utilization_summary.csv"
+        # (ns, pod, container) -> (utils list, limit)
+        agg: Dict[Tuple[str, str, str], Tuple[List[float], float]] = {}
+        try:
+            with self.cpu_output_file.open() as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        util = float(row["utilization"])
+                        limit = float(row["limit"])
+                    except (KeyError, ValueError):
+                        continue
+                    key = (row["namespace"], row["pod"], row["container"])
+                    if key not in agg:
+                        agg[key] = ([], limit)
+                    agg[key][0].append(util)
+        except Exception as e:
+            logging.warning(f"ResourceMonitor: Failed to read cpu_metrics for summary: {e}")
+            return
+        if not agg:
+            return
+        try:
+            with summary_path.open("w") as f:
+                w = csv.writer(f)
+                w.writerow(["namespace", "pod", "container", "utilization_min", "utilization_avg", "utilization_max", "limit"])
+                for (ns, pod, container), (utils, limit) in sorted(agg.items()):
+                    w.writerow([ns, pod, container, f"{min(utils):.2f}", f"{sum(utils) / len(utils):.2f}", f"{max(utils):.2f}", f"{limit:.2f}"])
+        except Exception as e:
+            logging.warning(f"ResourceMonitor: Failed to write utilization summary: {e}")
 
 
 class Runner:
