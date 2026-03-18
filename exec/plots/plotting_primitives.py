@@ -32,46 +32,18 @@ import numpy as np
 class PlotStyle:
     """ACM paper compact styling configuration.
     
-    All spacing and sizing values are consistent across all plots to ensure
-    uniform appearance in academic papers.
-    
-    Attributes:
-        width_points: Figure width in points (primary input, converts to inches)
-        aspect_ratio: Height/width ratio (default: golden ratio)
-        dpi: Resolution for saved figures
-        
-        Compact spacing (CONSISTENT):
-        hspace: Vertical space between subplot rows
-        wspace: Horizontal space between subplot columns
-        margins: Figure margins (left, right, top, bottom)
-        
-        Typography:
-        font_size: Base font size for axis labels
-        title_size: Subplot title font size
-        legend_size: Legend font size
-        
-        Visual elements:
-        line_width: Line width for plots
-        marker_size: Marker size for scatter/line plots
-        bar_width_fraction: Bar width as fraction of x-unit
-        bar_spacing_fraction: Bar width as fraction of allocated group space
-        
-        Colors/styles:
-        colors: High-contrast color palette (optimized for print)
-        line_styles: Line style variations
-        markers: Marker shape variations
+    Uses constrained_layout for automatic spacing -- no manual margin tuning.
+    Just set width_points and font sizes; the layout engine handles the rest.
     """
     width_points: float  # Input in points (e.g., 240 for ACM half column)
     aspect_ratio: float = 0.618  # Golden ratio
     dpi: int = 300
     
-    # Compact spacing - CONSISTENT across all plots
-    hspace: float = 0.15  # Vertical space between subplot rows
-    wspace: float = 0.08  # Horizontal space between subplot columns
-    left_margin: float = 0.10
-    right_margin: float = 0.98
-    top_margin: float = 0.88
-    bottom_margin: float = 0.12
+    # Constrained layout padding (inches)
+    h_pad: float = 0.01  # Vertical padding around each subplot
+    w_pad: float = 0.01  # Horizontal padding around each subplot
+    hspace: float = 0.04 # Vertical space between subplots (fraction of subplot size)
+    wspace: float = 0.04 # Horizontal space between subplots (fraction of subplot size)
     
     # Font sizes
     font_size: int = 10
@@ -115,7 +87,7 @@ class PlotStyle:
 
 
 # ACM Presets
-ACM_QUARTER = PlotStyle(width_points=120, font_size=9, title_size=9, legend_size=9)  # 1.665 inches (half column)
+ACM_QUARTER = PlotStyle(width_points=120, aspect_ratio=0.8, font_size=8, title_size=8, legend_size=7)  # 1.665 inches (half column)
 ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=11, title_size=11, legend_size=11)  # 3.33 inches (full column)
 ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (double column)
 
@@ -165,24 +137,21 @@ class SubplotGrid:
             raise ValueError(f"Invalid layout: {layout}. Use 'MxN' or 'row-N' format.")
     
     def _create_figure(self, width_ratios, height_ratios):
-        """Create figure with matplotlib, optionally using GridSpec for uneven sizing."""
+        """Create figure with constrained_layout, optionally using GridSpec."""
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
         
         total_width = self.style.width_inches * self.ncols
         total_height = self.style.width_inches * self.style.aspect_ratio * self.nrows
         
-        self.fig = plt.figure(figsize=(total_width, total_height), dpi=self.style.dpi)
-        
         if width_ratios or height_ratios:
-            # Use GridSpec for uneven subplot sizing
-            gs = gridspec.GridSpec(
+            self.fig = plt.figure(
+                figsize=(total_width, total_height),
+                dpi=self.style.dpi, layout='constrained'
+            )
+            gs = self.fig.add_gridspec(
                 self.nrows, self.ncols,
                 width_ratios=width_ratios or [1] * self.ncols,
                 height_ratios=height_ratios or [1] * self.nrows,
-                figure=self.fig,
-                hspace=self.style.hspace,
-                wspace=self.style.wspace
             )
             self.axes = []
             for i in range(self.nrows):
@@ -191,32 +160,23 @@ class SubplotGrid:
                     ax.tick_params(labelsize=self.style.font_size - 1)
                     self.axes.append(ax)
         else:
-            # Regular uniform subplots
-            _, axes = plt.subplots(
+            self.fig, axes = plt.subplots(
                 self.nrows, self.ncols,
                 figsize=(total_width, total_height),
-                dpi=self.style.dpi
+                dpi=self.style.dpi, layout='constrained'
             )
             if self.nrows * self.ncols == 1:
                 self.axes = [axes]
             else:
                 self.axes = np.array(axes).flatten().tolist()
-            
-            # Apply tick params to all axes for consistency
             for ax in self.axes:
                 ax.tick_params(labelsize=self.style.font_size - 1)
-                
-            self.fig = plt.gcf()
     
     def _apply_compact_spacing(self):
-        """Apply consistent compact spacing to figure."""
-        self.fig.subplots_adjust(
-            left=self.style.left_margin,
-            right=self.style.right_margin,
-            top=self.style.top_margin,
-            bottom=self.style.bottom_margin,
-            hspace=self.style.hspace,
-            wspace=self.style.wspace
+        """Set constrained layout padding."""
+        self.fig.set_constrained_layout_pads(
+            h_pad=self.style.h_pad, w_pad=self.style.w_pad,
+            hspace=self.style.hspace, wspace=self.style.wspace
         )
     
     def get_ax(self, row: int = 0, col: int = 0):
@@ -301,7 +261,8 @@ class SubplotGrid:
                 configure_y_axis_ticks(ax, y_data=y_data, style=self.style,
                                        y_step=y_step, y_type=y_type,
                                        y_guard=y_guard, ylim=ylim)
-                ax.set_ylim(ylim[0], ylim[1])
+                if ylim is not None:
+                    ax.set_ylim(ylim[0], ylim[1])
             elif ylim is not None:
                 ax.set_ylim(ylim[0], ylim[1])
 
@@ -373,21 +334,21 @@ class SubplotGrid:
             )
     
     def add_shared_legend(self, position: str = "top", ncol: Optional[int] = None,
-                         handles=None, labels=None, two_rows: bool = False, y_offset: float = 1.1):
+                         handles=None, labels=None, two_rows: bool = False):
         """Add figure-level legend shared across all subplots.
         
+        Constrained layout automatically allocates space for the legend.
+        
         Args:
-            position: Legend position ("top" or "bottom")
-            ncol: Number of legend columns (auto if None)
+            position: "top", "bottom", or "top-left"
+            ncol: Number of legend columns (auto = single row, or ceil(n/2) if two_rows)
             handles: Legend handles (auto-collected from axes if None)
             labels: Legend labels (auto-collected from axes if None)
-            two_rows: Force legend into two rows (default: False, uses single row)
+            two_rows: Split legend into two rows (sets ncol = ceil(n/2))
         """
-        import matplotlib.pyplot as plt
         import math
         
         if handles is None:
-            # Collect unique handles/labels from all axes
             all_handles, all_labels = [], []
             for ax in self.axes:
                 h, l = ax.get_legend_handles_labels()
@@ -400,36 +361,20 @@ class SubplotGrid:
         if not handles:
             return
         
-        # Determine number of columns
         if ncol is None:
-            if two_rows:
-                # Split into two rows: ceil(n/2) columns per row
-                ncol = math.ceil(len(labels) / 2)
-            else:
-                # Default: single row with all items
-                ncol = len(labels)
+            ncol = math.ceil(len(labels) / 2) if two_rows else len(labels)
         
-        # Adjust position based on number of rows (two-row needs more space)
-        if position == "top":
-            # Two-row legends need more vertical clearance to avoid overlapping plot
-            bbox = (0.5, y_offset)
-            loc = 'upper center'
-        elif position == "top-left":
-            bbox = (-0.15, y_offset) 
-            loc = 'upper left'
-        elif position == "bottom":
-            y_offset = -0.08 if two_rows else -0.05
-            bbox = (0.5, y_offset)
-            loc = 'lower center'
-        else:
-            y_offset = 1.10 if two_rows else 1.04
-            bbox = (0.5, y_offset)
-            loc = 'upper center'
+        loc_map = {
+            "top": "outside upper center",
+            "top-left": "outside upper left",
+            "bottom": "outside lower center",
+        }
+        loc = loc_map.get(position, "outside upper center")
         
         self.fig.legend(
             handles, labels,
-            loc=loc, bbox_to_anchor=bbox,
-            ncol=ncol, frameon=True, fancybox=True,
+            loc=loc, ncol=ncol,
+            frameon=True, fancybox=True,
             framealpha=0.9, edgecolor='#999999',
             fontsize=self.style.legend_size
         )

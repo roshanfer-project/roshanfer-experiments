@@ -52,6 +52,18 @@ AggregateFunc = Callable[[Dict], List[Path]]  # unit-level
 ExpAggregateFunc = Callable[[Dict], List[Path]]  # experiment-level (multi-load)
 
 
+def _print_plugin_load_hint() -> None:
+    """Print a helpful message when no plugins load (often due to missing pandas/matplotlib)."""
+    print('No plot plugins discovered; nothing to do.')
+    try:
+        from exec.plots.data_loader import load_repeat_data  # noqa: F401
+    except ModuleNotFoundError as e:
+        if 'pandas' in str(e) or 'matplotlib' in str(e):
+            print('Hint: Plot plugins require pandas and matplotlib. Install with: pip install pandas matplotlib')
+    except Exception:
+        pass
+
+
 def _discover_plugins() -> Dict[str, List[PlotFunc]]:
     """Return mapping: experiment_type -> list[plot functions]. Generic ('*') handlers included separately.
 
@@ -245,7 +257,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
         if aggregate_registry:
             print('[plot_runner] discovered unit-level aggregate types:', list(aggregate_registry.keys()))
     if not registry:
-        print('No plot plugins discovered; nothing to do.')
+        _print_plugin_load_hint()
         return
     generic_funcs = registry.get('*', [])
     print(f'Discovered plugin types: {sorted(t for t in registry.keys() if t != "*")}, generic={len(generic_funcs)}')

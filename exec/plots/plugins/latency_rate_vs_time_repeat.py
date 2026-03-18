@@ -191,7 +191,7 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     x_data=x, x_type='int', x_step=3, y_type='int', y_step=2, ylim=(0, 12))
     
     # Add legend
-    grid.add_shared_legend(position="top-left", two_rows=True, y_offset=1.25)
+    grid.add_shared_legend(position="top-left")
     
     # Save
     grid.save(out_path)
@@ -258,7 +258,7 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
     x_data=x, x_type='int', x_step=3)
     
     # Add shared legend
-    grid.add_shared_legend(position="top", y_offset=1.15)
+    grid.add_shared_legend(position="top")
     
     # Save
     grid.save(out_path)
@@ -299,7 +299,7 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     ax.set_ylim(1, 500)
     
     # Add legend
-    grid.add_shared_legend(position="top-left", y_offset=1.1)
+    grid.add_shared_legend(position="top-left")
     
     # Save
     grid.save(out_path)
@@ -354,7 +354,7 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
     x_type='int', x_step=3, x_data=x)
     
     # Add shared legend
-    grid.add_shared_legend(position="top", y_offset=1.15)
+    grid.add_shared_legend(position="top")
     
     # Save
     grid.save(out_path)

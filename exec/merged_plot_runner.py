@@ -683,7 +683,7 @@ def generate_resource_waste_bar_merged(
             )
 
     # Compact legend at the top center of the figure
-    grid.add_shared_legend(position="top", two_rows=True if n_apis == 1 else False, y_offset=(1.25 if n_apis == 1 else 1.15))
+    grid.add_shared_legend(position="top")
     
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -924,7 +924,6 @@ def generate_max_queue_merged(
     if single_api_mode:
         style = ACM_QUARTER
         grid = SubplotGrid(style, layout="1x1")
-        style.legend_size = 7
     else:
         style = ACM_COMPACT_HALF
         grid = SubplotGrid(style, layout=f"1x{ncols}")
@@ -1066,7 +1065,7 @@ def generate_max_queue_merged(
             )
     # Legend logic for both modes
     # Legend logic
-    grid.add_shared_legend(position="top", two_rows=True if single_api_mode else False, y_offset=(1.25 if single_api_mode else 1.15))
+    grid.add_shared_legend(position="top")
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
     fig_path = output_dir / f'{figure_name}_max_queue.pdf'
@@ -1083,8 +1082,20 @@ def load_merged_config(merged_config_path: Path) -> Dict[str, Any]:
     
     return config
 
-def load_experiment_configs(experiments_config_path: Path) -> Dict[str, Dict[str, Any]]:
-    """Load experiment configurations and return as name->config mapping."""
+def _derive_experiment_name(exp: Dict[str, Any], bench: str) -> str:
+    """Derive name from type, bench, system (matches executor logic)."""
+    bench_slug = bench.split("/")[-1] if bench else ""
+    exp_type = exp.get('type', '')
+    system = exp.get('system', '')
+    apis = exp.get('apis', [])
+    if len(apis) > 1:
+        return f"{exp_type}-{bench_slug}-{len(apis)}-{system}"
+    return f"{exp_type}-{bench_slug}-{system}"
+
+
+def load_experiment_configs(experiments_config_path: Path, bench: str = "") -> Dict[str, Dict[str, Any]]:
+    """Load experiment configurations and return as name->config mapping.
+    Derives names when missing (matches executor _assign_derived_names)."""
     if not experiments_config_path.exists():
         raise FileNotFoundError(f'Experiments config not found: {experiments_config_path}')
     
@@ -1092,8 +1103,19 @@ def load_experiment_configs(experiments_config_path: Path) -> Dict[str, Dict[str
         data = json.load(f)
     
     experiments = {}
+    seen: Dict[str, int] = {}
     for exp in data.get('experiments', []):
-        experiments[exp['name']] = exp
+        name = exp.get('name')
+        if not name:
+            base = _derive_experiment_name(exp, bench)
+            if base in seen:
+                seen[base] += 1
+                name = f"{base}-{seen[base]}"
+            else:
+                seen[base] = 0
+                name = base
+            exp = {**exp, 'name': name}
+        experiments[name] = exp
     
     return experiments
 
@@ -1534,9 +1556,7 @@ def generate_latency_goodput_vs_load_merged(
                  show_yticklabels=(idx==0)
              )
 
-    # Add Legend
-    y_offset = 1.1 if n_apis == 1 else 1.02
-    grid.add_shared_legend(position="top", y_offset=y_offset)
+    grid.add_shared_legend(position="top")
 
     # Save
     comb_path = output_dir / f'{figure_name}_combined.pdf'
@@ -1557,7 +1577,15 @@ def generate_merged_figures(
     """Generate all merged figures based on configuration."""
     # Load configurations
     merged_config = load_merged_config(merged_config_path)
-    experiment_configs = load_experiment_configs(experiments_file_path)
+    bench = ""
+    if global_config_path:
+        try:
+            with open(global_config_path) as f:
+                global_cfg = json.load(f)
+            bench = global_cfg.get('bench', '')
+        except Exception:
+            pass
+    experiment_configs = load_experiment_configs(experiments_file_path, bench=bench)
     figures = merged_config.get('figures', {})
     
     # If experiment_index is set, use only that experiment run directory
@@ -1808,7 +1836,7 @@ def generate_latency_and_rate_vs_time_merged(
     # Rate Legend
     rate_handles = [mpatches.Patch(color=v, label=k.title()) for k, v in RATE_COLOR_MAP.items() if k != 'errors']
     rate_labels = [h.get_label() for h in rate_handles]
-    grid_rate.add_shared_legend(position="top", handles=rate_handles, labels=rate_labels, y_offset=1.15)
+    grid_rate.add_shared_legend(position="top", handles=rate_handles, labels=rate_labels)
     
     rate_path = output_dir / f'{figure_name}_rate_vs_time.pdf'
     grid_rate.save(rate_path)
@@ -1858,7 +1886,7 @@ def generate_latency_and_rate_vs_time_merged(
     lat_handles.append(Line2D([0], [0], color='r', linestyle='--', linewidth=style.line_width, label='SLO'))
     lat_labels = [h.get_label() for h in lat_handles]
     
-    grid_lat.add_shared_legend(position="top", handles=lat_handles, labels=lat_labels, two_rows=False, y_offset=1.15)
+    grid_lat.add_shared_legend(position="top", handles=lat_handles, labels=lat_labels)
     
     lat_path = output_dir / f'{figure_name}_latency_vs_time.pdf'
     grid_lat.save(lat_path)
@@ -1924,8 +1952,6 @@ def generate_latency_vs_throughput_merged(
 
     # Use ACM compact style
     style = ACM_QUARTER if n_apis == 1 else ACM_COMPACT_HALF
-    if n_apis == 1:
-        style.legend_size = 8
     # Layout: 2 rows (P99, P95), N columns (one per API)
     grid = SubplotGrid(style, layout=f"1x{n_apis}")
     
@@ -2118,12 +2144,12 @@ def generate_latency_vs_throughput_merged(
                 break
         
         if slo_val is not None:
+            slo_val = float(slo_val)
             # Plot SLO on P99
             ax_p99.axhline(y=slo_val, color='r', linestyle='--',
                        label='SLO', linewidth=style.line_width)
-            """ # Plot SLO on P95
-            ax_p99.axhline(y=slo_val, color='r', linestyle='--',
-                       label='SLO', linewidth=style.line_width) """
+        else:
+            raise Exception("SLO is None")
             
         # Configure axes per column
         limits = api_limits[api]
@@ -2140,9 +2166,7 @@ def generate_latency_vs_throughput_merged(
             ax_p99,
             ylabel="P99 Latency (ms)" if api_idx == 0 else "",
             xlabel="Throughput (KRPS)",
-            y_data=None, # We set manual limits
-            log_y=False,
-            ylim=(0, y_max*1.1),
+            ylim=(0, 2*slo_val),
             #y_type='int',
             #y_step=5,
             grid=True,
@@ -2168,8 +2192,7 @@ def generate_latency_vs_throughput_merged(
 
     # Add shared legend
     # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top", y_offset=1.25 if len(all_apis) == 1 else 1.15,
-        two_rows=True if n_apis == 1 else False)
+    grid.add_shared_legend(position="top", two_rows=True)
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2253,7 +2276,7 @@ def generate_latency_vs_throughput_merged(
         ax_bar.set_xticklabels(exp_labels, rotation=0 if len(exp_labels) < 4 else 30, ha='center', fontsize=bar_style.font_size - 1)
         
         # Legend
-        bar_grid.add_shared_legend(position="top", y_offset=1.2)
+        bar_grid.add_shared_legend(position="top")
         
         # Save
         bar_path = output_dir / f'{figure_name}_goodput_bar.pdf'

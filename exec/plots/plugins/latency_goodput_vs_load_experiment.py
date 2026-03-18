@@ -222,7 +222,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
     )
     
     # Add legend (move slightly higher than default)
-    grid_lat.add_shared_legend(position="top", y_offset=1.15)
+    grid_lat.add_shared_legend(position="top")
     
     # Save
     lat_path = out_dir / 'latency_vs_load.pdf'
