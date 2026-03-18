@@ -42,15 +42,18 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
     start = exp.loads.start if exp.loads else exp.base_rate
     end = exp.loads.end + 1 if exp.loads else (exp.base_rate + 1)
     step = exp.loads.step if exp.loads else 1
-    
+
+    bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
+    script = exp.script or ("run.sh" if exp.system == "sidecar" else "run-plain.sh")
+
     if exp.loads is None and exp.base_rate == 0:
         # Single run, no load sweep?
         yield RunUnit(
             name=exp.name,
             type=exp.type,
-            script=exp.script,
+            script=script,
             base=0, rate=0, duration=exp.duration,
-            system=exp.system, apis=exp.apis, bench=exp.bench,
+            system=exp.system, apis=exp.apis, bench=bench,
             collector_freq=exp.collector_freq, warmup=exp.warmup, cooldown=exp.cooldown,
             services=exp.services, execution_args=exp.execution_args,
             repeats=exp.repeat,
@@ -65,13 +68,13 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
         yield RunUnit(
             name=variant_name,
             type=exp.type,
-            script=exp.script,
+            script=script,
             base=exp.base_rate,
             rate=load,
             duration=exp.duration,
             system=exp.system,
             apis=exp.apis,
-            bench=exp.bench,
+            bench=bench,
             collector_freq=exp.collector_freq,
             warmup=exp.warmup,
             cooldown=exp.cooldown,
@@ -246,7 +249,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
              continue
         
         # Simplify: Pick the first benchmark and assume all experiments for this system use it.
-        bench = system_exps[0].bench
+        bench = system_exps[0].bench or getattr(config, "bench", None) or config.extra.get("bench", "")
         
         # A. Build & Deploy (Moved before Tuning so images exist)
         try:

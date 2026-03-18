@@ -73,6 +73,7 @@ class Config:
 
     # --- Misc ---
     notes: str = ""
+    bench: Optional[str] = None  # benchmark name, used when experiments omit it
 
     # Any additional / unknown keys from the JSON file.
     extra: Dict[str, Any] = field(default_factory=dict)
