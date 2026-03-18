@@ -9,3 +9,4 @@ experiment_runs/
 generated_plots/
 exp_runs
 exp_runs_test
+.venv
