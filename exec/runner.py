@@ -366,11 +366,14 @@ class Runner:
             for idx, api in enumerate(unit.apis):
                 host = unit.generator_hosts[idx]
                 
-                # Construct Remote RWG Command
-                # We assume 'rwg' is built and in the path or we use config.rwg_binary_path relative to repo root on remote?
-                # The provisioner builds rwg in `~/roshanfer-experments/rwg`.
-                # We should use strict paths.
-                remote_repo_path = "~/roshanfer-experments" # Assumption from provisioner logic
+                # Path to repo on generator host. When host is localhost, use cwd if not configured.
+                remote_repo_path = getattr(self.config, "remote_repo_path", None)
+                if not remote_repo_path:
+                    host_part = host.split("@")[-1] if "@" in host else host
+                    if host_part in ("localhost", "127.0.0.1"):
+                        remote_repo_path = str(Path.cwd().resolve())
+                    else:
+                        remote_repo_path = "~/roshanfer-experments"
                 remote_rwg_path = f"{remote_repo_path}/rwg/rwg"
                 
                 # ...
@@ -384,9 +387,8 @@ class Runner:
                 # We should replicate the wrapper logic or call the wrapper remotely?
                 # User said: "Execute RWG (Rust Workload Generator) or similar on Generator hosts."
                 # Calling wrapper is safer if it encapsulates API-specific URL headers.
-                # wrapper scripts are in `wrapper/{bench}/{script}`.
-                
-                remote_wrapper_path = f"{remote_repo_path}/wrapper/{unit.bench}"
+                # wrapper scripts are in benchmarks/{bench}/
+                remote_wrapper_path = f"{remote_repo_path}/benchmarks/{unit.bench}"
                 wrapper_script_name = unit.script if unit.script else "run.sh" 
                 # Note: unit.script might be full path "experiments/latency-vs-load/run.py" or just filename?
                 # In current config, exp.script is often "experiments/latency-vs-load/run.py".
@@ -399,7 +401,7 @@ class Runner:
                 else:
                      wrapper_cmd = f"./{unit.script}" if unit.script else "./run.sh"
 
-                # Command: cd wrapper/{bench} && {wrapper_cmd} {protocol} {base} {rate} {duration} {api} {output_dir}
+                # Command: cd benchmarks/{bench} && {wrapper_cmd} {protocol} {base} {rate} {duration} {api} {output_dir}
                 # Output dir on remote? No, usually wrapper writes to local given path.
                 # We need to specify a remote temp output dir, then pull it.
                 remote_out_dir = f"/tmp/rwg_out_{unit.safe_name()}_{idx}"

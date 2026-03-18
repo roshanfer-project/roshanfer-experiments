@@ -51,6 +51,8 @@ class Config:
     rwg_binary_path: str = "./rwg/rwg"  # Path to RWG binary
     ssh_binary: str = "ssh"
     git_root: str = ".."  # relative path to repo root (optional)
+    # Path to repo on generator hosts (for SSH). If unset, uses cwd when host is localhost.
+    remote_repo_path: Optional[str] = None
 
     # --- Feature toggles ---
     plotting_enabled: bool = True
