@@ -24,7 +24,7 @@ and generates stacked rate plots and latency line plots using plotting_primitive
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 import json
@@ -64,6 +64,9 @@ RATE_COLOR_MAP = {
     'dropped': '#ff7f00',       # Orange
     'errors': '#999999',        # Gray
 }
+
+# Distinct from P50/P99 line colors (first two palette entries are red/blue)
+SLO_LINE_COLOR = '#1a1a1a'
 
 
 def _load_global_slos() -> Optional[Dict[str, float]]:
@@ -128,9 +131,44 @@ def _lookup_slo(slos: Optional[Dict[str, float]], api: str) -> float:
     
     for key in ordered:
         if key in slos:
-            return slos[key]
+            return float(slos[key])
     
     return 60.0  # Default SLO
+
+
+def _latency_log_ylim(df: pd.DataFrame, slo_ms: float) -> Tuple[float, float]:
+    """ymax = 2 * max(plotted percentiles, SLO); ymin fixed at 1 ms for log scale."""
+    vals: List[float] = []
+    if slo_ms > 0:
+        vals.append(float(slo_ms))
+    for col in ('p50_latency', 'p99_latency', 'p95_latency'):
+        if col not in df.columns:
+            continue
+        s = pd.to_numeric(df[col], errors='coerce').dropna()
+        if s.empty:
+            continue
+        m = float(s.max())
+        if m > 0 and np.isfinite(m):
+            vals.append(m)
+    top = max(vals) if vals else 1.0
+    if top <= 0:
+        top = 1.0
+    ymax = max(2.0 * top, 1.0)
+    return (1.0, ymax)
+
+
+def _rate_ylim_krps(y_series: Dict[str, np.ndarray]) -> Tuple[float, float]:
+    """Linear y for stacked rates: ymin=0, ymax=2 * max total stack height (KRPS)."""
+    if not y_series:
+        return (0.0, 1.0)
+    first = next(iter(y_series.values()))
+    total = np.zeros_like(np.asarray(first, dtype=float), dtype=float)
+    for arr in y_series.values():
+        total = total + np.asarray(arr, dtype=float)
+    mx = float(np.max(total)) if total.size else 0.0
+    if mx <= 0:
+        return (0.0, 1.0)
+    return (0.0, max(2.0 * mx, 1e-6))
 
 
 def _prepare_rate_data_for_stack(realtime: RealtimeData) -> Dict[str, np.ndarray]:
@@ -186,12 +224,12 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     # Plot stacked area
     plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
     
-    # Configure axis
+    y_lo, y_hi = _rate_ylim_krps(y_series)
     grid.configure_ax(ax, xlabel='Time (s)', ylabel='Rate (KRPS)', grid=True,
-    x_data=x, x_type='int', x_step=3, y_type='int', y_step=2, ylim=(0, 12))
+    x_data=x, x_type='int', x_step=3, y_type='int', y_step=2, ylim=(y_lo, y_hi))
     
     # Add legend
-    grid.add_shared_legend(position="top-left")
+    grid.add_shared_legend(position="top-left", two_rows=True)
     
     # Save
     grid.save(out_path)
@@ -226,10 +264,10 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
         if current_max > global_max_y:
             global_max_y = current_max
             
-    # Apply margin to global max
-    if global_max_y == 0:
-        global_max_y = 1.0 # Default fallback
-    ylim_max = global_max_y * 1.1
+    if global_max_y <= 0:
+        ylim_max = 1.0
+    else:
+        ylim_max = max(2.0 * global_max_y, 1e-6)
 
     for idx, (api_name, realtime) in enumerate(sorted(api_realtime.items())):
         ax = grid.get_ax(0, idx)
@@ -290,13 +328,17 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     if 'p99_latency' in df.columns:
         plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=2) """
     
-    # Add SLO line
-    ax.axhline(y=slo_ms, color='r', linestyle='--', label='SLO', linewidth=style.line_width)
+    # Add SLO line (not red — P50 uses palette red and would hide a red threshold)
+    ax.axhline(
+        y=float(slo_ms), color=SLO_LINE_COLOR, linestyle='--', label='SLO',
+        linewidth=style.line_width, zorder=4,
+    )
     
     # Configure axis (log scale for latency)
     grid.configure_ax(ax, xlabel='Time (s)', ylabel='Latency (ms)', grid=True, log_y=True,
     x_data=x, x_type='int', x_step=3)
-    ax.set_ylim(1, 500)
+    y_lo, y_hi = _latency_log_ylim(df, float(slo_ms))
+    ax.set_ylim(y_lo, y_hi)
     
     # Add legend
     grid.add_shared_legend(position="top-left")
@@ -336,9 +378,12 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         if 'p99_latency' in df.columns:
             plot_line(ax, x, df['p99_latency'].values, label='P99', style=style, color_idx=2) """
         
-        # Add SLO line
+        # Add SLO line (not red — P50 uses palette red)
         slo_ms = _lookup_slo(slos, api_name)
-        ax.axhline(y=slo_ms, color='r', linestyle='--', label='SLO', linewidth=style.line_width)
+        ax.axhline(
+            y=float(slo_ms), color=SLO_LINE_COLOR, linestyle='--', label='SLO',
+            linewidth=style.line_width, zorder=4,
+        )
         
         # Add subplot title
         display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
@@ -346,7 +391,8 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         
         # Configure log scale
         ax.set_yscale('log')
-        ax.set_ylim(1, 500)
+        y_lo, y_hi = _latency_log_ylim(df, float(slo_ms))
+        ax.set_ylim(y_lo, y_hi)
         ax.grid(True, alpha=0.3)
     
     # Configure labels

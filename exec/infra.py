@@ -50,7 +50,7 @@ class InfraBuilder:
 
         if len(self.hosts) < num_generators + 1:
             raise ValueError(
-                f"Not enough hosts. Need at least {num_generators + 1} (1 gen + 1 deploy), "
+                f"Not enough hosts. Need at least {num_generators + 1} ({num_generators} gen + 1 deploy), "
                 f"but check found {len(self.hosts)} hosts."
             )
 

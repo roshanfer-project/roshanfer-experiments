@@ -374,8 +374,7 @@ class SubplotGrid:
         self.fig.legend(
             handles, labels,
             loc=loc, ncol=ncol,
-            frameon=True, fancybox=True,
-            framealpha=0.9, edgecolor='#999999',
+            frameon=False,
             fontsize=self.style.legend_size
         )
     

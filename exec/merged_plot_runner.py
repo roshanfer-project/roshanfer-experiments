@@ -2192,7 +2192,7 @@ def generate_latency_vs_throughput_merged(
 
     # Add shared legend
     # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top", two_rows=True)
+    grid.add_shared_legend(position="top")
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)

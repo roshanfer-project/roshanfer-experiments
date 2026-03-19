@@ -1,0 +1,8 @@
+figures:
+  latency-vs-throughput-multi-api:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-multi-api-3-plain:
+        label: Plain
+      latency-vs-throughput-multi-api-3-sidecar:
+        label: Roshanfer

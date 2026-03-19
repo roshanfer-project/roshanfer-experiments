@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import shutil
@@ -64,7 +65,7 @@ def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[
         result.append(dc_replace(exp, name=name))
     return result
 
-def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generators: List[str], deployment: List[str]) -> Iterable[RunUnit]:
+def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
     # Custom expansion logic mapping exp params to units
     start = exp.loads.start if exp.loads else exp.base_rate
     end = exp.loads.end + 1 if exp.loads else (exp.base_rate + 1)
@@ -84,7 +85,7 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
             collector_freq=exp.collector_freq, warmup=exp.warmup, cooldown=exp.cooldown,
             services=exp.services, execution_args=exp.execution_args,
             repeats=exp.repeat,
-            generator_hosts=generators,
+            generator_hosts=generator_hosts,
             deployment_hosts=deployment,
             params=exp.params
         )
@@ -110,7 +111,7 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
             execution_args=exp.execution_args,
             metadata={},
             repeats=exp.repeat,
-            generator_hosts=generators,
+            generator_hosts=generator_hosts,
             deployment_hosts=deployment,
             params=exp.params
         )
@@ -207,6 +208,12 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         if filters.get("name_contains"):
             sub = filters["name_contains"]
             all_exps = [e for e in all_exps if sub in e.name]
+        if filters.get("only_system"):
+            systems = set(s.strip() for s in filters["only_system"].split(","))
+            all_exps = [e for e in all_exps if e.system in systems]
+        if filters.get("only_num_apis"):
+            nums = set(int(x.strip()) for x in filters["only_num_apis"].split(","))
+            all_exps = [e for e in all_exps if len(e.apis) in nums]
 
     if not all_exps:
         logging.warning("No experiments found matching filters.")
@@ -235,8 +242,15 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     # 2. Infrastructure Setup
     infra = InfraBuilder(Path(config.hosts_file))
     max_apis = _get_max_apis_needed(all_exps)
+    shared_generator = filters.get("shared_generator") if filters else False
+    if shared_generator:
+        effective_min_required = 1
+        effective_num_gens = min(len(infra.hosts) - 1, config.num_generators)
+    else:
+        effective_min_required = max_apis
+        effective_num_gens = config.num_generators
     try:
-        generators, deployment = infra.partition_hosts(config.num_generators, min_required=max_apis)
+        generators, deployment = infra.partition_hosts(effective_num_gens, min_required=effective_min_required)
         
         # Define log paths for infra steps
         prov_log = logs_dir / f"provision_{_timestamp()}.log"
@@ -282,7 +296,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         # A. Build & Deploy (Moved before Tuning so images exist)
         try:
             # Build Step
-            tag_base = f"{config.experiment_index}"
+            path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
+            tag_base = f"{config.experiment_index}-{path_hash}"
             tag = _safe_name(tag_base)
             logging.info(f"Tag: {tag}")
             
@@ -330,8 +345,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                 
                 # Get params for this experiment's benchmark
                 # deploy_params is already set above for the single 'bench'
-                
-                for unit in _expand_experiment_to_units(exp, config, generators, deployment):
+                unit_generator_hosts = [generators[i % len(generators)] for i in range(len(exp.apis))]
+                for unit in _expand_experiment_to_units(exp, config, unit_generator_hosts, deployment):
                     unit_dir = exp_dir / unit.safe_name()
                     unit_dir.mkdir(parents=True, exist_ok=True)
                     
@@ -461,7 +476,10 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
+    p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar).")
+    p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
+    p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
     return p.parse_args(argv)
 
 def main(argv: List[str] | None = None) -> int:
@@ -474,7 +492,10 @@ def main(argv: List[str] | None = None) -> int:
     filters = {
         "only_names": ns.only_names,
         "only_types": ns.only_types,
-        "name_contains": ns.name_contains
+        "name_contains": ns.name_contains,
+        "only_system": ns.only_system,
+        "only_num_apis": ns.only_num_apis,
+        "shared_generator": ns.shared_generator,
     }
     
     return execute(Path(ns.experiments_file), config, cfg_path, filters)
