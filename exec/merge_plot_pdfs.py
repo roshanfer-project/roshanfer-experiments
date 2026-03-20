@@ -15,7 +15,22 @@ import yaml
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 OUTPUT_NAME = "all_tests_plots.pdf"
-HEADER_PT = 54.0
+HEADER_PT = 64.0
+
+Meta = Tuple[str, str, str, str]
+
+
+def _extract_apis(row: Dict[str, Any]) -> list[str]:
+    raw = row.get("apis")
+    if raw is None:
+        raw = (row.get("config") or {}).get("apis")
+    if not isinstance(raw, list):
+        return []
+    return [str(a) for a in raw]
+
+
+def _apis_display(apis: list[str]) -> str:
+    return ", ".join(apis) if apis else "?"
 
 MERGED_STEMS = (
     "_latency_vs_throughput",
@@ -59,16 +74,25 @@ def _load_run_index(run_ts_root: Path, suite: str) -> Dict[str, Dict[str, Any]]:
                 if not en:
                     continue
                 cfg = row.get("config") or {}
-                by_name[en] = {
-                    "type": row.get("type") or cfg.get("type") or "?",
-                    "system": cfg.get("system") or "?",
-                }
+                apis = _extract_apis(row)
+                if en not in by_name:
+                    by_name[en] = {
+                        "type": row.get("type") or cfg.get("type") or "?",
+                        "system": cfg.get("system") or "?",
+                        "apis": apis,
+                    }
+                else:
+                    prev = by_name[en]
+                    prev["type"] = row.get("type") or cfg.get("type") or prev["type"]
+                    prev["system"] = cfg.get("system") or prev["system"]
+                    if not prev.get("apis") and apis:
+                        prev["apis"] = apis
         except (json.JSONDecodeError, OSError):
             continue
     return by_name
 
 
-def _merged_figure_type(suite: str, figure_name: str) -> Optional[str]:
+def _merged_figure_doc(suite: str, figure_name: str) -> Optional[Dict[str, Any]]:
     yml = _configs_tests_dir() / suite / "merged.yaml"
     if not yml.is_file():
         return None
@@ -76,11 +100,39 @@ def _merged_figure_type(suite: str, figure_name: str) -> Optional[str]:
         doc = yaml.safe_load(yml.read_text()) or {}
         figs = doc.get("figures") or {}
         fc = figs.get(figure_name)
-        if isinstance(fc, dict):
-            return str(fc.get("type") or "")
+        return fc if isinstance(fc, dict) else None
     except (yaml.YAMLError, OSError):
-        pass
+        return None
+
+
+def _merged_figure_type(suite: str, figure_name: str) -> Optional[str]:
+    fc = _merged_figure_doc(suite, figure_name)
+    if fc:
+        return str(fc.get("type") or "") or None
     return None
+
+
+def _merged_figure_include_keys(suite: str, figure_name: str) -> list[str]:
+    fc = _merged_figure_doc(suite, figure_name)
+    if not fc:
+        return []
+    inc = fc.get("include") or {}
+    if isinstance(inc, dict):
+        return [str(k) for k in inc.keys()]
+    return []
+
+
+def _apis_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
+    keys = _merged_figure_include_keys(suite, figure_name)
+    if not keys:
+        return "?"
+    seen: set[str] = set()
+    for k in keys:
+        row = idx.get(k) or {}
+        apis = row.get("apis") or []
+        if isinstance(apis, list):
+            seen.update(str(a) for a in apis)
+    return ", ".join(sorted(seen)) if seen else "?"
 
 
 def _split_merged_stem(stem: str) -> Tuple[str, str]:
@@ -94,7 +146,7 @@ def _meta_for_pdf(
     plots_root: Path,
     run_ts_root: Path,
     pdf_path: Path,
-) -> Tuple[str, str, str]:
+) -> Meta:
     rel = pdf_path.relative_to(plots_root)
     parts = rel.parts
     suite = parts[0] if parts else ""
@@ -104,19 +156,28 @@ def _meta_for_pdf(
     if len(parts) >= 2 and parts[1] == "merged":
         figure_name, _kind = _split_merged_stem(pdf_path.stem)
         mtype = _merged_figure_type(suite, figure_name) or "merged"
-        return str(mtype), "merged", bench
+        apis_s = _apis_for_merged(suite, figure_name, idx)
+        return str(mtype), "merged", bench, apis_s
 
     if len(parts) >= 2:
         exp_name = parts[1]
         row = idx.get(exp_name)
         if row:
-            return str(row["type"]), str(row["system"]), bench
-        return "?", "?", bench
+            apis_s = _apis_display(row.get("apis") or [])
+            return str(row["type"]), str(row["system"]), bench, apis_s
+        return "?", "?", bench, "?"
 
-    return "?", "?", bench
+    return "?", "?", bench, "?"
 
 
-def _header_pdf_bytes(width_pt: float, height_pt: float, etype: str, system: str, bench: str) -> bytes:
+def _header_pdf_bytes(
+    width_pt: float,
+    height_pt: float,
+    etype: str,
+    system: str,
+    bench: str,
+    apis: str,
+) -> bytes:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
 
@@ -126,6 +187,7 @@ def _header_pdf_bytes(width_pt: float, height_pt: float, etype: str, system: str
         textwrap.fill(f"type: {etype}", width=wrap_w),
         textwrap.fill(f"system: {system}", width=wrap_w),
         textwrap.fill(f"bench: {bench}", width=wrap_w),
+        textwrap.fill(f"apis: {apis}", width=wrap_w),
     ]
     body = "\n".join(blocks)
 
@@ -155,18 +217,18 @@ def _header_pdf_bytes(width_pt: float, height_pt: float, etype: str, system: str
 def _append_page_with_header(
     writer: Any,
     src_page: Any,
-    meta: Tuple[str, str, str],
-    header_cache: Dict[Tuple[str, str, str, int], bytes],
+    meta: Meta,
+    header_cache: Dict[Tuple[str, str, str, str, int], bytes],
 ) -> None:
     from pypdf import PdfReader, Transformation
 
     w = float(src_page.mediabox.width)
     h = float(src_page.mediabox.height)
     header = HEADER_PT
-    etype, system, bench = meta
-    key = (etype, system, bench, int(round(w)))
+    etype, system, bench, apis = meta
+    key = (etype, system, bench, apis, int(round(w)))
     if key not in header_cache:
-        header_cache[key] = _header_pdf_bytes(w, header, etype, system, bench)
+        header_cache[key] = _header_pdf_bytes(w, header, etype, system, bench, apis)
     hreader = PdfReader(io.BytesIO(header_cache[key]))
     hpage = hreader.pages[0]
     hw = float(hpage.mediabox.width)
@@ -208,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     writer = PdfWriter()
-    header_cache: Dict[Tuple[str, str, str, int], bytes] = {}
+    header_cache: Dict[Tuple[str, str, str, str, int], bytes] = {}
     for path in pdfs:
         meta = _meta_for_pdf(root, run_ts_root, path)
         reader = PdfReader(str(path))
