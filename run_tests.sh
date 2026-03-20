@@ -14,7 +14,9 @@ usage() {
   echo ""
   echo "Options:"
   echo "  -h, --help       Show this help and exit"
-  echo "  --bench NAME    Run only tests matching NAME (comma-separated for multiple)"
+  echo "  --bench NAME    Run only benchmarks matching NAME (comma-separated). Names are"
+  echo "                  configs/tests/<name> dirs (e.g. multi-api); with --also-hotel-social,"
+  echo "                  hotel and social are also valid."
   echo "  --type TYPES    Run only experiments whose JSON \"type\" matches (comma-separated)"
   echo "  --system SYS    Run only experiments with system SYS (plain, sidecar; comma-separated)"
   echo "  --num-apis N    Run only experiments with N APIs (comma-separated, e.g. 1,3)"
@@ -26,7 +28,8 @@ usage() {
   echo "  --remote-clean       With manifest + num-generators: rm .roshanfer_provisioned on all nodes,"
   echo "                       tear down K8s on deployment nodes (first line of deploy list = server)."
   echo "                       Use with --remote to clean then run tests; alone = clean only and exit."
-  echo "  --also-hotel-social  After tests, run configs/hotel and configs/social benches"
+  echo "  --also-hotel-social  After tests, run configs/hotel and configs/social; --bench"
+  echo "                       filters these too when set (e.g. --bench hotel runs hotel only)."
   echo ""
   echo "Examples:"
   echo "  $0"
@@ -218,6 +221,13 @@ run_bench() {
   fi
 }
 
+# Empty BENCH_FILTER = no restriction; else NAME must appear as a comma-separated token.
+bench_filter_allows() {
+  local n="$1"
+  [[ -z "$BENCH_FILTER" ]] && return 0
+  [[ ",$BENCH_FILTER," == *",$n,"* ]]
+}
+
 for dir in "$TESTS_ROOT"/*/; do
   test_name=$(basename "$dir")
   config="$dir/config.json"
@@ -233,8 +243,8 @@ for dir in "$TESTS_ROOT"/*/; do
 done
 
 if [[ -n "$ALSO_HOTEL_SOCIAL" ]]; then
-  run_bench "hotel" "configs/hotel/config.hotel.json" "configs/hotel/hotel_experiments.json" "configs/hotel/merged.yaml"
-  run_bench "social" "configs/social/config.social.json" "configs/social/social_experiments.json" "configs/social/merged_social.yaml"
+  bench_filter_allows hotel && run_bench "hotel" "configs/hotel/config.hotel.json" "configs/hotel/hotel_experiments.json" "configs/hotel/merged.yaml"
+  bench_filter_allows social && run_bench "social" "configs/social/config.social.json" "configs/social/social_experiments.json" "configs/social/merged_social.yaml"
 fi
 
 if [[ -d "$PLOTS_ROOT" ]]; then
