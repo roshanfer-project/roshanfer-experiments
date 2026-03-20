@@ -137,7 +137,7 @@ def _lookup_slo(slos: Optional[Dict[str, float]], api: str) -> float:
 
 
 def _latency_log_ylim(df: pd.DataFrame, slo_ms: float) -> Tuple[float, float]:
-    """ymax = 2 * max(plotted percentiles, SLO); ymin fixed at 1 ms for log scale."""
+    """ymax = 1.2 * max(plotted percentiles, SLO); ymin fixed at 1 ms for log scale."""
     vals: List[float] = []
     if slo_ms > 0:
         vals.append(float(slo_ms))
@@ -153,12 +153,12 @@ def _latency_log_ylim(df: pd.DataFrame, slo_ms: float) -> Tuple[float, float]:
     top = max(vals) if vals else 1.0
     if top <= 0:
         top = 1.0
-    ymax = max(2.0 * top, 1.0)
+    ymax = max(1.2 * top, 1.0)
     return (1.0, ymax)
 
 
 def _rate_ylim_krps(y_series: Dict[str, np.ndarray]) -> Tuple[float, float]:
-    """Linear y for stacked rates: ymin=0, ymax=2 * max total stack height (KRPS)."""
+    """Linear y for stacked rates: ymin=0, ymax 20% above max total stack height (KRPS)."""
     if not y_series:
         return (0.0, 1.0)
     first = next(iter(y_series.values()))
@@ -168,7 +168,7 @@ def _rate_ylim_krps(y_series: Dict[str, np.ndarray]) -> Tuple[float, float]:
     mx = float(np.max(total)) if total.size else 0.0
     if mx <= 0:
         return (0.0, 1.0)
-    return (0.0, max(2.0 * mx, 1e-6))
+    return (0.0, max(1.2 * mx, 1e-6))
 
 
 def _prepare_rate_data_for_stack(realtime: RealtimeData) -> Dict[str, np.ndarray]:
@@ -267,7 +267,7 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
     if global_max_y <= 0:
         ylim_max = 1.0
     else:
-        ylim_max = max(2.0 * global_max_y, 1e-6)
+        ylim_max = max(1.2 * global_max_y, 1e-6)
 
     for idx, (api_name, realtime) in enumerate(sorted(api_realtime.items())):
         ax = grid.get_ax(0, idx)
