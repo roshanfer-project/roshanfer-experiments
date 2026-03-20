@@ -1,8 +1,0 @@
-figures:
-  latency-vs-throughput-fanin:
-    type: latency-vs-throughput
-    include:
-      latency-vs-throughput-fanin-sidecar:
-        label: Roshanfer
-      latency-vs-throughput-fanin-plain:
-        label: Plain

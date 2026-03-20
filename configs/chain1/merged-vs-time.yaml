@@ -1,7 +1,0 @@
-figures:
-  latency-and-rate-vs-time-chain1:
-    type: latency-and-rate-vs-time
-    include:
-      label: Roshanfer
-      unit: "latency-and-rate-vs-time-chain1-sidecar-rate-5000"
-      repeat: 4

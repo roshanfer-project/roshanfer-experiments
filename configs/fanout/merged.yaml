@@ -1,8 +1,0 @@
-figures:
-  latency-vs-throughput-fanout:
-    type: latency-vs-throughput
-    include:
-      latency-vs-throughput-fanout-sidecar:
-        label: Roshanfer
-      latency-vs-throughput-fanout-plain:
-        label: Plain
