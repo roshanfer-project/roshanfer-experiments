@@ -1,6 +1,16 @@
 Experiment Execution Framework
 ==============================
 
+Clone
+-----
+Benchmark wrappers (`benchmarks/provisioning`, `benchmarks/k8s`, test harnesses) live in the **`benchmarks`** submodule. After clone, initialize it (and `rwg` if you run generators from this tree):
+
+```bash
+git clone --recurse-submodules <repo-url>
+# or, if you already cloned without submodules:
+git submodule update --init benchmarks rwg
+```
+
 Overview
 --------
 Modular system to run experiments end-to-end (execute -> collect -> report) without manual intervention.

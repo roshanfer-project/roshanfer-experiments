@@ -15,13 +15,14 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
 
 ## Prerequisites
 
-1.  **Hosts File**: Create `hosts.txt` with a list of SSH-accessible hosts (one per line).
+1.  **Submodules**: From repo root, run `git submodule update --init benchmarks rwg` (or clone with `--recurse-submodules`). Provisioning/K8s scripts live under `benchmarks/`.
+2.  **Hosts File**: Create `hosts.txt` with a list of SSH-accessible hosts (one per line).
     ```text
     user@node1.cloudlab.us
     user@node2.cloudlab.us
     ...
     ```
-2.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent.
+3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent.
 
 ## Running Experiments
 
@@ -34,6 +35,8 @@ python -m exec.executor \
 ```
 
 **Options:**
+- `--hosts-file PATH`: Override `hosts_file` from config (first `num_generators` lines are generators, rest are K8s nodes).
+- `--num-generators N`: Override `num_generators` from config.
 - `--only-names "exp1,exp2"`: Run specific experiments (use derived names).
 - `--only-types "type1"`: Run specific types.
 - `--name-contains "substring"`: Filter by name substring.
@@ -44,6 +47,30 @@ Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}
 --name-contains "sidecar"
 --only-types "latency-vs-throughput" --name-contains "plain"
 ```
+
+## CloudLab manifest → hosts
+
+Download the experiment **manifest** (XML) from the CloudLab portal, then:
+
+```bash
+python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt
+```
+
+Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. If there are no `<login>` rows, `--ssh-user` with `<node hostname="..."/>` or `<host name="..."/>` is used. Lines are sorted for stable generator/K8s ordering. Re-download the manifest if nodes change after swap-in.
+
+## Batch: `run_tests.sh`
+
+From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/social):
+
+```bash
+./run_tests.sh
+./run_tests.sh --also-hotel-social
+./run_tests.sh --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu
+```
+
+`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run.
+
+`--remote-clean` (with the same `--cloudlab-manifest` and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` using **deployment** hosts only (all lines after the first `num_generators`). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
 
 ## Tuning
 

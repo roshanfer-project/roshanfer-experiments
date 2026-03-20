@@ -479,6 +479,8 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar).")
     p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
+    p.add_argument("--hosts-file", help="Override hosts_file from config.json")
+    p.add_argument("--num-generators", type=int, help="Override num_generators from config.json")
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
     return p.parse_args(argv)
 
@@ -487,6 +489,10 @@ def main(argv: List[str] | None = None) -> int:
     config = load_config(ns.config)
     if ns.output_base_dir:
         config = dc_replace(config, output_base_dir=ns.output_base_dir)
+    if ns.hosts_file:
+        config = dc_replace(config, hosts_file=ns.hosts_file)
+    if ns.num_generators is not None:
+        config = dc_replace(config, num_generators=ns.num_generators)
     cfg_path = Path(ns.config) if ns.config else Path("config.json")
     
     filters = {
