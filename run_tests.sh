@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run all test benchmarks under configs/tests/
-# Each run gets a timestamped dir; each test is a subdir: ./exp_runs_test/<timestamp>/<test_name>
+# Each run: data under ./exp_runs_test/<timestamp>/<test_name>/; all plots under
+# ./exp_runs_test/<timestamp>/plots/<test_name>/; combined PDF at plots/all_tests_plots.pdf
 
 cd "$(dirname "$0")"
 
@@ -8,7 +9,8 @@ usage() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
   echo "Run test benchmarks under configs/tests/. Each test dir with config.json and"
-  echo "experiments.json is executed; results go to exp_runs_test/<timestamp>/<test_name>."
+  echo "experiments.json is executed; run data under exp_runs_test/<timestamp>/<test_name>/,"
+  echo "plots under exp_runs_test/<timestamp>/plots/<test_name>/, merged PDF at .../plots/all_tests_plots.pdf."
   echo ""
   echo "Options:"
   echo "  -h, --help       Show this help and exit"
@@ -78,6 +80,7 @@ PYTHON=python
 TESTS_ROOT="configs/tests"
 OUTPUT_BASE="./exp_runs_test"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+PLOTS_ROOT="$OUTPUT_BASE/${TIMESTAMP}/plots"
 failed=0
 
 EXTRA_ARGS=()
@@ -106,21 +109,26 @@ for dir in "$TESTS_ROOT"/*/; do
       if [[ ! -f "$run_summary" ]]; then
         echo "Skipping plots for $test_name (no run summary — filters may have excluded all experiments)"
       else
-        echo "Plotting $test_name -> $out_dir/plots"
+        echo "Plotting $test_name -> $PLOTS_ROOT/$test_name"
         $PYTHON -m exec.plot_runner --experiment-index "$experiment_index" \
-          --experiments-root "$out_dir" --config-file "$config" --output-dir "$out_dir/plots" || echo "Warning: plot failed for $test_name"
+          --experiments-root "$out_dir" --config-file "$config" --output-dir "$PLOTS_ROOT/$test_name" || echo "Warning: plot failed for $test_name"
         merged_yaml="$dir/merged.yaml"
         if [[ -f "$merged_yaml" ]]; then
-          echo "Merged plots $test_name -> $out_dir/plots/merged"
+          echo "Merged plots $test_name -> $PLOTS_ROOT/$test_name/merged"
           $PYTHON -m exec.merged_plot_runner --merged-config "$merged_yaml" \
             --experiments-file "$experiments" --experiments-root "$out_dir" \
-            --output-dir "$out_dir/plots/merged" --experiment-index "$experiment_index" \
+            --output-dir "$PLOTS_ROOT/$test_name/merged" --experiment-index "$experiment_index" \
             --config "$config" || echo "Warning: merged plot failed for $test_name"
         fi
       fi
     fi
   fi
 done
+
+if [[ -d "$PLOTS_ROOT" ]]; then
+  echo "Merging all plot PDFs -> $PLOTS_ROOT/all_tests_plots.pdf"
+  $PYTHON -m exec.merge_plot_pdfs "$PLOTS_ROOT" || echo "Warning: merge_plot_pdfs failed"
+fi
 
 if [[ $failed -gt 0 ]]; then
   echo "Failed: $failed test(s)"
