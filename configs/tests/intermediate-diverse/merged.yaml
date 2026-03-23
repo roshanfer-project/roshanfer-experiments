@@ -1,0 +1,8 @@
+figures:
+  latency-vs-throughput-intermediate-diverse:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-intermediate-diverse-3-plain:
+        label: Plain
+      latency-vs-throughput-intermediate-diverse-3-sidecar:
+        label: Roshanfer

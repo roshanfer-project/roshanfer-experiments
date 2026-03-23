@@ -1,0 +1,8 @@
+figures:
+  latency-vs-throughput-leaf-diverse:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-leaf-diverse-2-plain:
+        label: Plain
+      latency-vs-throughput-leaf-diverse-2-sidecar:
+        label: Roshanfer

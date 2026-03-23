@@ -24,7 +24,8 @@ usage() {
   echo "  --remote          Use CloudLab manifest for hosts (requires --cloudlab-manifest, --num-generators)"
   echo "  --cloudlab-manifest PATH   Experiment manifest XML from CloudLab portal"
   echo "  --cloudlab-ssh-user USER   Default SSH user if manifest has bare hostnames"
-  echo "  --num-generators N   Generator count (with --remote or --remote-clean; passed to executor when remote)"
+  echo "  --num-generators N   Override config num_generators (local). With --remote/--remote-clean,"
+  echo "                       required; passed to executor with manifest hosts."
   echo "  --remote-clean       With manifest + num-generators: rm .roshanfer_provisioned on all nodes,"
   echo "                       tear down K8s on deployment nodes (first line of deploy list = server)."
   echo "                       Use with --remote to clean then run tests; alone = clean only and exit."
@@ -34,6 +35,7 @@ usage() {
   echo "Examples:"
   echo "  $0"
   echo "  $0 --bench multi-api"
+  echo "  $0 --num-generators 2 --bench leaf-diverse"
   echo "  $0 --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu"
   echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
   echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
@@ -117,10 +119,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "$REMOTE_NUM_GENERATORS" && -z "$REMOTE" && -z "$REMOTE_CLEAN" ]]; then
-  echo "--num-generators is only valid with --remote and/or --remote-clean"
-  exit 1
-fi
 if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
   [[ -n "$CLOUDLAB_MANIFEST" ]] || { echo "--cloudlab-manifest is required for --remote / --remote-clean"; exit 1; }
   [[ -n "$REMOTE_NUM_GENERATORS" ]] || { echo "--num-generators is required for --remote / --remote-clean"; exit 1; }
@@ -193,6 +191,7 @@ EXTRA_ARGS=()
 [[ -n "$SYSTEM_FILTER" ]] && EXTRA_ARGS+=(--only-system "$SYSTEM_FILTER")
 [[ -n "$NUM_APIS_FILTER" ]] && EXTRA_ARGS+=(--only-num-apis "$NUM_APIS_FILTER")
 [[ -n "$SHARED_GENERATOR" ]] && EXTRA_ARGS+=(--shared-generator)
+[[ -z "$REMOTE" && -n "$REMOTE_NUM_GENERATORS" ]] && EXTRA_ARGS+=(--num-generators "$REMOTE_NUM_GENERATORS")
 
 run_bench() {
   local name="$1" config="$2" experiments="$3" merged="${4:-}"
