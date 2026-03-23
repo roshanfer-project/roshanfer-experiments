@@ -9,7 +9,11 @@
       },
       "base_rate": 200,
       "duration_sec": 10,
-      "apis": ["f1", "f2", "f3"],
+      "apis": [
+        "f1",
+        "f2",
+        "f3"
+      ],
       "system": "plain",
       "repeat": 1,
       "collector_freq": 200,
@@ -24,7 +28,11 @@
       },
       "base_rate": 200,
       "duration_sec": 10,
-      "apis": ["f1", "f2", "f3"],
+      "apis": [
+        "f1",
+        "f2",
+        "f3"
+      ],
       "system": "sidecar",
       "repeat": 1,
       "collector_freq": 200,
@@ -33,13 +41,17 @@
     {
       "type": "latency-and-rate-vs-time",
       "loads": {
-        "start": 200,
-        "end": 1200,
+        "start": 2000,
+        "end": 1000,
         "step": 1000
       },
       "base_rate": 200,
       "duration_sec": 15,
-      "apis": ["f1", "f2", "f3"],
+      "apis": [
+        "f1",
+        "f2",
+        "f3"
+      ],
       "system": "sidecar",
       "repeat": 2,
       "collector_freq": 200

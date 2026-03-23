@@ -4,7 +4,7 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 500,
-                "end": 3500,
+                "end": 4000,
                 "step": 500
             },
             "base_rate": 500,
@@ -21,7 +21,7 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 500,
-                "end": 3500,
+                "end": 4000,
                 "step": 500
             },
             "base_rate": 500,
@@ -37,18 +37,18 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-              "start": 6000,
-              "end": 6000,
-              "step": 1000
+                "start": 6000,
+                "end": 6000,
+                "step": 1000
             },
             "base_rate": 1000,
             "duration_sec": 15,
             "apis": [
-              "f1"
+                "f1"
             ],
             "system": "sidecar",
             "repeat": 2,
             "collector_freq": 200
-          }
+        }
     ]
 }
