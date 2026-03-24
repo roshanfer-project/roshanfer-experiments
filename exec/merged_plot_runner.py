@@ -697,12 +697,12 @@ def generate_max_queue_merged(
     global_config: str = None
 ) -> list:
     """
-    Generate merged max-queue figure.
-    For each included experiment, aggregate max queue per (service, api) across repeats and plot grouped bars.
+    Generate merged max-queue and avg-queue figures.
+    For each included experiment, aggregate per (service, api) across repeats and plot grouped bars.
     Each experiment is a subplot (column). Shared legend for APIs above.
     """
     from pathlib import Path
-    import numpy as np
+    import statistics
     # Import helpers from plugin
     # Import primitives
     try:
@@ -727,12 +727,10 @@ def generate_max_queue_merged(
             from plotting_primitives import (  # type: ignore
                 SubplotGrid, plot_grouped_bars, ACM_COMPACT_HALF, ACM_QUARTER
             )
-    import matplotlib.pyplot as plt
 
     include_experiments = figure_config.get('include', {})
     if not include_experiments:
         return []
-    produced = []
     exp_names = list(include_experiments.keys())
     ncols = len(exp_names)
     # For each experiment, aggregate max queue per (service, api)
@@ -811,37 +809,39 @@ def generate_max_queue_merged(
         all_services.update(services)
         all_apis.update(apis)
         
-        # Build data[service][api] = list of per-repeat maxima
-        data = {svc: {api: [] for api in apis} for svc in services}
-        
-        # Iterate through repeats. Maintain alignment between metric files and Prometheus data by index.
-        
-        # Re-structure the loop to align data
+        data_max = {svc: {api: [] for api in apis} for svc in services}
+        data_avg = {svc: {api: [] for api in apis} for svc in services}
+
         for i in range(len(repeat_metric_files)):
             mf = repeat_metric_files[i]
             prom = repeat_prom_data[i] if i < len(repeat_prom_data) else None
-            
+
             for svc in services:
                 for api in apis:
-                    val = 0.0
-                    
-                    # Try Prometheus first
-                    found_in_prom = False
+                    val_max = 0.0
+                    val_avg = 0.0
+                    found_prom = False
+
                     if prom and prom.metrics and api in prom.metrics:
-                        # Check service variants
                         variants = [svc, svc + '-grpc', svc.replace('-grpc', ''), svc + '-server']
                         for v in variants:
-                            if v in prom.metrics[api] and 'max_queue' in prom.metrics[api][v]:
-                                val = prom.metrics[api][v]['max_queue']
-                                found_in_prom = True
+                            if v not in prom.metrics[api]:
+                                continue
+                            node = prom.metrics[api][v]
+                            if 'max_queue' in node:
+                                val_max = float(node['max_queue'])
+                                found_prom = True
+                            if 'avg_queue' in node:
+                                val_avg = float(node['avg_queue'])
+                                found_prom = True
+                            if found_prom:
                                 break
-                    
-                    if found_in_prom:
-                        data[svc][api].append(float(val))
+
+                    if found_prom:
+                        data_max[svc][api].append(val_max)
+                        data_avg[svc][api].append(val_avg)
                         continue
-                        
-                    # Fallback to legacy
-                    # Try stems as in plugin
+
                     original_service_variants = [svc]
                     if svc == 'frontend':
                         original_service_variants.append('frontend-grpc')
@@ -860,19 +860,23 @@ def generate_max_queue_merged(
                             chosen = st
                             break
                     if not chosen:
-                        data[svc][api].append(0.0)
+                        data_max[svc][api].append(0.0)
+                        data_avg[svc][api].append(0.0)
                         continue
                     ts, vals = extract_series(mf[chosen])
                     if not vals:
-                        data[svc][api].append(0.0)
+                        data_max[svc][api].append(0.0)
+                        data_avg[svc][api].append(0.0)
                     else:
-                        vmax = max(vals)
-                        data[svc][api].append(float(vmax))
+                        data_max[svc][api].append(float(max(vals)))
+                        data_avg[svc][api].append(float(statistics.mean(vals)))
+
         exp_data.append({
             'label': label,
             'services': services,
             'apis': apis,
-            'data': data
+            'data_max': data_max,
+            'data_avg': data_avg,
         })
 
     # Union of all services/apis across experiments, preserve order of first appearance
@@ -887,186 +891,126 @@ def generate_max_queue_merged(
     all_services = unique_ordered([svc for ed in exp_data for svc in ed['services']])
     all_apis = unique_ordered([api for ed in exp_data for api in ed['apis']])
     
-    # FILTER: Remove services with all-zero values across all experiments and APIs
     non_zero_services = []
     for svc in all_services:
         has_nonzero = False
         for ed in exp_data:
-            data = ed['data']
-            if svc in data:
-                for api in all_apis:
-                    vals = data[svc].get(api, [])
-                    if any(v > 0 for v in vals):
-                        has_nonzero = True
-                        break
+            for api in all_apis:
+                vm = ed['data_max'].get(svc, {}).get(api, [])
+                va = ed['data_avg'].get(svc, {}).get(api, [])
+                if any(v > 0 for v in vm) or any(v > 0 for v in va):
+                    has_nonzero = True
+                    break
             if has_nonzero:
                 break
         if has_nonzero:
             non_zero_services.append(svc)
-            
+
     if os.environ.get('PLOT_DEBUG'):
         print(f"[max-queue-merged] Filtering services: original={len(all_services)} kept={len(non_zero_services)} dropped={set(all_services)-set(non_zero_services)}")
     all_services = non_zero_services
-    
+
     if not all_services:
-        print("[max-queue-merged] All services have zero max queue length; skipping plot.")
+        print("[max-queue-merged] All services have zero max and avg queue; skipping plots.")
         return []
 
-    # Check if we have only one API - use single bar plot instead of subplots
     single_api_mode = len(all_apis) == 1
-    
-    # Prepare figure
-    # Prepare figure
-    if single_api_mode:
-        style = ACM_QUARTER
-        grid = SubplotGrid(style, layout="1x1")
-    else:
-        style = ACM_COMPACT_HALF
-        grid = SubplotGrid(style, layout=f"1x{ncols}")
-    
-    # Color mapping - use experiment colors for single API mode, API colors for multi-API mode
-    if single_api_mode:
-        colors = style.colors[:len(exp_data)]
-        exp_colors = dict(zip([ed['label'] for ed in exp_data], colors))
-    else:
-        colors = style.colors[:len(all_apis)]
-        api_colors = dict(zip(all_apis, colors))
-    # Compute global max (mean+std) across all experiments/services/apis
-    global_max = 0.0
-    for ed in exp_data:
-        data = ed['data']
-        for svc in all_services:
-            for api in all_apis:
-                vals = data.get(svc, {}).get(api, [])
-                m, s = _mean_std(vals)
-                if m is None:
-                    m = 0.0
-                if s is None:
-                    s = 0.0
-                if m + s > global_max:
-                    global_max = m + s
-    
-    ylim_max = 1.2 * global_max if global_max > 0 else 10.0
-    # For log scale, start at something small but positive
-    ylim_min = 0.9
 
-    if single_api_mode:
-        # Single API mode: one bar plot with each experiment as a different bar
-        ax = grid.get_ax(0, 0)
-        api = all_apis[0]  # Only one API
-        
-        n_services = len(all_services)
-        n_exps = len(exp_data)
-        x_indices = list(range(n_services))
-        
-        # Prepare bar groups for plot_grouped_bars
-        # Format: (label, heights, errors)
-        bar_groups = []
-        for exp_idx, ed in enumerate(exp_data):
-            data = ed['data']
-            label = ed['label']
-            
-            means = []
-            stds = []
-            
+    def _save_one_merged(data_key: str, ylabel: str, log_y: bool, file_suffix: str) -> Path:
+        if single_api_mode:
+            style = ACM_QUARTER
+            grid = SubplotGrid(style, layout="1x1")
+        else:
+            style = ACM_COMPACT_HALF
+            grid = SubplotGrid(style, layout=f"1x{ncols}")
+
+        global_max = 0.0
+        for ed in exp_data:
+            data = ed[data_key]
             for svc in all_services:
-                vals = data.get(svc, {}).get(api, [])
-                m, s = _mean_std(vals)
-                if m is None:
-                    m = 0.0
-                    s = 0.0
-                means.append(m)
-                stds.append(0.0001 if (s is None or s == 0) else s)
-            
-            bar_groups.append((label, means, stds))
-            
-        # Plot using primitive
-        plot_grouped_bars(ax, x_indices, bar_groups, style=style)
-            
-        # Add y-value annotations on top of bars only for "sidecar" (now "Roshanfer" or similar)
-        # We need to manually add these as plot_grouped_bars doesn't support custom annotations per bar yet easily
-        # But we can iterate and add them on top
-        # Re-calc offsets to place text
-        total_group_width = style.bar_width_fraction
-        n_groups = len(bar_groups)
-        bar_width = total_group_width / n_groups
-        
-        """ for g_i, (label, means, stds) in enumerate(bar_groups):
-             if label.lower() == 'roshanfer':
-                 offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 for x in x_indices]
-                 for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
-                    y_pos = mean + std + ylim_max * 0.02
-                    ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                           fontsize=6, fontweight='normal') """
-
-        ax.set_xticks(x_indices)
-        ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
-        
-        grid.configure_ax(ax, ylabel='Max Queueing (req)', ylim=(ylim_min, ylim_max),
-            log_y=True
-        )
-        # ylab = ax.set_ylabel('Max Queueing (req)', labelpad=20)
-        # ylab.set_position((ylab.get_position()[0], 0.42))
-        
-        
-    else:
-        # Multi-API mode: subplot for each experiment, bars for APIs (original logic)
-        for i, ed in enumerate(exp_data):
-            ax = grid.get_ax(0, i)
-            data = ed['data']
-            services = all_services
-            apis = all_apis
-            n_services = len(services)
-            x_indices = list(range(n_services))
-            
-            # Prepare bar groups: each group is an API
-            bar_groups = []
-            for api in apis:
-                means = []
-                stds = []
-                for svc in services:
+                for api in all_apis:
                     vals = data.get(svc, {}).get(api, [])
                     m, s = _mean_std(vals)
-                    if m is None: m=0.0; s=0.0
+                    if m is None:
+                        m = 0.0
+                    if s is None:
+                        s = 0.0
+                    if m + s > global_max:
+                        global_max = m + s
+
+        if log_y:
+            ylim_max = 1.2 * global_max if global_max > 0 else 10.0
+            ylim_min = 0.9
+        else:
+            ylim_max = 1.2 * global_max if global_max > 0 else 1.0
+            ylim_min = 0.0
+
+        if single_api_mode:
+            ax = grid.get_ax(0, 0)
+            api = all_apis[0]
+            x_indices = list(range(len(all_services)))
+            bar_groups = []
+            for ed in exp_data:
+                data = ed[data_key]
+                means = []
+                stds = []
+                for svc in all_services:
+                    vals = data.get(svc, {}).get(api, [])
+                    m, s = _mean_std(vals)
+                    if m is None:
+                        m = 0.0
+                    if s is None:
+                        s = 0.0
                     means.append(m)
-                    
                     stds.append(0.0001 if (s is None or s == 0) else s)
-                bar_groups.append((api, means, stds))
-            
+                bar_groups.append((ed['label'], means, stds))
             plot_grouped_bars(ax, x_indices, bar_groups, style=style)
-
-            # Annotation for sidecar
-            total_group_width = style.bar_width_fraction
-            n_groups = len(bar_groups)
-            bar_width = total_group_width / n_groups
-            
-            """ if ed['label'].lower() == 'roshanfer':
-               for g_i, (api, means, stds) in enumerate(bar_groups):
-                   offsets = [x - total_group_width/2 + g_i * bar_width + bar_width/2 for x in x_indices]
-                   for j, (offset, mean, std) in enumerate(zip(offsets, means, stds)):
-                        y_pos = mean + std + ylim_max * 0.02
-                        ax.text(offset, y_pos, f'{round(mean)}', ha='center', va='bottom', 
-                               fontsize=6, fontweight='normal') """
-
             ax.set_xticks(x_indices)
-            ax.set_xticklabels([service.title() for service in services], rotation=30, ha='right')
-            
-            grid.configure_ax(ax, 
-                ylabel='Max Queueing (req)' if i == 0 else '',
-                title=ed['label'],
-                ylim=(ylim_min, ylim_max),
-                show_ylabel=(i==0),
-                log_y=True,
-                show_yticklabels=(i==0)
-            )
-    # Legend logic for both modes
-    # Legend logic
-    grid.add_shared_legend(position="top")
-    # Save figure
-    output_dir.mkdir(parents=True, exist_ok=True)
-    fig_path = output_dir / f'{figure_name}_max_queue.pdf'
-    grid.save(fig_path)
-    return [fig_path]
+            ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
+            grid.configure_ax(ax, ylabel=ylabel, ylim=(ylim_min, ylim_max), log_y=log_y)
+        else:
+            for i, ed in enumerate(exp_data):
+                ax = grid.get_ax(0, i)
+                data = ed[data_key]
+                x_indices = list(range(len(all_services)))
+                bar_groups = []
+                for api in all_apis:
+                    means = []
+                    stds = []
+                    for svc in all_services:
+                        vals = data.get(svc, {}).get(api, [])
+                        m, s = _mean_std(vals)
+                        if m is None:
+                            m = 0.0
+                        if s is None:
+                            s = 0.0
+                        means.append(m)
+                        stds.append(0.0001 if (s is None or s == 0) else s)
+                    bar_groups.append((api, means, stds))
+                plot_grouped_bars(ax, x_indices, bar_groups, style=style)
+                ax.set_xticks(x_indices)
+                ax.set_xticklabels([service.title() for service in all_services], rotation=30, ha='right')
+                grid.configure_ax(
+                    ax,
+                    ylabel=ylabel if i == 0 else '',
+                    title=ed['label'],
+                    ylim=(ylim_min, ylim_max),
+                    show_ylabel=(i == 0),
+                    log_y=log_y,
+                    show_yticklabels=(i == 0),
+                )
+
+        grid.add_shared_legend(position="top")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        fig_path = output_dir / f'{figure_name}{file_suffix}'
+        grid.save(fig_path)
+        return fig_path
+
+    produced = [
+        _save_one_merged('data_max', 'Max Queueing (req)', True, '_max_queue.pdf'),
+        _save_one_merged('data_avg', 'Avg Queueing (req)', True, '_avg_queue.pdf'),
+    ]
+    return produced
 
 def load_merged_config(merged_config_path: Path) -> Dict[str, Any]:
     """Load and parse the merged.yaml configuration file."""

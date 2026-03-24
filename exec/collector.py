@@ -125,8 +125,9 @@ class Collector:
 
             metrics_to_collect = [
                 "max_queue",
+                "avg_queue",
                 "accepted_rpc_counter",
-                "failed_rpc_counter"
+                "failed_rpc_counter",
             ]
 
             # Nested structure: data[api][service][metric] = value
@@ -216,6 +217,10 @@ class Collector:
                         data[api]["ingress"] = {}
                     
                     data[api]["ingress"]["max_queue"] = ingress_val
+
+                    fe = data[api][frontend_svc]
+                    if "avg_queue" in fe:
+                        data[api]["ingress"]["avg_queue"] = max_workers - fe["avg_queue"]
                     
                 except Exception as e:
                     logging.warning(f"Error during ingress calc for {api}: {e}")

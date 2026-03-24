@@ -70,13 +70,15 @@ def _infer_services_and_apis(repeat_metric_files: List[Dict[str, dict]], fallbac
                     if isinstance(api_val, dict):
                         # api_key is likely an API
                         # usage: check if it has services with max_queue
-                        has_max_queue = False
+                        has_queue = False
                         for svc_key, svc_val in api_val.items():
-                            if isinstance(svc_val, dict) and 'max_queue' in svc_val:
-                                has_max_queue = True
+                            if isinstance(svc_val, dict) and (
+                                'max_queue' in svc_val or 'avg_queue' in svc_val
+                            ):
+                                has_queue = True
                                 hierarchical_services.add(_normalize_service_name(svc_key))
                         
-                        if has_max_queue:
+                        if has_queue:
                              hierarchical_apis.add(api_key)
 
     if hierarchical_apis:
@@ -157,121 +159,97 @@ def _infer_services_and_apis(repeat_metric_files: List[Dict[str, dict]], fallbac
     return services_order, apis_order
 
 
-def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
-    if ctx.get('type') not in SUPPORTED_TYPES:
-        return []
-    repeat_metric_files: List[Dict[str, dict]] = ctx['repeat_metric_files']
-    out_dir: Path = ctx['output_dir']
-    out_dir.mkdir(parents=True, exist_ok=True)
-    fallback_services = ctx.get('services') or []
-    fallback_apis = ctx.get('apis') or []
-    services, apis = _infer_services_and_apis(repeat_metric_files, fallback_services, fallback_apis)
-    
+def _find_svc_stats(prom_api_data: dict, svc: str):
+    if svc in prom_api_data:
+        return prom_api_data[svc]
+    for raw_svc, stats in prom_api_data.items():
+        if _normalize_service_name(raw_svc) == svc:
+            return stats
+    return None
+
+
+def _read_max_avg_for_repeat(mf: dict, svc: str, api: str) -> Tuple[float, float]:
+    """Return (max_queue_sample, avg_queue_sample) for one repeat; legacy stems use max/mean of series."""
+    if 'prometheus' in mf:
+        prom_data = mf['prometheus']
+        if api in prom_data and isinstance(prom_data[api], dict):
+            found = _find_svc_stats(prom_data[api], svc)
+            if found and isinstance(found, dict):
+                mv = float(found['max_queue']) if 'max_queue' in found else None
+                av = float(found['avg_queue']) if 'avg_queue' in found else None
+                if mv is not None or av is not None:
+                    return (mv if mv is not None else 0.0, av if av is not None else 0.0)
+
+    original_service_variants = [svc]
+    if svc == 'frontend':
+        original_service_variants.append('frontend-grpc')
+    elif svc == 'nginx':
+        original_service_variants.append('nginx-grpc')
+
+    stem_candidates = []
+    for service_variant in original_service_variants:
+        stem_candidates.extend([
+            f'queue_length_{api}_{service_variant}',
+            f'queue_length_{service_variant}_{api}',
+            f'queue_length_{service_variant}',
+        ])
+
+    for st in stem_candidates:
+        if st not in mf:
+            continue
+        ts, vals = extract_series(mf[st])
+        if not vals:
+            return (0.0, 0.0)
+        return (float(max(vals)), float(sum(vals) / len(vals)))
+
+    return (0.0, 0.0)
+
+
+def _collect_max_avg_data(
+    repeat_metric_files: List[Dict[str, dict]],
+    services: List[str],
+    apis: List[str],
+) -> Tuple[Dict[str, Dict[str, List[float]]], Dict[str, Dict[str, List[float]]]]:
+    data_max: Dict[str, Dict[str, List[float]]] = {svc: {api: [] for api in apis} for svc in services}
+    data_avg: Dict[str, Dict[str, List[float]]] = {svc: {api: [] for api in apis} for svc in services}
     import os
-    if os.environ.get('PLOT_DEBUG'):
-        print(f"[max-queue] services={services} apis={apis}")
-    # Build nested data structure: data[service][api] -> list of per-repeat maxima
-    data: Dict[str, Dict[str, List[float]]] = {svc: {api: [] for api in apis} for svc in services}
-    import os
+
     for repeat_idx, mf in enumerate(repeat_metric_files):
         if os.environ.get('PLOT_DEBUG'):
             print(f"[max-queue][repeat {repeat_idx}] scan start")
         for svc in services:
             for api in apis:
-                # Check for hierarchical data first (prometheus -> api -> service -> max_queue)
-                hierarchical_val = None
-                
-                # Check directly in 'prometheus' key if it exists
-                if 'prometheus' in mf:
-                    prom_data = mf['prometheus']
-                    if api in prom_data:
-                        api_data = prom_data[api]
-                        # Look for service match (handling normalization)
-                        found_svc_stats = None
-                        
-                        # Try direct match first
-                        if svc in api_data:
-                             found_svc_stats = api_data[svc]
-                        
-                        # Try iterating to match normalized names if direct match failed
-                        if not found_svc_stats:
-                            for raw_svc, stats in api_data.items():
-                                if _normalize_service_name(raw_svc) == svc:
-                                    found_svc_stats = stats
-                                    break
-                                    
-                        if found_svc_stats and isinstance(found_svc_stats, dict) and 'max_queue' in found_svc_stats:
-                            hierarchical_val = float(found_svc_stats['max_queue'])
-                
-                if hierarchical_val is not None:
-                    data[svc][api].append(hierarchical_val)
-                    if os.environ.get('PLOT_DEBUG'):
-                         print(f"[max-queue][repeat {repeat_idx}] found hier val={hierarchical_val} for svc={svc} api={api}")
-                    continue
+                max_v, avg_v = _read_max_avg_for_repeat(mf, svc, api)
+                data_max[svc][api].append(max_v)
+                data_avg[svc][api].append(avg_v)
+                if os.environ.get('PLOT_DEBUG'):
+                    print(f"[max-queue][repeat {repeat_idx}] svc={svc} api={api} max={max_v} avg={avg_v}")
+    return data_max, data_avg
 
-                # Candidate stems in priority order - include both normalized and original service names
-                original_service_variants = [svc]
-                # If normalized service is 'frontend' or 'nginx', also try their -grpc forms
-                if svc == 'frontend':
-                    original_service_variants.append('frontend-grpc')
-                elif svc == 'nginx':
-                    original_service_variants.append('nginx-grpc')
-                
-                stem_candidates = []
-                for service_variant in original_service_variants:
-                    stem_candidates.extend([
-                        f'queue_length_{api}_{service_variant}',
-                        f'queue_length_{service_variant}_{api}',
-                        f'queue_length_{service_variant}'
-                    ])
-                
-                chosen = None
-                for st in stem_candidates:
-                    if st in mf:
-                        chosen = st
-                        break
-                if not chosen:
-                    # No metric -> treat as zero for this repeat
-                    data[svc][api].append(0.0)
-                    if os.environ.get('PLOT_DEBUG'):
-                        print(f"[max-queue][repeat {repeat_idx}] missing svc={svc} api={api}")
-                    continue
-                ts, vals = extract_series(mf[chosen])
-                if not vals:
-                    data[svc][api].append(0.0)
-                    if os.environ.get('PLOT_DEBUG'):
-                        print(f"[max-queue][repeat {repeat_idx}] empty svc={svc} api={api} stem={chosen}")
-                else:
-                    vmax = max(vals)
-                    data[svc][api].append(float(vmax))
-                    if os.environ.get('PLOT_DEBUG'):
-                        print(f"[max-queue][repeat {repeat_idx}] svc={svc} api={api} stem={chosen} max={vmax}")
-    if os.environ.get('PLOT_DEBUG'):
-        counts = {svc: {api: len(lst) for api, lst in apis_dict.items()} for svc, apis_dict in data.items()}
-        print(f"[max-queue][aggregate] repeat_counts={counts}")
 
-    # FILTER: Remove services with all-zero values across all APIs
-    non_zero_services = []
+def _union_nonzero_services(
+    services: List[str],
+    apis: List[str],
+    data_max: Dict[str, Dict[str, List[float]]],
+    data_avg: Dict[str, Dict[str, List[float]]],
+) -> List[str]:
+    out = []
     for svc in services:
-        has_nonzero = False
         for api in apis:
-            vals = data[svc][api]
-            # check if any value in the list is > 0
-            if any(v > 0 for v in vals):
-                has_nonzero = True
+            if any(v > 0 for v in data_max[svc][api]) or any(v > 0 for v in data_avg[svc][api]):
+                out.append(svc)
                 break
-        if has_nonzero:
-            non_zero_services.append(svc)
-    
-    if os.environ.get('PLOT_DEBUG'):
-        print(f"[max-queue] Filtering services: original={len(services)} kept={len(non_zero_services)} dropped={set(services)-set(non_zero_services)}")
-    services = non_zero_services
+    return out
 
-    if not services:
-        print("[max-queue] All services have zero max queue length; skipping plot.")
-        return []
 
-    # Prepare plotting arrays (single bar per service)
+def _save_queue_bar_figure(
+    data: Dict[str, Dict[str, List[float]]],
+    services: List[str],
+    apis: List[str],
+    out_path: Path,
+    ylabel: str,
+    log_y: bool,
+) -> None:
     try:
         from ..plotting_primitives import (
             SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_grouped_bars
@@ -286,58 +264,88 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
                 SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_grouped_bars
             )
 
-    # Strict width logic: 1 API -> 120pt, >1 API -> 240pt
     style = ACM_QUARTER if len(apis) == 1 else ACM_COMPACT_HALF
-    
     grid = SubplotGrid(style, layout="1x1")
     ax = grid.get_ax(0, 0)
 
-    # Prepare data for plot_grouped_bars
-    # bar_groups: List of (label, heights, errors)
     bar_groups = []
-    
-    for api_idx, api in enumerate(apis):
+    for api in apis:
         means = []
         stds = []
         for svc in services:
             m, s = _mean_std(data[svc][api])
-            # Handle None/Zero values safely
-            if m is None: m = 0.0
-            if s is None: s = 0.0
-            
+            if m is None:
+                m = 0.0
+            if s is None:
+                s = 0.0
             means.append(m)
             stds.append(s)
-            
         bar_groups.append((api, means, stds))
 
-    # Plot grouped bars
     plot_grouped_bars(ax, list(range(len(services))), bar_groups, style=style)
-    
-    # Configure Axes
-    # Use explicit x-ticks for services
     ax.set_xticks(list(range(len(services))))
     ax.set_xticklabels(services, rotation=30, ha='right')
-    
-    # Determine Y-limit
-    # Calculate max value + error for scaling
+
     max_val = 0.0
     for _, means, stds in bar_groups:
         for m, s in zip(means, stds):
             top = m + (s if s else 0)
             if top > max_val:
                 max_val = top
-    
-    ylim_max = 1.2 * max_val if max_val > 0 else 10.0
-    # For log scale, start at something small but positive, e.g. 0.9 or 1
-    ylim_min = 0.9
-    
-    # Configure common axis properties
-    grid.configure_ax(ax, ylabel='Max Queue (req)', ylim=(ylim_min, ylim_max), log_y=True)
-    
-    # Add legend if multiple APIs
+
+    if log_y:
+        ylim_max = 1.2 * max_val if max_val > 0 else 10.0
+        ylim_min = 0.9
+        grid.configure_ax(ax, ylabel=ylabel, ylim=(ylim_min, ylim_max), log_y=True)
+    else:
+        ylim_max = 1.2 * max_val if max_val > 0 else 1.0
+        ylim_min = 0.0
+        grid.configure_ax(ax, ylabel=ylabel, ylim=(ylim_min, ylim_max), log_y=False)
+
     if len(apis) > 1:
         grid.add_shared_legend(position="top")
 
-    fig_path = out_dir / 'max_queue_bar.pdf'
-    grid.save(fig_path)
-    return [fig_path]
+    grid.save(out_path)
+
+
+def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
+    if ctx.get('type') not in SUPPORTED_TYPES:
+        return []
+    repeat_metric_files: List[Dict[str, dict]] = ctx['repeat_metric_files']
+    out_dir: Path = ctx['output_dir']
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fallback_services = ctx.get('services') or []
+    fallback_apis = ctx.get('apis') or []
+    services, apis = _infer_services_and_apis(repeat_metric_files, fallback_services, fallback_apis)
+
+    import os
+    if os.environ.get('PLOT_DEBUG'):
+        print(f"[max-queue] services={services} apis={apis}")
+
+    data_max, data_avg = _collect_max_avg_data(repeat_metric_files, services, apis)
+
+    if os.environ.get('PLOT_DEBUG'):
+        counts = {svc: {api: len(lst) for api, lst in apis_dict.items()} for svc, apis_dict in data_max.items()}
+        print(f"[max-queue][aggregate] repeat_counts={counts}")
+
+    services_u = _union_nonzero_services(services, apis, data_max, data_avg)
+    if os.environ.get('PLOT_DEBUG'):
+        print(
+            f"[max-queue] Filtering services (union max|avg): original={len(services)} "
+            f"kept={len(services_u)} dropped={set(services)-set(services_u)}"
+        )
+
+    if not services_u:
+        print("[max-queue] All services have zero max and avg queue; skipping plots.")
+        return []
+
+    paths: List[Path] = []
+    max_path = out_dir / 'max_queue_bar.pdf'
+    _save_queue_bar_figure(data_max, services_u, apis, max_path, 'Max Queue (req)', log_y=True)
+    paths.append(max_path)
+
+    avg_path = out_dir / 'avg_queue_bar.pdf'
+    _save_queue_bar_figure(data_avg, services_u, apis, avg_path, 'Avg Queue (req)', log_y=True)
+    paths.append(avg_path)
+
+    return paths
