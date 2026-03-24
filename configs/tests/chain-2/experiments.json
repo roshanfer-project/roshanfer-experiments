@@ -37,14 +37,14 @@
         {
             "type": "latency-and-goodput-vs-load",
             "loads": {
-              "start": 1000,
-              "end": 10000,
-              "step": 1000
+                "start": 1000,
+                "end": 10000,
+                "step": 1000
             },
             "base_rate": 1000,
             "duration_sec": 15,
             "apis": [
-              "f1"
+                "f1"
             ],
             "system": "sidecar",
             "repeat": 1,
@@ -53,18 +53,42 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-              "start": 5000,
-              "end": 5000,
-              "step": 1000
+                "start": 5000,
+                "end": 5000,
+                "step": 1000
             },
             "base_rate": 1000,
             "duration_sec": 15,
             "apis": [
-              "f1"
+                "f1"
             ],
             "system": "sidecar",
             "repeat": 2,
             "collector_freq": 200
-          }
+        },
+        {
+            "type": "max-queue",
+            "loads": {
+                "start": 5000,
+                "end": 5000,
+                "step": 1000
+            },
+            "base_rate": 1000,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "backend"
+            ],
+            "deploy_env": {
+                "queuing_export": "true"
+            }
+        }
     ]
 }

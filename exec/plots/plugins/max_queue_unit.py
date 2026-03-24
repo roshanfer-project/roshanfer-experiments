@@ -20,10 +20,7 @@ import statistics
 
 SUPPORTED_TYPES = ['max-queue']
 
-try:
-    from ..common import extract_series
-except Exception:  # pragma: no cover
-    from experiments.exec.plots.common import extract_series  # type: ignore
+from ..data_loader import extract_series
 
 
 def _normalize_service_name(service: str) -> str:
@@ -335,7 +332,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
     ylim_min = 0.9
     
     # Configure common axis properties
-    grid.configure_ax(ax, ylabel='Max Concurrency (req)', ylim=(ylim_min, ylim_max), log_y=True)
+    grid.configure_ax(ax, ylabel='Max Queue (req)', ylim=(ylim_min, ylim_max), log_y=True)
     
     # Add legend if multiple APIs
     if len(apis) > 1:

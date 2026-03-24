@@ -13,3 +13,9 @@ figures:
         label: Plain
       latency-vs-throughput-fan-out-fan-in-2-sidecar:
         label: Roshanfer
+
+  max-queue-fan-out-fan-in-2:
+    type: max-queue
+    include:
+      max-queue-fan-out-fan-in-2-sidecar:
+        label: Roshanfer

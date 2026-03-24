@@ -261,3 +261,20 @@ def load_experiment_data(experiment_dir: Path) -> Dict[str, List[Dict[str, Tuple
     
     return units
 
+
+def extract_series(data: dict) -> Tuple[List[float], List[float]]:
+    """Parse ``{\"values\": [[t, v], ...]}`` time series from legacy metrics JSON."""
+    if not data or "values" not in data:
+        return [], []
+    ts: List[float] = []
+    vals: List[float] = []
+    start_time: Optional[float] = None
+    for t_str, v_str in data["values"]:
+        t = float(t_str)
+        v = float(v_str)
+        if start_time is None:
+            start_time = t
+        ts.append(t - start_time)
+        vals.append(v)
+    return ts, vals
+

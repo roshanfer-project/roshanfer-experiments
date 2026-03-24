@@ -249,9 +249,9 @@ def generate_resource_waste_bar_merged(
     except Exception:
         from experiments.exec.plots.plugins.resource_waste_unit import _normalize_service_name, _mean_std, _calculate_waste_per_repeat
     try:
-        from exec.plots.common import extract_series
+        from exec.plots.data_loader import extract_series
     except Exception:
-        from experiments.exec.plots.common import extract_series
+        from experiments.exec.plots.data_loader import extract_series  # type: ignore
         
     try:
         from exec.plots.plotting_primitives import (
@@ -483,11 +483,7 @@ def generate_resource_waste_bar_merged(
         # User requested 240pt total width.
         grid = SubplotGrid(style, layout=f"1x{n_apis}", width_ratios=width_ratios)
     
-    # Color mapping for experiments
-    try:
-        colors = canvas.color_list[:n_exps]
-    except Exception:
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    colors = style.colors[:n_exps] if n_exps <= len(style.colors) else (style.colors * ((n_exps // len(style.colors)) + 1))[:n_exps]
     exp_colors = dict(zip([ed['label'] for ed in exp_data], colors))
     
     # Compute global max across all experiments/services/apis for consistent y-axis
@@ -714,9 +710,9 @@ def generate_max_queue_merged(
     except Exception:
         from experiments.exec.plots.plugins.max_queue_unit import _normalize_service_name, _mean_std, _infer_services_and_apis
     try:
-        from exec.plots.common import extract_series
+        from exec.plots.data_loader import extract_series
     except Exception:
-        from experiments.exec.plots.common import extract_series
+        from experiments.exec.plots.data_loader import extract_series  # type: ignore
         
     try:
         from exec.plots.plotting_primitives import (

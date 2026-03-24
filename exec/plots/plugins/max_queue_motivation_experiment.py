@@ -21,10 +21,7 @@ import statistics
 
 SUPPORTED_TYPES = ['max-queue-motivation']
 
-try:
-    from ..common import extract_series
-except Exception:  # pragma: no cover
-    from experiments.exec.plots.common import extract_series  # type: ignore
+from ..data_loader import extract_series
 
 # Reuse utility functions from max_queue_unit
 try:

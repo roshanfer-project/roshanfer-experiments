@@ -6,3 +6,9 @@ figures:
         label: Plain
       latency-vs-throughput-chain-2-sidecar:
         label: Roshanfer
+
+  max-queue-chain-2:
+    type: max-queue
+    include:
+      max-queue-chain-2-sidecar:
+        label: Roshanfer

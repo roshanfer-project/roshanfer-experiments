@@ -1,25 +1,15 @@
-# Plot Generation (Prototype)
+# Plot generation
 
-This directory contains scripts to generate figures from persisted experiment results.
+- `latency_rate_vs_time.py`: stacked rate + latency lines for `latency-and-rate-vs-time` experiments (uses `plotting_primitives`).
+- `data_loader.py`: RWG + `extract_series()` for legacy metrics JSON.
+- `plotting_primitives.py`: shared ACM-style figures.
 
-Currently implemented:
-- `latency_rate_vs_time.py`: Generates stacked rate and latency line plots for single-API `latency-and-rate-vs-time` experiments.
-
-Usage example:
-```
-python -m experiments.exec.plots.latency_rate_vs_time \
-  --experiment-index 001 \
-  --experiment-name latency-and-rate-vs-time-hotel-1-sidecar \
-  --experiments-root experiment_runs \
+```bash
+python -m exec.plots.latency_rate_vs_time \
+  --experiment-index fan-out \
+  --experiment-name latency-and-rate-vs-time-fan-out-sidecar \
+  --experiments-root exp_runs_test/<ts>/fan-out \
   --output-dir generated_plots
 ```
 
-Outputs:
-- `generated_plots/<experiment-name>/rate_vs_time.png`
-- `generated_plots/<experiment-name>/latency_vs_time.png`
-
-Next steps (not yet implemented):
-- Multi-API handling (aggregate per API or facet).
-- Confidence intervals across repeats.
-- SLO threshold annotations from configuration.
-- Automatic invocation from main report generation.
+Writes PDFs under `generated_plots/<experiment-name>/` (e.g. `rate_vs_time.pdf`, `latency_vs_time.pdf`).

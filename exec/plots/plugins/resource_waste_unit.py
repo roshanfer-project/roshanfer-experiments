@@ -22,10 +22,7 @@ try:
 except ImportError:
     PrometheusData = None
 
-try:
-    from ..common import extract_series
-except Exception:  # pragma: no cover
-    from experiments.exec.plots.common import extract_series  # type: ignore
+from ..data_loader import extract_series
 
 def _calculate_waste_from_prometheus(prom_data, rwg_data: dict, apis: list, bench: str) -> Dict[str, Dict[str, float]]:
     """
