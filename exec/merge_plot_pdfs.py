@@ -16,6 +16,8 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 
 OUTPUT_NAME = "all_tests_plots.pdf"
 HEADER_PT = 64.0
+# Per-load only; experiment-level latency_vs_load.pdf / goodput_vs_load.pdf replace these.
+SKIP_PDF_NAMES = frozenset({"latency_vs_load_unit.pdf", "goodput_vs_load_unit.pdf"})
 
 Meta = Tuple[str, str, str, str]
 
@@ -258,7 +260,11 @@ def main(argv: list[str] | None = None) -> int:
     run_ts_root = root.parent
     out_path = root / OUTPUT_NAME
     out_resolved = out_path.resolve()
-    pdfs = sorted(p for p in root.rglob("*.pdf") if p.resolve() != out_resolved)
+    pdfs = sorted(
+        p
+        for p in root.rglob("*.pdf")
+        if p.resolve() != out_resolved and p.name not in SKIP_PDF_NAMES
+    )
     if not pdfs:
         print("merge_plot_pdfs: no PDFs found, skipping")
         return 0

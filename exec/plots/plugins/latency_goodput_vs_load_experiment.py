@@ -58,7 +58,10 @@ def _lookup_slo(slos: Optional[Dict[str, float]], api: str) -> Optional[float]:
     
     for key in ordered:
         if key in slos:
-            return slos[key]
+            try:
+                return float(slos[key])
+            except (TypeError, ValueError):
+                return None
     
     return None
 

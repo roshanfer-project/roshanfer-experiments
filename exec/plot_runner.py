@@ -368,6 +368,9 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             if not recs:
                 continue
             exp_type = recs[0].get('type')
+            # latency-and-goodput-vs-load: experiment-level plots span all loads; skip per-unit *_unit.pdf.
+            if exp_type == 'latency-and-goodput-vs-load':
+                continue
             agg_funcs = aggregate_registry.get(exp_type, []) + aggregate_registry.get('*', [])
             if not agg_funcs:
                 continue
