@@ -13,7 +13,7 @@
                 "f1"
             ],
             "system": "plain",
-            "repeat": 1,
+            "repeat": 2,
             "collector_freq": 200,
             "warmup": 2
         },
@@ -30,7 +30,7 @@
                 "f1"
             ],
             "system": "sidecar",
-            "repeat": 1,
+            "repeat": 2,
             "collector_freq": 200,
             "warmup": 2
         },
