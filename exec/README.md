@@ -56,7 +56,7 @@ Download the experiment **manifest** (XML) from the CloudLab portal, then:
 python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt
 ```
 
-Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. If there are no `<login>` rows, `--ssh-user` with `<node hostname="..."/>` or `<host name="..."/>` is used. Lines are sorted for stable generator/K8s ordering. Re-download the manifest if nodes change after swap-in.
+Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-download the manifest if nodes change after swap-in.
 
 ## Batch: `run_tests.sh`
 

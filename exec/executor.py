@@ -30,6 +30,51 @@ import traceback as tb
 def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
+
+def _write_infra_partition(
+    run_root: Path,
+    config: Config,
+    generators: List[str],
+    deployment: List[str],
+    filters: Dict[str, Any] | None,
+) -> None:
+    data = {
+        "hosts_file": str(Path(config.hosts_file).resolve()),
+        "generators": generators,
+        "kubernetes_nodes_ssh_hosts": deployment,
+        "num_generators": config.num_generators,
+        "shared_generator": bool(filters and filters.get("shared_generator")),
+    }
+    (run_root / "infra_partition.json").write_text(json.dumps(data, indent=2) + "\n")
+
+
+def _write_kubernetes_nodes_listing(run_root: Path, k8s_ran: bool) -> None:
+    out = run_root / "kubernetes_nodes.txt"
+    if not k8s_ran:
+        out.write_text("# k8s_script not configured or skipped; no cluster snapshot.\n")
+        return
+    try:
+        cp = subprocess.run(
+            ["kubectl", "get", "nodes", "-o", "wide"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        lines = []
+        if cp.returncode != 0:
+            lines.append(f"# kubectl exit code {cp.returncode}")
+        if cp.stdout:
+            lines.append(cp.stdout.rstrip())
+        if cp.stderr:
+            lines.append("# stderr:")
+            lines.append(cp.stderr.rstrip())
+        out.write_text("\n".join(lines) + ("\n" if lines else ""))
+        if cp.returncode != 0:
+            logging.warning("kubectl get nodes failed; see kubernetes_nodes.txt")
+    except Exception as e:
+        out.write_text(f"# error running kubectl: {e}\n")
+        logging.warning(f"kubectl get nodes: {e}")
+
 def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
     with path.open() as f:
         data = json.load(f)
@@ -249,6 +294,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     else:
         effective_min_required = max_apis
         effective_num_gens = config.num_generators
+    k8s_ran = False
     try:
         generators, deployment = infra.partition_hosts(effective_num_gens, min_required=effective_min_required)
         
@@ -258,9 +304,12 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         
         infra.provision_hosts(Path(config.provisioning_script), log_path=prov_log)
         
-        # Setup K8s on deployment nodes (idempotent)
         if hasattr(config, "k8s_script") and config.k8s_script:
-             infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
+            infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
+            k8s_ran = True
+
+        _write_infra_partition(run_root, config, generators, deployment, filters)
+        _write_kubernetes_nodes_listing(run_root, k8s_ran)
              
     except Exception as e:
         logging.error(f"Infra failure: {e}")

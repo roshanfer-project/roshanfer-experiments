@@ -16,18 +16,64 @@ def _local_tag(tag: str) -> str:
     return tag
 
 
-def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
-    try:
-        tree = ET.parse(path)
-    except ET.ParseError as e:
-        raise SystemExit(f"Invalid XML in {path}: {e}") from e
+def _pick_user(users: List[str], hostname: str, ssh_user: Optional[str]) -> str:
+    if ssh_user:
+        if ssh_user not in users:
+            raise SystemExit(
+                f"No <login username=\"{ssh_user}\"/> for hostname {hostname!r}. "
+                f"Available usernames: {', '.join(users)}"
+            )
+        return ssh_user
+    if len(users) == 1:
+        return users[0]
+    raise SystemExit(
+        f"Hostname {hostname!r} has multiple SSH users ({', '.join(users)}). "
+        "Pass --ssh-user YOUR_CLOUDLAB_USERNAME to pick one."
+    )
 
+
+def _hosts_in_manifest_node_order(root: ET.Element, ssh_user: Optional[str]) -> List[str]:
+    """One line per <node> in document order (matches CloudLab topology node0, node1, …)."""
+    lines: List[str] = []
+    seen_hosts: set[str] = set()
+    for elem in root.iter():
+        if _local_tag(elem.tag) != "node":
+            continue
+        logins_by_host: Dict[str, List[str]] = defaultdict(list)
+        for sub in elem.iter():
+            if _local_tag(sub.tag) != "login":
+                continue
+            h = sub.get("hostname") or sub.get("host")
+            if not h:
+                continue
+            u = sub.get("username") or sub.get("user") or ssh_user
+            if not u:
+                continue
+            if u not in logins_by_host[h]:
+                logins_by_host[h].append(u)
+        if not logins_by_host:
+            continue
+        if len(logins_by_host) > 1:
+            raise SystemExit(
+                f"One <node> has multiple login hostnames {list(logins_by_host)!r}; unsupported."
+            )
+        h, users = next(iter(logins_by_host.items()))
+        if h in seen_hosts:
+            continue
+        u = _pick_user(users, h, ssh_user)
+        seen_hosts.add(h)
+        lines.append(f"{u}@{h}")
+    return lines
+
+
+def _parse_manifest_legacy_sorted(path: Path, ssh_user: Optional[str]) -> List[str]:
+    """Flat <login> scan + sorted hostnames (old behavior)."""
+    tree = ET.parse(path)
     root = tree.getroot()
     logins_by_host: Dict[str, List[str]] = defaultdict(list)
 
     for elem in root.iter():
-        t = _local_tag(elem.tag)
-        if t != "login":
+        if _local_tag(elem.tag) != "login":
             continue
         h = elem.get("hostname") or elem.get("host")
         if not h:
@@ -40,24 +86,8 @@ def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
 
     by_host: Dict[str, str] = {}
     for h, users in sorted(logins_by_host.items()):
-        if ssh_user:
-            if ssh_user in users:
-                by_host[h] = ssh_user
-            else:
-                raise SystemExit(
-                    f"No <login username=\"{ssh_user}\"/> for hostname {h!r}. "
-                    f"Available usernames: {', '.join(users)}"
-                )
-        elif len(users) == 1:
-            by_host[h] = users[0]
-        else:
-            raise SystemExit(
-                f"Hostname {h!r} has multiple SSH users ({', '.join(users)}). "
-                "Pass --ssh-user YOUR_CLOUDLAB_USERNAME to pick one."
-            )
+        by_host[h] = _pick_user(users, h, ssh_user)
 
-    # <host name="..."/> is an alternate DNS name for the same PC as <login hostname>; skip
-    # adding those when we already got hosts from <login> (avoids duplicate nodes).
     if not logins_by_host:
         for elem in root.iter():
             t = _local_tag(elem.tag)
@@ -78,8 +108,20 @@ def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
             "No SSH hosts found in manifest. Try --ssh-user if nodes only have bare hostnames."
         )
 
-    lines = sorted(f"{u}@{h}" for h, u in by_host.items())
-    return lines
+    return sorted(f"{u}@{h}" for h, u in by_host.items())
+
+
+def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
+    try:
+        tree = ET.parse(path)
+    except ET.ParseError as e:
+        raise SystemExit(f"Invalid XML in {path}: {e}") from e
+
+    root = tree.getroot()
+    ordered = _hosts_in_manifest_node_order(root, ssh_user)
+    if ordered:
+        return ordered
+    return _parse_manifest_legacy_sorted(path, ssh_user)
 
 
 def main(argv: Optional[List[str]] = None) -> int:

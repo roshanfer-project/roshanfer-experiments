@@ -27,7 +27,6 @@ class InfraBuilder:
         
         if not self.hosts:
             raise ValueError(f"No valid hosts found in {self.hosts_file}")
-            raise ValueError(f"No valid hosts found in {self.hosts_file}")
 
     # _run_with_logging removed, using utils.run_with_logging instead
 

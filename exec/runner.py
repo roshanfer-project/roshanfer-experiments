@@ -444,8 +444,6 @@ class Runner:
                 
                 target_addr = "node0"
                 if unit.deployment_hosts:
-                    # Resolve node alias from hosts.txt
-                    # We need to find the index of this host in the master hosts file.
                     try:
                         hosts_path = Path(self.config.hosts_file)
                         all_hosts = []
@@ -455,27 +453,23 @@ class Runner:
                                     line = line.strip()
                                     if line and not line.startswith("#"):
                                         all_hosts.append(line)
-                        
+
                         deploy_host_raw = unit.deployment_hosts[0]
-                        # We need to match exact string from hosts.txt
-                        # unit.deployment_hosts comes from InfraBuilder which reads the same file, 
-                        # so strings should be identical.
-                        
                         if deploy_host_raw in all_hosts:
                             host_idx = all_hosts.index(deploy_host_raw)
                             target_addr = f"node{host_idx}"
                         else:
-                            logging.warning(f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback.")
-                            # Fallback: keep previous logic or default?
-                            # Previous logic:
+                            logging.warning(
+                                f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback."
+                            )
                             raw = deploy_host_raw
                             if "@" in raw:
                                 raw = raw.split("@")[1]
                             target_addr = raw.split(".")[0]
-                            
+
                     except Exception as e:
-                         logging.warning(f"Warning: Could not resolve node alias: {e}")
-                         target_addr = "node0"
+                        logging.warning(f"Warning: Could not resolve node alias: {e}")
+                        target_addr = "node0"
 
                 cmd_str = (
                     f"cd {remote_wrapper_path} && "
