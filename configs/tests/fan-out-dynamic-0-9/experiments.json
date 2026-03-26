@@ -1,0 +1,79 @@
+{
+    "experiments": [
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 500,
+                "end": 2000,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "plain",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 500,
+                "end": 2000,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 2,
+            "collector_freq": 200
+        },
+        {
+            "type": "max-queue",
+            "loads": {
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "backend1",
+                "backend2"
+            ],
+            "deploy_env": {
+                "queuing_export": "true"
+            }
+        }
+    ]
+}

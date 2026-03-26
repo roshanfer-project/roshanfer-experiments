@@ -1,0 +1,14 @@
+figures:
+  latency-vs-throughput-fan-out-dynamic-0-9:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-fan-out-dynamic-0-9-plain:
+        label: Plain
+      latency-vs-throughput-fan-out-dynamic-0-9-sidecar:
+        label: Roshanfer
+
+  max-queue-fan-out-dynamic-0-9:
+    type: max-queue
+    include:
+      max-queue-fan-out-dynamic-0-9-sidecar:
+        label: Roshanfer
