@@ -79,6 +79,7 @@ class OverallData:
     throughput: float  # requests/sec (successful requests)
     num_throughput: int  # count of successful requests
     p50_latency: float  # milliseconds
+    p75_latency: float  # milliseconds
     p99_latency: float  # milliseconds
     total_requests: int
     duration_seconds: float
@@ -112,6 +113,10 @@ class OverallData:
             missing = required_fields - set(data.keys())
             raise ValueError(f"Overall JSON missing required fields: {missing}")
         
+        p50 = data['p50_latency']
+        p99 = data['p99_latency']
+        p75 = float(data['p75_latency']) if 'p75_latency' in data else 0.0
+
         return cls(
             api_name=api_name,
             goodput=data['goodput'],
@@ -125,8 +130,9 @@ class OverallData:
             num_errors=data['num_errors'],
             throughput=data.get('throughput', data.get('success', 0.0)),
             num_throughput=data.get('num_throughput', data.get('num_success', 0)),
-            p50_latency=data['p50_latency'],
-            p99_latency=data['p99_latency'],
+            p50_latency=p50,
+            p75_latency=p75,
+            p99_latency=p99,
             total_requests=data['total_requests'],
             duration_seconds=data['duration_seconds'],
             start_time=data['start_time'],

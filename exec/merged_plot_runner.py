@@ -1892,9 +1892,7 @@ def generate_latency_vs_throughput_merged(
 
     # Use ACM compact style
     style = ACM_QUARTER if n_apis == 1 else ACM_COMPACT_HALF
-    # Layout: 2 rows (P99, P95), N columns (one per API)
-    grid = SubplotGrid(style, layout=f"1x{n_apis}")
-    
+
     # Data structure: data[api][exp_label] = {'tps': [], 'p99': [], ...}
     plot_data = {api: {} for api in all_apis}
     
@@ -1948,7 +1946,8 @@ def generate_latency_vs_throughput_merged(
                 unit_throughputs = []
                 unit_goodputs = []
                 unit_p99_latencies = []
-                
+                unit_p75_latencies = []
+
                 for artifact_dir in artifact_dirs:
                     repeat_data = load_repeat_data(artifact_dir)
                     if repeat_data and api in repeat_data:
@@ -1961,6 +1960,7 @@ def generate_latency_vs_throughput_merged(
                              unit_throughputs.append(overall.throughput / 1000.0)
                              unit_goodputs.append(overall.goodput)
                              unit_p99_latencies.append(overall.p99_latency)
+                             unit_p75_latencies.append(overall.p75_latency)
                         else:
                             if os.environ.get('PLOT_DEBUG') == '1':
                                 print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
@@ -1972,7 +1972,8 @@ def generate_latency_vs_throughput_merged(
                     tp_mean, _, tp_ci = aggregate_overall_metric(unit_throughputs)
                     gp_mean, _, gp_ci = aggregate_overall_metric(unit_goodputs)
                     p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
-                    
+                    p75_mean, _, p75_ci = aggregate_overall_metric(unit_p75_latencies)
+
                     if tp_mean is not None and p99_mean is not None:
                         exp_points.append({
                             'tp': tp_mean,
@@ -1980,7 +1981,9 @@ def generate_latency_vs_throughput_merged(
                             'gp': gp_mean if gp_mean is not None else 0.0,
                             'gp_ci': gp_ci if gp_ci is not None else 0.0,
                             'p99': p99_mean,
-                            'p99_ci': p99_ci if p99_ci is not None else 0.0
+                            'p99_ci': p99_ci if p99_ci is not None else 0.0,
+                            'p75': p75_mean if p75_mean is not None else 0.0,
+                            'p75_ci': p75_ci if p75_ci is not None else 0.0,
                         })
                         if os.environ.get('PLOT_DEBUG') == '1':
                             print(f"  [DEBUG] Unit: {unit_name}")
@@ -2008,7 +2011,9 @@ def generate_latency_vs_throughput_merged(
                 'goodputs': [p['gp'] for p in exp_points],
                 'goodput_ci': [p['gp_ci'] for p in exp_points],
                 'p99': [p['p99'] for p in exp_points],
-                'p99_ci': [p['p99_ci'] for p in exp_points]
+                'p99_ci': [p['p99_ci'] for p in exp_points],
+                'p75': [p['p75'] for p in exp_points],
+                'p75_ci': [p['p75_ci'] for p in exp_points],
             }
             
             # Update limits
@@ -2019,126 +2024,89 @@ def generate_latency_vs_throughput_merged(
                 if max_tp > api_limits[api]['max_tp']: api_limits[api]['max_tp'] = max_tp
                 if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
 
-    # 3. Plotting Loop
     # Load SLOs from config file
     with open(global_config) as f:
         global_configs = json.load(f)
     slo_map = global_configs.get('slos', {})
 
-    # 3. Plotting Loop
-    for api_idx, api in enumerate(all_apis):
-        ax_p99 = grid.get_ax(0, api_idx)
-        #ax_p99 = grid.get_ax(1, api_idx)
-        
-        # Set titles for columns (API names)
-        if len(all_apis) > 1:
-            ax_p99.set_title(api, fontsize=style.title_size)
+    line_specs = [
+        ('p99', 'p99_ci', 'P99 Latency (ms)', f'{figure_name}_latency_vs_throughput.pdf'),
+        ('p75', 'p75_ci', 'P75 Latency (ms)', f'{figure_name}_latency_vs_throughput_p75.pdf'),
+    ]
 
-        for label, data in plot_data[api].items():
-            color_idx = color_idx_map.get(label, 0)
-            
-            p99_vals = data['p99']
-            p99_cis = data['p99_ci']
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-            p99_errs = None
-            if p99_cis:
-                # Clamp lower error bars to mean value (cannot go below 0)
-                p99_lower_errs = [min(ci if ci is not None else 0, mean if mean is not None else 0) for mean, ci in zip(p99_vals, p99_cis)]
-                p99_upper_errs = [ci if ci is not None else 0 for ci in p99_cis]
-                p99_errs = [p99_lower_errs, p99_upper_errs]
+    for val_key, ci_key, y_axis_label, pdf_name in line_specs:
+        grid = SubplotGrid(style, layout=f"1x{n_apis}")
 
-            # Plot P99 line (Row 0)
-            plot_line(
-                ax_p99, data['tps'], p99_vals,
-                yerr=p99_errs,
-                label=label,
-                style=style,
-                color_idx=color_idx,
-                style_idx=color_idx,
-                show_markers=True
+        for api_idx, api in enumerate(all_apis):
+            ax_lat = grid.get_ax(0, api_idx)
+
+            if len(all_apis) > 1:
+                ax_lat.set_title(api, fontsize=style.title_size)
+
+            for label, data in plot_data[api].items():
+                color_idx = color_idx_map.get(label, 0)
+
+                lat_vals = data[val_key]
+                lat_cis = data[ci_key]
+
+                lat_errs = None
+                if lat_cis:
+                    lat_lower_errs = [
+                        min(ci if ci is not None else 0, mean if mean is not None else 0)
+                        for mean, ci in zip(lat_vals, lat_cis)
+                    ]
+                    lat_upper_errs = [ci if ci is not None else 0 for ci in lat_cis]
+                    lat_errs = [lat_lower_errs, lat_upper_errs]
+
+                plot_line(
+                    ax_lat, data['tps'], lat_vals,
+                    yerr=lat_errs,
+                    label=label,
+                    style=style,
+                    color_idx=color_idx,
+                    style_idx=color_idx,
+                    show_markers=True,
+                )
+
+            slo_val = None
+            possible_keys = [api, api.replace('-', '_'), api.replace('_', '-')]
+            if api.endswith('_all'):
+                base = api.replace('_all', '')
+                possible_keys.extend([base, base.replace('-', '_'), base.replace('_', '-')])
+
+            for key in possible_keys:
+                if slo_map and key in slo_map:
+                    slo_val = slo_map[key]
+                    break
+
+            if slo_val is not None:
+                slo_val = float(slo_val)
+                ax_lat.axhline(
+                    y=slo_val, color='r', linestyle='--',
+                    label='SLO', linewidth=style.line_width,
+                )
+            else:
+                raise Exception("SLO is None")
+
+            grid.configure_ax(
+                ax_lat,
+                ylabel=y_axis_label if api_idx == 0 else "",
+                xlabel="Throughput (KRPS)",
+                ylim=(0, 2 * slo_val),
+                grid=True,
+                show_xticklabels=True,
+                show_xlabel=True,
+                show_ylabel=(api_idx == 0),
+                show_yticklabels=True,
+                x_type='int',
             )
 
-            """ # Plot P95 line (Row 1)
-            plot_line(
-                ax_p99, data['tps'], data['p99'],
-                yerr=data['p99_ci'],
-                label=label,
-                style=style,
-                color_idx=color_idx,
-                style_idx=color_idx,
-                show_markers=True
-            ) """
-        
-        # Add SLO line
-        slo_val = None
-        # Try various forms of the API name to match keys in config
-        possible_keys = [api, api.replace('-', '_'), api.replace('_', '-')]
-        # Also try removing suffix like '_all' just in case
-        if api.endswith('_all'):
-            base = api.replace('_all', '')
-            possible_keys.extend([base, base.replace('-', '_'), base.replace('_', '-')])
-            
-        for key in possible_keys:
-            if slo_map and key in slo_map:
-                slo_val = slo_map[key]
-                break
-        
-        if slo_val is not None:
-            slo_val = float(slo_val)
-            # Plot SLO on P99
-            ax_p99.axhline(y=slo_val, color='r', linestyle='--',
-                       label='SLO', linewidth=style.line_width)
-        else:
-            raise Exception("SLO is None")
-            
-        # Configure axes per column
-        limits = api_limits[api]
-        max_lat = max(limits['max_p99'], limits['max_p99'])
-        # Round up to nearest 10
-        y_max = math.ceil(max_lat / 10.0) * 10
-        if y_max < 10: y_max = 10
-        
-        max_tp = limits['max_tp']
-        x_max = math.ceil(max_tp / 10.0) * 10 if max_tp > 0 else 100
-
-        # Configure P99 axis (Row 0)
-        grid.configure_ax(
-            ax_p99,
-            ylabel="P99 Latency (ms)" if api_idx == 0 else "",
-            xlabel="Throughput (KRPS)",
-            ylim=(0, 2*slo_val),
-            #y_type='int',
-            #y_step=5,
-            grid=True,
-            show_xticklabels=True,
-            show_xlabel=True,
-            show_ylabel=(api_idx == 0),
-            show_yticklabels=True,
-            x_type='int',
-        )
-
-        """ # Configure P95 axis (Row 1)
-        grid.configure_ax(
-            ax_p99,
-            xlabel="Throughput (RPS)",
-            ylabel="P95 Latency (ms)" if api_idx == 0 else "",
-            y_data=None, # We set manual limits
-            ylim=(0, 30),
-            y_type='int',
-            y_step=5,
-            grid=True,
-            show_yticklabels=(api_idx == 0)
-        ) """
-
-    # Add shared legend
-    # For many columns, legend needs to span effectively
-    grid.add_shared_legend(position="top")
-
-    # Save
-    output_dir.mkdir(parents=True, exist_ok=True)
-    line_path = output_dir / f'{figure_name}_latency_vs_throughput.pdf'
-    grid.save(line_path)
-    produced.append(line_path)
+        grid.add_shared_legend(position="top")
+        line_path = output_dir / pdf_name
+        grid.save(line_path)
+        produced.append(line_path)
     
 
     

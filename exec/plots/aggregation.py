@@ -60,7 +60,7 @@ def aggregate_overall_data(overall_list: List[OverallData]) -> Dict[str, Tuple[f
         Dictionary mapping metric_name to (mean, std, ci_95)
     """
     metrics = ['goodput', 'slo_violations', 'dropped_requests', 'errors',
-               'p50_latency', 'p99_latency', 'num_goodput', 'num_slo_violations',
+               'p50_latency', 'p75_latency', 'p99_latency', 'num_goodput', 'num_slo_violations',
                'num_dropped_requests', 'num_errors']
     
     result = {}
