@@ -1,0 +1,14 @@
+figures:
+  latency-vs-throughput-pfanout-2:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-pfanout-2-plain:
+        label: Plain
+      latency-vs-throughput-pfanout-2-sidecar:
+        label: Roshanfer
+
+  max-queue-pfanout-2:
+    type: max-queue
+    include:
+      max-queue-pfanout-2-sidecar:
+        label: Roshanfer
