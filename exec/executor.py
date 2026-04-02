@@ -283,6 +283,10 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         ]
     )
     logging.info(f"Execution started. Logs at {logs_dir}")
+
+    if config.nanolog_debug:
+        os.environ["SIDECAR_ENABLE_NANOLOG"] = "1"
+        logging.info("nanolog_debug: SIDECAR_ENABLE_NANOLOG=1 for sidecar builds")
     
     # 2. Infrastructure Setup
     infra = InfraBuilder(Path(config.hosts_file))
@@ -350,8 +354,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             tag = _safe_name(tag_base)
             logging.info(f"Tag: {tag}")
             
-            # Status file in the run directory (exp-<index>/build_success_<tag>)
-            build_status_file = run_root / f"build_success_{tag}"
+            # Status file in the run directory (separate marker when NanoLog binary required)
+            _bsuf = "_nanolog" if config.nanolog_debug else ""
+            build_status_file = run_root / f"build_success_{tag}{_bsuf}"
             
             # Check build
             if not build_status_file.exists():
@@ -531,6 +536,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--hosts-file", help="Override hosts_file from config.json")
     p.add_argument("--num-generators", type=int, help="Override num_generators from config.json")
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
+    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for sidecar units.")
     return p.parse_args(argv)
 
 def main(argv: List[str] | None = None) -> int:
@@ -542,6 +548,8 @@ def main(argv: List[str] | None = None) -> int:
         config = dc_replace(config, hosts_file=ns.hosts_file)
     if ns.num_generators is not None:
         config = dc_replace(config, num_generators=ns.num_generators)
+    if getattr(ns, "nanolog_debug", False):
+        config = dc_replace(config, nanolog_debug=True)
     cfg_path = Path(ns.config) if ns.config else Path("config.json")
     
     filters = {

@@ -44,6 +44,8 @@ class Collector:
         # 1. Collect Service Logs (Optional)
         if collect_service_logs:
              self._collect_service_logs(unit, raw_dir)
+             if self.config.nanolog_debug and unit.system == "sidecar":
+                 self._nanolog_decompress_and_plot(unit_dir, raw_dir)
 
         # 2. Generate/Validate JSON Reports from CSV (Local processing)
         # We assume Runner has already pulled out-{api}.csv to output_dir
@@ -77,7 +79,9 @@ class Collector:
         env["DEPLOYMENT_HOSTS"] = ",".join(unit.deployment_hosts)
         env["OUTPUT_DIR"] = str(raw_dir / "service_logs")
         env["SYSTEM"] = unit.system
-        
+        if self.config.nanolog_debug and unit.system == "sidecar":
+            env["COLLECT_SIDECAR_NANOLOG"] = "1"
+
         # Create subfolder
         (raw_dir / "service_logs").mkdir(parents=True, exist_ok=True)
 
@@ -86,6 +90,55 @@ class Collector:
             subprocess.run([str(script_path)], env=env, check=False)
         except Exception as e:
             logging.error(f"Failed to collect logs: {e}")
+
+    def _nanolog_decompress_and_plot(self, unit_dir: Path, raw_dir: Path) -> None:
+        service_logs = raw_dir / "service_logs"
+        if not service_logs.is_dir():
+            return
+        clogs = sorted(service_logs.glob("*-sidecar.clog"))
+        if not clogs:
+            logging.info("nanolog_debug: no *-sidecar.clog in service_logs; skip decompress/plot")
+            return
+        dec = Path("benchmarks/sidecar/external/NanoLog/runtime/decompressor").resolve()
+        if not dec.is_file() or not os.access(dec, os.X_OK):
+            logging.warning("nanolog_debug: decompressor missing or not executable: %s", dec)
+            return
+        log_paths: List[Path] = []
+        for clog in clogs:
+            out_log = clog.parent / (clog.stem + ".nanolog.log")
+            try:
+                with open(out_log, "w", encoding="utf-8") as fout:
+                    cp = subprocess.run(
+                        [str(dec), "decompress", str(clog)],
+                        stdout=fout,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=600,
+                    )
+                if cp.returncode != 0:
+                    logging.warning(
+                        "nanolog decompress failed %s: %s",
+                        clog.name,
+                        (cp.stderr or "")[:500],
+                    )
+                    out_log.unlink(missing_ok=True)
+                    continue
+                log_paths.append(out_log)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                logging.warning("nanolog decompress error %s: %s", clog.name, e)
+        if not log_paths:
+            logging.warning("nanolog_debug: no .nanolog.log produced; skip plot")
+            return
+        nanolog_dir = unit_dir / "nanolog"
+        nanolog_dir.mkdir(parents=True, exist_ok=True)
+        out_pdf = nanolog_dir / "metrics.pdf"
+        try:
+            from .nanolog_metrics_plot import generate_nanolog_pdf
+
+            generate_nanolog_pdf(log_paths, out_pdf)
+            logging.info("nanolog_debug: wrote %s", out_pdf)
+        except Exception as e:
+            logging.warning("nanolog_debug: plot failed: %s", e)
 
     def _collect_prometheus_metrics(self, unit: RunUnit, metrics_dir: Path, output_dir: Path):
         """Collects specific Prometheus metrics and saves to json."""

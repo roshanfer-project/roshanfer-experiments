@@ -31,6 +31,8 @@ usage() {
   echo "                       Use with --remote to clean then run tests; alone = clean only and exit."
   echo "  --also-hotel-social  After tests, run configs/hotel and configs/social; --bench"
   echo "                       filters these too when set (e.g. --bench hotel runs hotel only)."
+  echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for sidecar runs, collect"
+  echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics.pdf."
   echo ""
   echo "Examples:"
   echo "  $0"
@@ -53,6 +55,7 @@ CLOUDLAB_SSH_USER=""
 REMOTE_NUM_GENERATORS=""
 REMOTE_CLEAN=""
 ALSO_HOTEL_SOCIAL=""
+NANOLOG_DEBUG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -109,6 +112,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --also-hotel-social)
       ALSO_HOTEL_SOCIAL=1
+      shift
+      ;;
+    --nanolog-debug)
+      NANOLOG_DEBUG=1
       shift
       ;;
     *)
@@ -192,6 +199,7 @@ EXTRA_ARGS=()
 [[ -n "$NUM_APIS_FILTER" ]] && EXTRA_ARGS+=(--only-num-apis "$NUM_APIS_FILTER")
 [[ -n "$SHARED_GENERATOR" ]] && EXTRA_ARGS+=(--shared-generator)
 [[ -z "$REMOTE" && -n "$REMOTE_NUM_GENERATORS" ]] && EXTRA_ARGS+=(--num-generators "$REMOTE_NUM_GENERATORS")
+[[ -n "$NANOLOG_DEBUG" ]] && EXTRA_ARGS+=(--nanolog-debug)
 
 run_bench() {
   local name="$1" config="$2" experiments="$3" merged="${4:-}"
