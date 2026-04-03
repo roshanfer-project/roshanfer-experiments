@@ -23,6 +23,14 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
     ...
     ```
 3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent.
+4.  **direnv** (for kubeconfig isolation): Install direnv and enable the repo's `.envrc`:
+    ```bash
+    sudo apt install direnv
+    echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc   # or ~/.bashrc
+    source ~/.zshrc
+    cd /path/to/this/repo && direnv allow
+    ```
+    The `.envrc` sets `KUBECONFIG` to `benchmarks/k8s/kubeconfig` so each clone/worktree targets its own cluster. `run_tests.sh` will refuse to start if direnv is not active.
 
 ## Running Experiments
 
@@ -71,6 +79,15 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 `--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run.
 
 `--remote-clean` (with the same `--cloudlab-manifest` and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` using **deployment** hosts only (all lines after the first `num_generators`). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
+
+### Local vs Remote Host Resolution
+
+Hosts are always read from a plain-text file (one `[user@]host` per line, `#` comments ignored) via `InfraBuilder`. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes. The two modes differ only in *which* file is used:
+
+- **Local mode** — each test's `config.json` has a `hosts_file` field pointing to a static per-test file, e.g. `configs/tests/one-service/hosts.txt`. There is no auto-discovery; you edit that file to match your local setup.
+- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` (via `exec.cloudlab_hosts`) and passes it with `--hosts-file`, overriding whatever `hosts_file` the config specifies.
+
+`benchmarks/k8s/hosts.txt` and `benchmarks/provisioning/hosts.txt` are only used as defaults when running those shell scripts *manually*; the executor always overrides them by setting the `HOSTS_FILE` env var.
 
 ## Tuning
 
@@ -124,3 +141,18 @@ experiment_runs/
                 ├── raw/               # Service Logs & Raw Output
                 └── run_details.json
 ```
+
+## Parallel Dev/Test with Git Worktrees
+
+To work on two clusters simultaneously (e.g., dev and test), use git worktrees. Each worktree is a separate checkout with its own `benchmarks/k8s/kubeconfig`, and the committed `.envrc` automatically points `KUBECONFIG` to the right one via `$PWD`.
+
+```bash
+# Create a worktree for dev on a new branch
+cd ~/files/roshanfer-experments
+git worktree add ../local-experiments dev
+
+# Allow direnv in the new worktree
+cd ../local-experiments && direnv allow
+```
+
+After running `benchmarks/k8s/create.sh` in each worktree, each gets its own kubeconfig. Open two terminals — `cd` into each directory and kubectl talks to the corresponding cluster automatically.

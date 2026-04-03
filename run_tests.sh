@@ -5,6 +5,15 @@
 
 cd "$(dirname "$0")"
 
+if [[ -z "$KUBECONFIG" || "$KUBECONFIG" != *"benchmarks/k8s/kubeconfig"* ]]; then
+  echo "Error: KUBECONFIG is not set by direnv."
+  echo "Install direnv and allow the .envrc in this repo:"
+  echo "  sudo apt install direnv"
+  echo "  echo 'eval \"\$(direnv hook zsh)\"' >> ~/.zshrc"
+  echo "  source ~/.zshrc && direnv allow"
+  exit 1
+fi
+
 usage() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
