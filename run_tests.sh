@@ -65,7 +65,7 @@ usage() {
   echo "  --also-hotel-social  After tests, run configs/hotel and configs/social; --bench"
   echo "                       filters these too when set (e.g. --bench hotel runs hotel only)."
   echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for sidecar runs, collect"
-  echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics.pdf."
+  echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
   echo ""

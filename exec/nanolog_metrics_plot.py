@@ -167,7 +167,13 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
             grid = pp.SubplotGrid(style, layout=f"{rows}x{cols}")
 
             for j, metric_name in enumerate(chunk):
-                is_count = "QS" in metric_name or "DROP" in metric_name or "DSC" in metric_name
+                is_limit = metric_name.startswith("LIMIT")
+                is_count = (
+                    "QS" in metric_name
+                    or "DROP" in metric_name
+                    or "DSC" in metric_name
+                    or is_limit
+                )
                 is_drop = "DROP" in metric_name
                 row_idx = j // cols
                 col_idx = j % cols
@@ -193,7 +199,13 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
                     max_val = 1.0
                 y_top = max_val * 1.2
 
-                if "EMA" in metric_name or "HIST" in metric_name:
+                if (
+                    "EMA" in metric_name
+                    or metric_name.startswith("MA ")
+                    or "HIST" in metric_name
+                    or is_limit
+                    or "Local-RT" in metric_name
+                ):
                     pp.plot_scatter(ax, timestamps, results[50], label="P50", style=style, color_idx=1)
                     pp.plot_scatter(ax, timestamps, results[95], label="P95", style=style, color_idx=4)
                     pp.plot_scatter(ax, timestamps, results[99], label="P99", style=style, color_idx=0)

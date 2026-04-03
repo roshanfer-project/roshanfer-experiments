@@ -103,7 +103,9 @@ class Collector:
         if not dec.is_file() or not os.access(dec, os.X_OK):
             logging.warning("nanolog_debug: decompressor missing or not executable: %s", dec)
             return
-        log_paths: List[Path] = []
+        nanolog_dir = unit_dir / "nanolog"
+        nanolog_dir.mkdir(parents=True, exist_ok=True)
+        any_log = False
         for clog in clogs:
             out_log = clog.parent / (clog.stem + ".nanolog.log")
             try:
@@ -123,22 +125,20 @@ class Collector:
                     )
                     out_log.unlink(missing_ok=True)
                     continue
-                log_paths.append(out_log)
+                any_log = True
             except (OSError, subprocess.TimeoutExpired) as e:
                 logging.warning("nanolog decompress error %s: %s", clog.name, e)
-        if not log_paths:
-            logging.warning("nanolog_debug: no .nanolog.log produced; skip plot")
-            return
-        nanolog_dir = unit_dir / "nanolog"
-        nanolog_dir.mkdir(parents=True, exist_ok=True)
-        out_pdf = nanolog_dir / "metrics.pdf"
-        try:
-            from .nanolog_metrics_plot import generate_nanolog_pdf
+                continue
+            try:
+                from .nanolog_metrics_plot import generate_nanolog_pdf
 
-            generate_nanolog_pdf(log_paths, out_pdf)
-            logging.info("nanolog_debug: wrote %s", out_pdf)
-        except Exception as e:
-            logging.warning("nanolog_debug: plot failed: %s", e)
+                out_pdf = nanolog_dir / f"metrics-{clog.stem}.pdf"
+                generate_nanolog_pdf([out_log], out_pdf)
+                logging.info("nanolog_debug: wrote %s", out_pdf)
+            except Exception as e:
+                logging.warning("nanolog_debug: plot failed %s: %s", clog.name, e)
+        if not any_log:
+            logging.warning("nanolog_debug: no .nanolog.log produced; skip plot")
 
     def _collect_prometheus_metrics(self, unit: RunUnit, metrics_dir: Path, output_dir: Path):
         """Collects specific Prometheus metrics and saves to json."""
