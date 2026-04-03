@@ -1,7 +1,8 @@
 #!/bin/bash
 # Run all test benchmarks under configs/tests/
-# Each run: data under ./exp_runs_test/<timestamp>/<test_name>/; all plots under
-# ./exp_runs_test/<timestamp>/plots/<test_name>/; combined PDF at plots/all_tests_plots.pdf
+# Each run: data under ./exp_runs_test/<run_id>/<test_name>/; run_id is YYYYMMDD_HHMMSS
+# optionally with _<comment>; plots under ./exp_runs_test/<run_id>/plots/<test_name>/;
+# combined PDF at plots/all_tests_plots.pdf
 
 cd "$(dirname "$0")"
 
@@ -14,12 +15,35 @@ if [[ -z "$KUBECONFIG" || "$KUBECONFIG" != *"benchmarks/k8s/kubeconfig"* ]]; the
   exit 1
 fi
 
+# Filesystem-safe suffix for run folder; empty input -> empty output
+sanitize_run_comment() {
+  local s="$1" c out=""
+  local i
+  for (( i=0; i<${#s}; i++ )); do
+    c="${s:i:1}"
+    if [[ "$c" =~ [a-zA-Z0-9._-] ]]; then
+      out+="$c"
+    else
+      out+="_"
+    fi
+  done
+  while [[ "$out" == *__* ]]; do out="${out//__/_}"; done
+  while [[ "$out" == _* ]]; do out="${out#_}"; done
+  while [[ "$out" == *_ ]]; do out="${out%_}"; done
+  if [[ ${#out} -gt 56 ]]; then
+    out="${out:0:56}"
+    while [[ "$out" == *_ ]]; do out="${out%_}"; done
+  fi
+  printf '%s' "$out"
+}
+
 usage() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
   echo "Run test benchmarks under configs/tests/. Each test dir with config.json and"
-  echo "experiments.json is executed; run data under exp_runs_test/<timestamp>/<test_name>/,"
-  echo "plots under exp_runs_test/<timestamp>/plots/<test_name>/, merged PDF at .../plots/all_tests_plots.pdf."
+  echo "experiments.json is executed; run data under exp_runs_test/<run_id>/<test_name>/,"
+  echo "plots under exp_runs_test/<run_id>/plots/<test_name>/, merged PDF at .../plots/all_tests_plots.pdf."
+  echo "<run_id> is YYYYMMDD_HHMMSS, or that plus _<comment> if --comment is set."
   echo ""
   echo "Options:"
   echo "  -h, --help       Show this help and exit"
@@ -42,6 +66,8 @@ usage() {
   echo "                       filters these too when set (e.g. --bench hotel runs hotel only)."
   echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for sidecar runs, collect"
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics.pdf."
+  echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
+  echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
   echo ""
   echo "Examples:"
   echo "  $0"
@@ -51,6 +77,7 @@ usage() {
   echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
   echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
   echo "  $0 --also-hotel-social"
+  echo "  $0 --bench chain-2 --comment sidecar-tuning"
 }
 
 BENCH_FILTER=""
@@ -65,6 +92,7 @@ REMOTE_NUM_GENERATORS=""
 REMOTE_CLEAN=""
 ALSO_HOTEL_SOCIAL=""
 NANOLOG_DEBUG=""
+RUN_COMMENT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -127,6 +155,11 @@ while [[ $# -gt 0 ]]; do
       NANOLOG_DEBUG=1
       shift
       ;;
+    --comment)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --comment"; usage; exit 1; }
+      RUN_COMMENT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
       usage
@@ -146,14 +179,24 @@ PYTHON=python
 TESTS_ROOT="configs/tests"
 OUTPUT_BASE="./exp_runs_test"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-PLOTS_ROOT="$OUTPUT_BASE/${TIMESTAMP}/plots"
+RUN_DIR_ID="$TIMESTAMP"
+if [[ -n "$RUN_COMMENT" ]]; then
+  _san=$(sanitize_run_comment "$RUN_COMMENT")
+  if [[ -n "$_san" ]]; then
+    RUN_DIR_ID="${TIMESTAMP}_${_san}"
+  else
+    echo "Warning: --comment became empty after sanitization; using timestamp-only folder name."
+  fi
+fi
+echo "Run directory: $OUTPUT_BASE/$RUN_DIR_ID"
+PLOTS_ROOT="$OUTPUT_BASE/${RUN_DIR_ID}/plots"
 failed=0
 
 REMOTE_ARGS=()
 HOSTS_OUT=""
 if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
   if [[ -n "$REMOTE" ]]; then
-    HOSTS_OUT="$OUTPUT_BASE/${TIMESTAMP}/cloudlab_hosts.txt"
+    HOSTS_OUT="$OUTPUT_BASE/${RUN_DIR_ID}/cloudlab_hosts.txt"
     mkdir -p "$(dirname "$HOSTS_OUT")"
   else
     HOSTS_OUT=$(mktemp)
@@ -212,7 +255,7 @@ EXTRA_ARGS=()
 
 run_bench() {
   local name="$1" config="$2" experiments="$3" merged="${4:-}"
-  local out_dir="$OUTPUT_BASE/${TIMESTAMP}/${name}"
+  local out_dir="$OUTPUT_BASE/${RUN_DIR_ID}/${name}"
   echo "Running $name -> $out_dir"
   if ! $PYTHON -m exec.executor --experiments-file "$experiments" --config "$config" \
       --output-base-dir "$out_dir" "${REMOTE_ARGS[@]}" "${EXTRA_ARGS[@]}"; then
