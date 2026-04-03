@@ -322,7 +322,10 @@ class Runner:
             if not quiet:
                  logging.info(f"Deployment of {system} successful.")
         except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Deployment failed for {system}: {e}")
+            msg = f"Deployment failed for {system}: {e}"
+            if log_path:
+                msg += f". Log: {log_path}"
+            raise RuntimeError(msg)
 
     def teardown_system(self, bench: str, system: str, deployment_hosts: List[str], log_path: Optional[Path] = None, quiet: bool = False) -> None:
         """
