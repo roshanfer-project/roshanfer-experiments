@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -1914,8 +1915,9 @@ def generate_latency_vs_throughput_merged(
         exp_apis = exp_def.get('apis', [])
         
         # 1. Find all units for this experiment
-        found_units = {} # unit_name -> list of artifact_dirs
-        
+        found_units = {}  # unit_name -> list of artifact_dirs
+        unit_load_value = {}  # unit_name -> offered load (same heuristic as plot_runner)
+
         # Determine roots to scan
         roots_to_scan = []
         if experiments_root.name.startswith('exp-'):
@@ -1923,15 +1925,22 @@ def generate_latency_vs_throughput_merged(
         else:
             for exp_index in range(1, 20):
                 roots_to_scan.append(experiments_root / f'exp-{exp_index:03d}')
-        
+
         for run_root in roots_to_scan:
-             records = _load_summary(run_root)
-             for r in records:
-                 if r.get('experiment_name') == exp_name:
-                     unit_name = r.get('unit', r.get('run_unit_name'))
-                     if unit_name not in found_units:
-                         found_units[unit_name] = []
-                     found_units[unit_name].append(Path(r.get('artifact_dir')))
+            records = _load_summary(run_root)
+            for r in records:
+                if r.get('experiment_name') == exp_name:
+                    unit_name = r.get('unit', r.get('run_unit_name'))
+                    if unit_name not in found_units:
+                        found_units[unit_name] = []
+                        m = re.search(r'rate-(\d+)', str(unit_name) or '')
+                        if m:
+                            unit_load_value[unit_name] = int(m.group(1))
+                        else:
+                            cfg = r.get('config') or {}
+                            br = cfg.get('base_rate')
+                            unit_load_value[unit_name] = int(br) if br is not None else None
+                    found_units[unit_name].append(Path(r.get('artifact_dir')))
 
         # 2. Process each unit (load level) for EACH API
         # We need to collect points separately for each API because they might be in different files or keys
@@ -1943,10 +1952,11 @@ def generate_latency_vs_throughput_merged(
             exp_points = [] # list of dicts for this API
 
             for unit_name, artifact_dirs in found_units.items():
-                unit_throughputs = []
-                unit_goodputs = []
-                unit_p99_latencies = []
-                unit_p75_latencies = []
+                # One sample per repeat from overall-*.json; CI across repeats.
+                repeat_throughputs: List[float] = []
+                repeat_p99: List[float] = []
+                repeat_goodputs: List[float] = []
+                repeat_p75: List[float] = []
 
                 for artifact_dir in artifact_dirs:
                     repeat_data = load_repeat_data(artifact_dir)
@@ -1957,22 +1967,24 @@ def generate_latency_vs_throughput_merged(
                         else:
                             overall, _ = vals
                         if overall is not None:
-                             unit_throughputs.append(overall.throughput / 1000.0)
-                             unit_goodputs.append(overall.goodput)
-                             unit_p99_latencies.append(overall.p99_latency)
-                             unit_p75_latencies.append(overall.p75_latency)
-                        else:
-                            if os.environ.get('PLOT_DEBUG') == '1':
-                                print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
-                    else:
-                        if os.environ.get('PLOT_DEBUG') == '1':
-                            print(f"    [DEBUG] No data for {api} in {artifact_dir}")
-                
-                if unit_throughputs and unit_p99_latencies:
-                    tp_mean, _, tp_ci = aggregate_overall_metric(unit_throughputs)
-                    gp_mean, _, gp_ci = aggregate_overall_metric(unit_goodputs)
-                    p99_mean, _, p99_ci = aggregate_overall_metric(unit_p99_latencies)
-                    p75_mean, _, p75_ci = aggregate_overall_metric(unit_p75_latencies)
+                            repeat_throughputs.append(float(overall.throughput))
+                            repeat_p99.append(float(overall.p99_latency))
+                            repeat_goodputs.append(float(overall.goodput))
+                            repeat_p75.append(float(overall.p75_latency))
+                        elif os.environ.get('PLOT_DEBUG') == '1':
+                            print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
+                    elif os.environ.get('PLOT_DEBUG') == '1':
+                        print(f"    [DEBUG] No data for {api} in {artifact_dir}")
+
+                if repeat_throughputs and repeat_p99:
+                    tp_mean, _, tp_ci = aggregate_overall_metric(repeat_throughputs)
+                    gp_mean, _, gp_ci = aggregate_overall_metric(repeat_goodputs)
+                    p99_mean, _, p99_ci = aggregate_overall_metric(repeat_p99)
+                    p75_mean, _, p75_ci = (
+                        aggregate_overall_metric(repeat_p75)
+                        if repeat_p75
+                        else (None, None, None)
+                    )
 
                     if tp_mean is not None and p99_mean is not None:
                         exp_points.append({
@@ -1984,16 +1996,25 @@ def generate_latency_vs_throughput_merged(
                             'p99_ci': p99_ci if p99_ci is not None else 0.0,
                             'p75': p75_mean if p75_mean is not None else 0.0,
                             'p75_ci': p75_ci if p75_ci is not None else 0.0,
+                            'load_value': unit_load_value.get(unit_name),
                         })
                         if os.environ.get('PLOT_DEBUG') == '1':
                             print(f"  [DEBUG] Unit: {unit_name}")
-                            print(f"    Samples: {len(unit_throughputs)}")
+                            print(f"    Repeats: {len(repeat_throughputs)}")
                             print(f"    Throughput: {tp_mean:.2f}")
                             print(f"    P99: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
 
 
-            # Sort by throughput per API
-            exp_points.sort(key=lambda x: x['tp'])
+            # Order by offered load (matches latency_vs_throughput_experiment), not by achieved tp
+            if any(p.get('load_value') is not None for p in exp_points):
+                exp_points.sort(
+                    key=lambda x: (
+                        float('inf') if x.get('load_value') is None else x['load_value'],
+                        x['tp'],
+                    )
+                )
+            else:
+                exp_points.sort(key=lambda x: x['tp'])
             
             if os.environ.get('PLOT_DEBUG') == '1':
                 print(f"[DEBUG] Experiment: {exp_name} ({label}) API: {api}")
@@ -2051,14 +2072,12 @@ def generate_latency_vs_throughput_merged(
                 lat_vals = data[val_key]
                 lat_cis = data[ci_key]
 
-                lat_errs = None
-                if lat_cis:
-                    lat_lower_errs = [
-                        min(ci if ci is not None else 0, mean if mean is not None else 0)
-                        for mean, ci in zip(lat_vals, lat_cis)
-                    ]
-                    lat_upper_errs = [ci if ci is not None else 0 for ci in lat_cis]
-                    lat_errs = [lat_lower_errs, lat_upper_errs]
+                # Symmetric CI (same as latency_vs_throughput_experiment); omit only if length mismatch
+                lat_errs = (
+                    [float(c) if c is not None else 0.0 for c in lat_cis]
+                    if len(lat_cis) == len(lat_vals)
+                    else None
+                )
 
                 plot_line(
                     ax_lat, data['tps'], lat_vals,
@@ -2093,7 +2112,7 @@ def generate_latency_vs_throughput_merged(
             grid.configure_ax(
                 ax_lat,
                 ylabel=y_axis_label if api_idx == 0 else "",
-                xlabel="Throughput (KRPS)",
+                xlabel="Throughput (RPS)",
                 ylim=(0, 2 * slo_val),
                 grid=True,
                 show_xticklabels=True,
@@ -2101,6 +2120,7 @@ def generate_latency_vs_throughput_merged(
                 show_ylabel=(api_idx == 0),
                 show_yticklabels=True,
                 x_type='int',
+                x_step=1000
             )
 
         grid.add_shared_legend(position="top")
@@ -2148,7 +2168,7 @@ def generate_latency_vs_throughput_merged(
             if label in plot_data[api]:
                 d = plot_data[api][label]
                 if d['goodputs']:
-                    # Use last point (max rate) as 'tps' is sorted by tp
+                    # Last point = highest offered load (exp_points sorted by load_value)
                     heights.append(d['goodputs'][-1])
                     errors.append(d['goodput_ci'][-1] if 'goodput_ci' in d else 0.0)
                     has_data = True
