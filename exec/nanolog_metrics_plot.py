@@ -202,6 +202,7 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
                 if (
                     "EMA" in metric_name
                     or metric_name.startswith("MA ")
+                    or metric_name.startswith("TD-")
                     or "HIST" in metric_name
                     or is_limit
                     or "Local-RT" in metric_name
