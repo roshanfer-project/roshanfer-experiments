@@ -1,12 +1,12 @@
 {
     "output_base_dir": "./exp_runs",
-    "experiment_index": "prob-route-fanout",
+    "experiment_index": "dynamic-large",
     "num_generators": 1,
     "raw_artifact_subdir": "raw",
     "metrics_subdir": "metrics",
     "rwg_binary_path": "./rwg/rwg",
-    "bench": "tests/prob-route-fanout",
-    "hosts_file": "configs/tests/prob-route-fanout/hosts.txt",
+    "bench": "tests/dynamic-large",
+    "hosts_file": "configs/tests/dynamic-large/hosts.txt",
     "ssh_binary": "ssh",
     "git_root": "..",
     "slos": {
