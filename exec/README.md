@@ -97,6 +97,26 @@ Results are saved to `exp_runs/exp-<id>/tuning/<system>.json`.
 
 To create a new tuner, copy `exec/tuner_template.py` to `exec/<system>_tuner.py` and implement your optimization logic.
 
+### Rajomon tuner (`exec/rajomon_tuner.py`)
+
+The executor calls `optimize_system` with the same `config.json` path as the experiment run. Optional top-level **`tuner`** object:
+
+- **`tune_api`** (string): entry API used for every Bayesian trial (one API only). Required for benchmarks whose `bench` path is not in the legacy map (`hotel` → `search-hotel`, `social` → `compose-post`); otherwise tuning raises a clear error.
+- **Optional knobs** (integers; omit to keep defaults): `initial_point`, `n_iter`, `maximum_goodput`, `tuner_base`, `tuner_rate`, `trial_duration_sec`, `trial_warmup_sec`, `trial_cooldown_sec`, `trial_collector_freq`.
+
+Example:
+
+```json
+"tuner": {
+  "tune_api": "f1",
+  "tuner_base": 200,
+  "tuner_rate": 2000,
+  "trial_duration_sec": 15
+}
+```
+
+Standalone: `python -m exec.rajomon_tuner --config ... --system rajomon --bench tests/my-bench --output tuning.json`.
+
 ## Config (`config.json`)
 
 Ensure your config includes:
