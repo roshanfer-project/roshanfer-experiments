@@ -13,5 +13,11 @@
     "f1": "40"
   },
   "metrics": {},
-  "post_deploy_wait_sec": 1
+  "post_deploy_wait_sec": 1,
+  "tuner": {
+    "tune_api": "f1",
+    "tuner_base": 500,
+    "tuner_rate": 4000,
+    "maximum_goodput": 1500
+  }
 }
