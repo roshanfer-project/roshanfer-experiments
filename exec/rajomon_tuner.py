@@ -226,7 +226,8 @@ def run_trial_experiment(
         p99 = data["p99_latency"]
 
         max_gp = int(knobs["maximum_goodput"])
-        score = (goodput - 5 * p99) / max_gp
+        lat_term = max(0, p99-data["slo_ms"])
+        score = (goodput - 10 * lat_term) / max_gp
         if logger:
             logger.info(f"Score: {score} (Goodput: {goodput}, P99: {p99})")
 
