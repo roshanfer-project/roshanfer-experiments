@@ -1391,9 +1391,15 @@ def generate_latency_goodput_vs_load_merged(
                 break
         
         if slo_val is not None:
-            ax_lat.axhline(y=slo_val, color='r', linestyle='--',
-                       label='SLO', linewidth=style.line_width)
-            all_latency_values.append(slo_val)
+            try:
+                slo_num = float(slo_val)
+            except (TypeError, ValueError):
+                slo_num = None
+            if slo_num is not None:
+                ax_lat.axhline(
+                    y=slo_num, color='r', linestyle='--',
+                    label='SLO', linewidth=style.line_width)
+                all_latency_values.append(slo_num)
 
         # Config Latency Axis
         ax_lat.set_yscale('log')
