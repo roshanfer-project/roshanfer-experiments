@@ -10,7 +10,7 @@
   "ssh_binary": "ssh",
   "git_root": "..",
   "slos": {
-    "api": "100"
+    "api": "10"
   },
   "metrics": {},
   "post_deploy_wait_sec": 1

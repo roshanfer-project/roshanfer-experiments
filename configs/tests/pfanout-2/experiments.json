@@ -1,6 +1,22 @@
 {
   "experiments": [
     {
+      "type": "latency-and-rate-vs-time",
+      "loads": {
+        "start": 50,
+        "end": 50,
+        "step": 50
+      },
+      "base_rate": 50,
+      "duration_sec": 30,
+      "apis": [
+        "api"
+      ],
+      "system": "plain",
+      "repeat": 1,
+      "collector_freq": 200
+    },
+    {
       "type": "latency-vs-throughput",
       "loads": {
         "start": 500,
