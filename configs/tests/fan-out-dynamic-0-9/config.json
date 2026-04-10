@@ -17,7 +17,7 @@
   "tuner": {
     "tune_api": "f1",
     "tuner_base": 500,
-    "tuner_rate": 4000,
+    "tuner_rate": 3000,
     "maximum_goodput": 1500
   }
 }

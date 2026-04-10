@@ -12,3 +12,17 @@ figures:
     include:
       max-queue-dynamic-large-sidecar:
         label: Roshanfer
+      max-queue-dynamic-large-dagor:
+        label: Dagor
+      max-queue-dynamic-large-rajomon:
+        label: Rajomon
+  
+  latency-and-goodput-vs-load-dynamic-large:
+    type: latency-and-goodput-vs-load
+    include:
+      latency-and-goodput-vs-load-dynamic-large-sidecar:
+        label: Roshanfer
+      latency-and-goodput-vs-load-dynamic-large-dagor:
+        label: Dagor
+      latency-and-goodput-vs-load-dynamic-large-rajomon:
+        label: Rajomon

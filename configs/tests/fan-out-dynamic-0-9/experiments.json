@@ -35,38 +35,52 @@
             "warmup": 2
         },
         {
-            "type": "latency-vs-throughput",
+            "type": "latency-and-goodput-vs-load",
             "loads": {
-                "start": 500,
-                "end": 2500,
-                "step": 500
+                "start": 1000,
+                "end": 10000,
+                "step": 1000
             },
             "base_rate": 500,
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "loads": {
+                "start": 1000,
+                "end": 10000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "rajomon",
-            "repeat": 1,
-            "collector_freq": 200,
-            "warmup": 2
+            "repeat": 3,
+            "collector_freq": 200
         },
         {
-            "type": "latency-vs-throughput",
+            "type": "latency-and-goodput-vs-load",
             "loads": {
-                "start": 500,
-                "end": 2500,
-                "step": 500
+                "start": 1000,
+                "end": 10000,
+                "step": 1000
             },
             "base_rate": 500,
-            "duration_sec": 10,
+            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "dagor",
-            "repeat": 1,
-            "collector_freq": 200,
-            "warmup": 2
+            "repeat": 3,
+            "collector_freq": 200
         },
         {
             "type": "latency-and-rate-vs-time",
@@ -165,6 +179,72 @@
         },
         {
             "type": "max-queue",
+            "loads": {
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "dagor",
+            "repeat": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "backend1",
+                "backend2"
+            ]
+        },
+        {
+            "type": "resource-waste",
+            "loads": {
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "backend1",
+                "backend2"
+            ]
+        },
+        {
+            "type": "resource-waste",
+            "loads": {
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "rajomon",
+            "repeat": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "backend1",
+                "backend2"
+            ]
+        },
+        {
+            "type": "resource-waste",
             "loads": {
                 "start": 4000,
                 "end": 4000,
