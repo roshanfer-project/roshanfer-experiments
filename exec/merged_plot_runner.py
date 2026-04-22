@@ -1298,9 +1298,11 @@ def generate_latency_goodput_vs_load_merged(
         
     grid = SubplotGrid(style, layout=layout)
     
-    # Track all latency values for dynamic Y-axis
     all_latency_values = []
-    
+    goodput_y_top = [0.0] * n_apis
+    slo_cap_for_idx: List[Optional[float]] = [None] * n_apis
+    lat_max_for_idx = [0.0] * n_apis
+
     for idx, api in enumerate(all_apis):
         # Determine axes based on layout
         if n_apis == 1:
@@ -1335,19 +1337,6 @@ def generate_latency_goodput_vs_load_merged(
                 lat_errs = None
                 if any(c is not None for c in v_cis):
                      lat_lower = [min(c if c is not None else 0, m if m is not None else 0) for m, c in zip(v_means, v_cis)]
-                     # For log scale, we also need to ensure we don't hit 0 exactly if we want log plotting to be happy?
-                     # Actually matplotlib handles 0 in error bar lower limit by just clipping drawing usually, or we can clamp to slightly less than mean.
-                     # But min(ci, mean) ensures lower bound is at worst 0. 
-                     # If y scales are log, 0 is -inf. 
-                     # If mean is > 0, and we subtract mean, we get 0. 
-                     # Usually for log plot, we might want to clamp lower bound to something positive if mean-ci <= 0.
-                     # But here we are producing (lower_delta, upper_delta).
-                     # The checked value is y - lower_delta.
-                     # If lower_delta = mean, y - lower_delta = 0. Log(0) is undefined.
-                     # So for latency (log scale), we should perhaps clamp such that y-delta > 0.
-                     # Let's just stick to clamping delta = min(ci, mean - epsilon) if we are strict, or just min(ci, mean) and hope matplotlib ignores 0 on log scale.
-                     # Standard behavior for negative/zero lower bounds in log plots is often to clip them to a small positive number or not draw them.
-                     
                      lat_upper = [c if c is not None else 0 for c in v_cis]
                      lat_errs = [lat_lower, lat_upper]
 
@@ -1357,6 +1346,7 @@ def generate_latency_goodput_vs_load_merged(
                     show_markers=True
                 )
                 all_latency_values.extend(v_means)
+                lat_max_for_idx[idx] = max(lat_max_for_idx[idx], max(float(m) for m in v_means))
 
             # 2. Goodput Data
             goodput_data = exp_data[api]['goodput']
@@ -1371,16 +1361,22 @@ def generate_latency_goodput_vs_load_merged(
                 v_loads, v_means, v_cis = zip(*valid_gp_data)
                 
                 gp_errs = None
+                gp_highs = []
                 if any(c is not None for c in v_cis):
                      gp_lower = [min(c if c is not None else 0, m if m is not None else 0) for m, c in zip(v_means, v_cis)]
                      gp_upper = [c if c is not None else 0 for c in v_cis]
                      gp_errs = [gp_lower, gp_upper]
+                     gp_highs = [float(m) + float(u) for m, u in zip(v_means, gp_upper)]
 
                 plot_line(
                     ax_gp, v_loads, v_means, yerr=gp_errs,
                     label=label, style=style, color_idx=exp_idx, style_idx=exp_idx,
                     show_markers=True
                 )
+                if gp_highs:
+                    goodput_y_top[idx] = max(goodput_y_top[idx], max(gp_highs))
+                else:
+                    goodput_y_top[idx] = max(goodput_y_top[idx], max(float(m) for m in v_means))
 
         # --- Latency Axis Config ---
         # Add SLO line
@@ -1400,11 +1396,7 @@ def generate_latency_goodput_vs_load_merged(
                     y=slo_num, color='r', linestyle='--',
                     label='SLO', linewidth=style.line_width)
                 all_latency_values.append(slo_num)
-
-        # Config Latency Axis
-        ax_lat.set_yscale('log')
-        ax_lat.grid(True, alpha=0.3)
-        # Ensure minor ticks on Y axis only
+                slo_cap_for_idx[idx] = slo_num * 1.3
 
         if n_apis > 1:
              # In 2xN grid, Latency is Row 1 (bottom), Goodput is Row 0 (top)
@@ -1432,20 +1424,16 @@ def generate_latency_goodput_vs_load_merged(
             # grid.fig.suptitle(display_api) ?
             pass
 
-    # Dynamic Y-axis for Latency
-    if all_latency_values:
-        dyn_y_max = max(all_latency_values) * 5.0 * 1.05
-        dyn_y_max = max(dyn_y_max, 10)
-    else:
-        dyn_y_max = 500
-
+    latency_ylim_top: List[float] = []
     for idx in range(n_apis):
-        if n_apis == 1:
-            ax = grid.get_ax(0, 0) # Latency is col 0
+        cap = slo_cap_for_idx[idx]
+        if cap is not None:
+            latency_ylim_top.append(float(cap))
+        elif lat_max_for_idx[idx] > 0:
+            latency_ylim_top.append(max(lat_max_for_idx[idx] * 5.0 * 1.05, 10.0))
         else:
-            ax = grid.get_ax(1, idx) # Latency is row 1
-        ax.set_ylim(1, dyn_y_max)
-        
+            latency_ylim_top.append(500.0)
+
     # --- Configuration ---
     if n_apis == 1:
         # Layout: 1x2. Col 0: Latency, Col 1: Goodput
@@ -1458,15 +1446,20 @@ def generate_latency_goodput_vs_load_merged(
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
-                          log_y=True)
+                          log_y=False,
+                          ylim=(0.0, latency_ylim_top[0]))
         
         # Goodput (0,1)
+        gp_ylim_top = max(goodput_y_top[0] * 1.1, 1e-6)
         grid.configure_ax(grid.get_ax(0,1), 
                           ylabel="Goodput (KRPS)", 
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
-                          log_y=False)
+                          log_y=False,
+                          ylim=(0.0, gp_ylim_top),
+                          y_type='int',
+                          y_step=1)
                           
     else:
         # Layout 2xN. Row 0 Goodput. Row 1 Latency.
@@ -1479,6 +1472,7 @@ def generate_latency_goodput_vs_load_merged(
         for idx in range(n_apis):
              # Row 0: Goodput
              ax_gp = grid.get_ax(0, idx)
+             gp_ylim_top = max(goodput_y_top[idx] * 1.1, 1e-6)
              grid.configure_ax(ax_gp,
                  ylabel="Goodput (KRPS)" if idx == 0 else "",
                  xlabel="",
@@ -1488,7 +1482,10 @@ def generate_latency_goodput_vs_load_merged(
                  x_data=all_loads,
                  log_y=False,
                  show_ylabel=(idx==0),
-                 show_yticklabels=(idx==0)
+                 show_yticklabels=(idx==0),
+                 ylim=(0.0, gp_ylim_top),
+                 y_type='int',
+                 y_step=1
              )
              
              # Row 1: Latency
@@ -1498,7 +1495,8 @@ def generate_latency_goodput_vs_load_merged(
                  xlabel="Offered Load (KRPS)",
                  x_step=2.0,
                  x_data=all_loads,
-                 log_y=True,
+                 log_y=False,
+                 ylim=(0.0, latency_ylim_top[idx]),
                  show_ylabel=(idx==0),
                  show_yticklabels=(idx==0)
              )
@@ -1633,13 +1631,16 @@ def generate_latency_and_rate_vs_time_merged(
     if not include_experiments:
         return produced
     
-    # Load SLOs from config file
-    slo_map = {}
+    slos_numeric: dict = {}
     if global_config:
         try:
             with open(global_config) as f:
                 global_configs = json.load(f)
-            slo_map = global_configs.get('slos', {})
+            for k, v in (global_configs.get('slos', {}) or {}).items():
+                try:
+                    slos_numeric[str(k)] = float(v)
+                except (TypeError, ValueError):
+                    pass
         except Exception:
             pass
             
@@ -1708,10 +1709,17 @@ def generate_latency_and_rate_vs_time_merged(
                 else: overall, realtime = vals
                 if realtime and not realtime.df.empty:
                     all_found_apis.add(api)
+                    run_slo = None
+                    if overall is not None:
+                        try:
+                            run_slo = float(overall.slo_ms)
+                        except (TypeError, ValueError, AttributeError):
+                            run_slo = None
                     plot_data.append({
                         'label': label,
                         'realtime': realtime,
-                        'api': api
+                        'api': api,
+                        'slo_ms': run_slo,
                     })
         except Exception: continue
 
@@ -1726,13 +1734,6 @@ def generate_latency_and_rate_vs_time_merged(
     n_plots = len(final_data)
     if n_plots == 0: return []
 
-    # Common lookup
-    slo_val = 60.0
-    for key in [target_api, target_api.replace('-', '_'), target_api.replace('_', '-')]:
-        if key in slo_map:
-            slo_val = slo_map[key]
-            break
-    
     output_dir.mkdir(parents=True, exist_ok=True)
     style = ACM_COMPACT_HALF
 
@@ -1791,46 +1792,64 @@ def generate_latency_and_rate_vs_time_merged(
 
     # --- 2. GENERATE LATENCY PLOT ---
     print(f"Generating merged latency plot for {target_api}...")
+    try:
+        from exec.plots.plugins.latency_rate_vs_time_repeat import (
+            SLO_LINE_COLOR,
+            _lookup_slo,
+        )
+    except ImportError:
+        from plots.plugins.latency_rate_vs_time_repeat import (  # type: ignore
+            SLO_LINE_COLOR,
+            _lookup_slo,
+        )
+
+    slo_f = None
+    for d in final_data:
+        if d.get('slo_ms') is not None:
+            slo_f = float(d['slo_ms'])
+            break
+    if slo_f is None:
+        slo_f = _lookup_slo(slos_numeric if slos_numeric else None, target_api)
+
+    y_hi_global = float(slo_f) * 1.3
+
+    slo_legend = f"SLO ({slo_f:g} ms)"
     grid_lat = SubplotGrid(style, layout=f"1x{n_plots}")
-    
-    lat_max = 500.0 # Default cap
-    
+
     for i, item in enumerate(final_data):
         ax = grid_lat.get_ax(0, i)
         df = item['realtime'].df
         df = df[df['relative_time'] <= 15.0].copy()
         time_x = df['relative_time'].values
-        
-        # Plot P50 (Red typically in ACM styles if color_idx=0)
+
         if 'p50_latency' in df.columns:
             plot_line(ax, time_x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
-            
-        # Plot P99 (Blue typically in ACM styles if color_idx=1)
+
         if 'p99_latency' in df.columns:
             plot_line(ax, time_x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
-            
-        # SLO Line
-        ax.axhline(y=slo_val, color='r', linestyle='--', linewidth=style.line_width, label='SLO')
-        
-        # Title & Axis
+
         ax.set_title(item['label'], fontsize=style.title_size)
         grid_lat.configure_ax(ax,
             ylabel="Latency (ms)" if i == 0 else "",
             xlabel="Time (s)",
-            ylim=(1, lat_max),
-            log_y=True,
+            ylim=(0.0, y_hi_global),
+            log_y=False,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
             x_data=time_x, x_type='int', x_step=3
         )
-        
-    # Latency Legend
-    # Since we used plot_line with indices, we should match handles.
-    # P50 (idx 0), P99 (idx 1), SLO (Red Dashed)
+        ax.axhline(
+            y=float(slo_f),
+            color=SLO_LINE_COLOR,
+            linestyle='--',
+            linewidth=style.line_width,
+            zorder=5,
+        )
+
     lat_handles = []
     lat_handles.append(Line2D([0], [0], color=style.colors[0], linewidth=style.line_width, label='P50'))
     lat_handles.append(Line2D([0], [0], color=style.colors[1], linewidth=style.line_width, label='P99'))
-    lat_handles.append(Line2D([0], [0], color='r', linestyle='--', linewidth=style.line_width, label='SLO'))
+    lat_handles.append(Line2D([0], [0], color=SLO_LINE_COLOR, linestyle='--', linewidth=style.line_width, label=slo_legend))
     lat_labels = [h.get_label() for h in lat_handles]
     
     grid_lat.add_shared_legend(position="top", handles=lat_handles, labels=lat_labels)
@@ -2054,7 +2073,21 @@ def generate_latency_vs_throughput_merged(
     # Load SLOs from config file
     with open(global_config) as f:
         global_configs = json.load(f)
-    slo_map = global_configs.get('slos', {})
+    slo_map = global_configs.get('slos', {}) or {}
+    slos_numeric = {}
+    for k, v in slo_map.items():
+        try:
+            slos_numeric[str(k)] = float(v)
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        from exec.plots.plugins.latency_rate_vs_time_repeat import SLO_LINE_COLOR, _lookup_slo
+    except ImportError:
+        from plots.plugins.latency_rate_vs_time_repeat import (  # type: ignore
+            SLO_LINE_COLOR,
+            _lookup_slo,
+        )
 
     line_specs = [
         ('p99', 'p99_ci', 'P99 Latency (ms)', f'{figure_name}_latency_vs_throughput.pdf'),
@@ -2095,31 +2128,13 @@ def generate_latency_vs_throughput_merged(
                     show_markers=True,
                 )
 
-            slo_val = None
-            possible_keys = [api, api.replace('-', '_'), api.replace('_', '-')]
-            if api.endswith('_all'):
-                base = api.replace('_all', '')
-                possible_keys.extend([base, base.replace('-', '_'), base.replace('_', '-')])
-
-            for key in possible_keys:
-                if slo_map and key in slo_map:
-                    slo_val = slo_map[key]
-                    break
-
-            if slo_val is not None:
-                slo_val = float(slo_val)
-                ax_lat.axhline(
-                    y=slo_val, color='r', linestyle='--',
-                    label='SLO', linewidth=style.line_width,
-                )
-            else:
-                raise Exception("SLO is None")
+            slo_ms = _lookup_slo(slos_numeric if slos_numeric else None, api)
 
             grid.configure_ax(
                 ax_lat,
                 ylabel=y_axis_label if api_idx == 0 else "",
                 xlabel="Throughput (RPS)",
-                ylim=(0, 2 * slo_val),
+                ylim=(0, 2 * slo_ms),
                 grid=True,
                 show_xticklabels=True,
                 show_xlabel=True,
@@ -2127,6 +2142,14 @@ def generate_latency_vs_throughput_merged(
                 show_yticklabels=True,
                 x_type='int',
                 x_step=1000
+            )
+            ax_lat.axhline(
+                y=float(slo_ms),
+                color=SLO_LINE_COLOR,
+                linestyle='--',
+                linewidth=style.line_width,
+                zorder=5,
+                label=f"SLO ({slo_ms:g} ms)",
             )
 
         grid.add_shared_legend(position="top")

@@ -26,3 +26,19 @@ figures:
         label: Dagor
       latency-and-goodput-vs-load-dynamic-large-rajomon:
         label: Rajomon
+
+  latency-and-rate-vs-time-dynamic-large:
+    type: latency-and-rate-vs-time
+    include:
+      latency-and-rate-vs-time-dynamic-large-sidecar:
+        label: Roshanfer
+        unit: latency-and-rate-vs-time-dynamic-large-sidecar-rate-6000
+        repeat: 0
+      latency-and-rate-vs-time-dynamic-large-dagor:
+        label: Dagor
+        unit: latency-and-rate-vs-time-dynamic-large-dagor-rate-6000
+        repeat: 0
+      latency-and-rate-vs-time-dynamic-large-rajomon:
+        label: Rajomon
+        unit: latency-and-rate-vs-time-dynamic-large-rajomon-rate-6000
+        repeat: 0
