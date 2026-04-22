@@ -20,6 +20,7 @@ repeat_ctx fields (dict):
 
 This module loads realtime-{api}.csv files from the repeat's output/ directory
 and generates stacked rate plots and latency line plots using plotting_primitives.
+Plots use the full `relative_time` range in the CSV (no fixed duration cap).
 """
 from __future__ import annotations
 
@@ -178,10 +179,7 @@ def _prepare_rate_data_for_stack(realtime: RealtimeData) -> Dict[str, np.ndarray
     Metrics are ordered for stacking: goodput (bottom) -> violations -> dropped -> errors (top)
     """
     df = realtime.df
-    
-    # Filter to first 15 seconds (match legacy behavior)
-    df = df[df['relative_time'] <= 15.0].copy()
-    
+
     if df.empty:
         return {}
     
@@ -217,9 +215,8 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
         return
     
     df = realtime.df
-    df = df[df['relative_time'] <= 15.0].copy()
     x = df['relative_time'].values
-    
+
     # Plot stacked area
     # Plot stacked area
     plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
@@ -277,9 +274,8 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
             continue
         
         df = realtime.df
-        df = df[df['relative_time'] <= 15.0].copy()
         x = df['relative_time'].values
-        
+
         # Plot stacked area
         # Plot stacked area
         plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
@@ -308,14 +304,13 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     ax = grid.get_ax(0, 0)
     
     df = realtime.df
-    df = df[df['relative_time'] <= 15.0].copy()
-    
+
     if df.empty:
         grid.save(out_path)
         return
-    
+
     x = df['relative_time'].values
-    
+
     # Plot P50
     if 'p50_latency' in df.columns:
         plot_line(ax, x, df['p50_latency'].values, label='P50', style=style, color_idx=0)
@@ -359,13 +354,12 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         ax = grid.get_ax(0, idx)
         
         df = realtime.df
-        df = df[df['relative_time'] <= 15.0].copy()
-        
+
         if df.empty:
             continue
-        
+
         x = df['relative_time'].values
-        
+
         # Plot P50
         if 'p50_latency' in df.columns:
             plot_line(ax, x, df['p50_latency'].values, label='P50', style=style, color_idx=0)

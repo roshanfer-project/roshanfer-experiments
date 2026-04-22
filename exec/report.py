@@ -11,7 +11,9 @@ from typing import List
 import json
 from datetime import datetime
 
-from .models import CollectorResult, ExperimentConfig, RunResult, LoadRange
+from dataclasses import asdict
+
+from .models import CollectorResult, ExperimentConfig, RunResult
 
 
 def generate_report(run_root: Path, experiments: List[ExperimentConfig], run_results: List[RunResult], total_duration: float) -> None:
@@ -37,9 +39,9 @@ def generate_report(run_root: Path, experiments: List[ExperimentConfig], run_res
     summary_json = run_root / "report_summary.json"
     def _exp_to_dict(exp: ExperimentConfig):
         d = dict(exp.__dict__)
-        lr = d.get("loads")
-        if isinstance(lr, LoadRange):
-            d["loads"] = {"start": lr.start, "end": lr.end, "step": lr.step}
+        d["load_generator"] = exp.load_generator.to_dict()
+        if exp.fault_tolerance:
+            d["fault_tolerance"] = asdict(exp.fault_tolerance)
         return d
 
     summary_json.write_text(json.dumps({

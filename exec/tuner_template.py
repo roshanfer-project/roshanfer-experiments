@@ -45,9 +45,8 @@ def run_trial_experiment(
         name=f"tuning-trial-{system}",
         type="tuning",
         script=None, # Use default wrapper or specific tuning script
-        base=0, 
-        rate=params.get("rate", 1000), # Example: tune rate or just use fixed?
-        duration=10, # Short duration for tuning
+        phase_rates=[0, int(params.get("rate", 1000))],
+        phase_durations_sec=[2, 10],
         system=system,
         apis=["app"], # Assuming single API or passed via args
         bench=bench,

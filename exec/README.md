@@ -38,9 +38,20 @@ Run experiments defined in a JSON file:
 
 ```bash
 python -m exec.executor \
-  --experiments-file configs/chain1/experimnts.json \
-  --config configs/chain1/config.json
+  --experiments-file configs/tests/chain-2/experiments.json \
+  --config configs/tests/chain-2/config.json
 ```
+
+### Experiment spec (`experiments.json`)
+
+Every entry under **`experiments`** must include **`load_generator`**:
+
+- **`two_step_sweep`** — sweeps the second-phase rate; one **RunUnit** (one RWG process) per sweep value. Fields: **`base_duration_sec`**, **`load_duration_sec`**, **`base_rps`**, **`sweep`** `{start,end,step}` (same inclusive end semantics as `range(start, end + 1, step)` in the executor).
+- **`piecewise`** — one **RunUnit**, one RWG run with **`phases`**: `[{ "rps", "duration_sec" }, ...]` (e.g. base → spike → base).
+
+Top-level **`loads`**, **`base_rate`**, and **`duration_sec`** are not used anymore for load shape. Other fields (**`type`**, **`apis`**, **`system`**, **`repeat`**, **`fault_tolerance`** / **`fault-tolerance`**, **`deploy_env`**, …) are unchanged.
+
+The remote **`run.sh`** / **`run-plain.sh`** wrappers expect **`RWG_RATES`** and **`RWG_DURATIONS`** (comma-separated lists, equal length) plus arguments **`PROTOCOL API OUTPUT_DIR`** (optional **`--ignore-errors`** on plain). The executor sets the env vars from each unit’s phase lists.
 
 **Options:**
 - `--hosts-file PATH`: Override `hosts_file` from config (first `num_generators` lines are generators, rest are K8s nodes).

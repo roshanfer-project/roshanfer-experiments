@@ -31,6 +31,39 @@ def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
 
+def _slos_bench_rpc_env(config: Config) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for api, v in (getattr(config, "slos", None) or {}).items():
+        out[f"BENCH_RPC_SLO_MS_{api}"] = int(v) if not isinstance(v, str) else int(str(v).strip())
+    return out
+
+
+def _fault_tolerance_bench_rpc_env(exp: ExperimentConfig) -> Dict[str, Any]:
+    if not exp.fault_tolerance:
+        return {}
+    return dict(exp.fault_tolerance.to_deploy_env())
+
+
+def _validate_remaining_slo_env(apis: List[str], env: Dict[str, Any], hint: str) -> None:
+    mode = str(env.get("BENCH_RPC_DEADLINE_MODE", "")).strip()
+    if mode != "remaining_slo":
+        return
+    for api in apis:
+        k = f"BENCH_RPC_SLO_MS_{api}"
+        v = env.get(k)
+        if v is None or str(v).strip() == "":
+            raise ValueError(
+                f"{hint}: BENCH_RPC_DEADLINE_MODE=remaining_slo requires {k} "
+                "(set config.json slos or deploy_env)."
+            )
+        try:
+            iv = int(v)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"{hint}: invalid {k}={v!r}") from e
+        if iv <= 0:
+            raise ValueError(f"{hint}: {k} must be positive, got {v!r}")
+
+
 def _write_infra_partition(
     run_root: Path,
     config: Config,
@@ -111,40 +144,19 @@ def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[
     return result
 
 def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
-    # Custom expansion logic mapping exp params to units
-    start = exp.loads.start if exp.loads else exp.base_rate
-    end = exp.loads.end + 1 if exp.loads else (exp.base_rate + 1)
-    step = exp.loads.step if exp.loads else 1
-
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
     script = exp.script or ("run.sh" if exp.system == "sidecar" else "run-plain.sh")
+    lg = exp.load_generator
 
-    if exp.loads is None and exp.base_rate == 0:
-        # Single run, no load sweep?
+    if lg.kind == "piecewise":
+        rates = [p.rps for p in lg.phases]
+        durs = [p.duration_sec for p in lg.phases]
         yield RunUnit(
             name=exp.name,
             type=exp.type,
             script=script,
-            base=0, rate=0, duration=exp.duration,
-            system=exp.system, apis=exp.apis, bench=bench,
-            collector_freq=exp.collector_freq, warmup=exp.warmup, cooldown=exp.cooldown,
-            services=exp.services, execution_args=exp.execution_args,
-            repeats=exp.repeat,
-            generator_hosts=generator_hosts,
-            deployment_hosts=deployment,
-            params=exp.params
-        )
-        return
-
-    for load in range(start, end, step):
-        variant_name = f"{exp.name}-rate-{load}"
-        yield RunUnit(
-            name=variant_name,
-            type=exp.type,
-            script=script,
-            base=exp.base_rate,
-            rate=load,
-            duration=exp.duration,
+            phase_rates=rates,
+            phase_durations_sec=durs,
             system=exp.system,
             apis=exp.apis,
             bench=bench,
@@ -158,7 +170,35 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
             repeats=exp.repeat,
             generator_hosts=generator_hosts,
             deployment_hosts=deployment,
-            params=exp.params
+            params=exp.params,
+        )
+        return
+
+    # two_step_sweep
+    assert lg.sweep is not None
+    sw = lg.sweep
+    for load in range(sw.start, sw.end + 1, sw.step):
+        variant_name = f"{exp.name}-rate-{load}"
+        yield RunUnit(
+            name=variant_name,
+            type=exp.type,
+            script=script,
+            phase_rates=[lg.base_rps, load],
+            phase_durations_sec=[lg.base_duration_sec, lg.load_duration_sec],
+            system=exp.system,
+            apis=exp.apis,
+            bench=bench,
+            collector_freq=exp.collector_freq,
+            warmup=exp.warmup,
+            cooldown=exp.cooldown,
+            services=exp.services,
+            cleanup_args=exp.cleanup_args,
+            execution_args=exp.execution_args,
+            metadata={},
+            repeats=exp.repeat,
+            generator_hosts=generator_hosts,
+            deployment_hosts=deployment,
+            params=exp.params,
         )
 
 def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:
@@ -227,17 +267,7 @@ def _run_tuner(system: str, bench: str, tuning_dir: Path, logs_dir: Path, config
     
     return {}
 
-    all_exps = _load_experiments_file(experiments_file)
-    
-    # Filter Experiments (Assuming ns passed or arguments available)
-    # We need to access the Namespace arguments here.
-    # Updated execute signature to accept Namespace or filter args?
-    # Better: Update execute signature to take filter args.
-    
-    # Wait, I need to update execute signature first. 
-    # Let's pivot to updating execute signature to accept 'filters' dict or specific args.
-    pass
-    
+
 def execute(experiments_file: Path, config: Config, config_path: Path, filters: Dict[str, Any] = None) -> int:
     start_all = time.time()
     all_exps = _load_experiments_file(experiments_file)
@@ -411,10 +441,12 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         repeat_dir.mkdir(parents=True, exist_ok=True)
                         
                         try:
-                            # Merge tuning params with experiment-specific env vars
-                            # Priority: deploy_env (exp config) > deploy_params (tuning result)
+                            # Merge: config slos -> fault-tolerance -> tuning -> deploy_env
                             extra_env = unit.params.get("deploy_env", {})
-                            final_env_vars = {**deploy_params, **extra_env}
+                            slos_rpc = _slos_bench_rpc_env(config)
+                            ft_rpc = _fault_tolerance_bench_rpc_env(exp)
+                            final_env_vars = {**slos_rpc, **ft_rpc, **deploy_params, **extra_env}
+                            _validate_remaining_slo_env(unit.apis, final_env_vars, str(config_path))
 
                             # Deploy per repeat
                             deploy_log = logs_dir / f"deploy_{system}_{unit.safe_name()}_r{r}_{_timestamp()}.log"
@@ -518,7 +550,7 @@ def _log_result(csv_path: Path, jsonl_path: Path, exp: ExperimentConfig, unit: R
         "duration_sec": run.details.get("duration_sec"),
         "config": exp.params, # Store full config params for reference
         "apis": exp.apis,
-        "load": unit.rate
+        "load": unit.peak_rate
     }
     with jsonl_path.open("a") as f:
         f.write(json.dumps(data) + "\n")

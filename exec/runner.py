@@ -440,9 +440,7 @@ class Runner:
                 else:
                      wrapper_cmd = f"./{unit.script}" if unit.script else "./run.sh"
 
-                # Command: cd benchmarks/{bench} && {wrapper_cmd} {protocol} {base} {rate} {duration} {api} {output_dir}
-                # Output dir on remote? No, usually wrapper writes to local given path.
-                # We need to specify a remote temp output dir, then pull it.
+                # Command: cd benchmarks/{bench} && RWG_RATES=... RWG_DURATIONS=... {wrapper_cmd} {protocol} {api} {output_dir}
                 remote_out_dir = f"/tmp/rwg_out_{unit.safe_name()}_{idx}"
                 
                 target_addr = "node0"
@@ -474,10 +472,14 @@ class Runner:
                         logging.warning(f"Warning: Could not resolve node alias: {e}")
                         target_addr = "node0"
 
+                rwg_rates = ",".join(str(x) for x in unit.phase_rates)
+                rwg_durs = ",".join(str(x) for x in unit.phase_durations_sec)
                 cmd_str = (
                     f"cd {remote_wrapper_path} && "
                     f"mkdir -p {remote_out_dir} && "
-                    f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
+                    f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} "
+                    f"RWG_RATES={rwg_rates} RWG_DURATIONS={rwg_durs} "
+                    f"{wrapper_cmd} {http_type} {api} {remote_out_dir}"
                 )
                 if not (unit.system in ["plain", "sidecar"]):
                     # add --ignore-errors

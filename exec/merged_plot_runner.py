@@ -29,6 +29,11 @@ from matplotlib.ticker import LogLocator
 import statistics
 
 try:
+    from exec.models import offered_load_from_config_dict
+except ImportError:
+    from models import offered_load_from_config_dict
+
+try:
     from exec.plots.data_loader import PrometheusData
 except ImportError:
     PrometheusData = None
@@ -1209,7 +1214,7 @@ def generate_latency_goodput_vs_load_merged(
                 load_value = int(m.group(1))
             else:
                 cfg = record.get('config', {})
-                load_value = cfg.get('base_rate')
+                load_value = offered_load_from_config_dict(cfg)
             
             if load_value is None:
                 continue
@@ -1744,7 +1749,6 @@ def generate_latency_and_rate_vs_time_merged(
     rate_max = 0.0
     for item in final_data:
         df = item['realtime'].df
-        df = df[df['relative_time'] <= 15.0]
         cols = ['goodput', 'slo_violations', 'dropped_requests']
         existing = [c for c in cols if c in df.columns]
         if existing:
@@ -1757,7 +1761,6 @@ def generate_latency_and_rate_vs_time_merged(
     for i, item in enumerate(final_data):
         ax = grid_rate.get_ax(0, i)
         df = item['realtime'].df
-        df = df[df['relative_time'] <= 15.0].copy()
         time_x = df['relative_time'].values
         
         y_series = {}
@@ -1819,7 +1822,6 @@ def generate_latency_and_rate_vs_time_merged(
     for i, item in enumerate(final_data):
         ax = grid_lat.get_ax(0, i)
         df = item['realtime'].df
-        df = df[df['relative_time'] <= 15.0].copy()
         time_x = df['relative_time'].values
 
         if 'p50_latency' in df.columns:
@@ -1963,8 +1965,7 @@ def generate_latency_vs_throughput_merged(
                             unit_load_value[unit_name] = int(m.group(1))
                         else:
                             cfg = r.get('config') or {}
-                            br = cfg.get('base_rate')
-                            unit_load_value[unit_name] = int(br) if br is not None else None
+                            unit_load_value[unit_name] = offered_load_from_config_dict(cfg)
                     found_units[unit_name].append(Path(r.get('artifact_dir')))
 
         # 2. Process each unit (load level) for EACH API

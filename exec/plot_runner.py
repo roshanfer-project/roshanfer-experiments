@@ -47,6 +47,11 @@ import traceback
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional
 
+try:
+    from exec.models import offered_load_from_config_dict
+except ImportError:
+    from models import offered_load_from_config_dict
+
 PlotFunc = Callable[[Dict], List[Path]]
 AggregateFunc = Callable[[Dict], List[Path]]  # unit-level
 ExpAggregateFunc = Callable[[Dict], List[Path]]  # experiment-level (multi-load)
@@ -431,9 +436,8 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             if m:
                 load_value = int(m.group(1))
             else:
-                # fallback: try loads.start from config stored in record
                 cfg = recs[0].get('config') or {}
-                load_value = cfg.get('base_rate')
+                load_value = offered_load_from_config_dict(cfg)
             # API list from first record
             apis = recs[0].get('apis') or []
             slos = config.get('slos')
@@ -539,7 +543,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                     load_value = int(m.group(1))
                 else:
                     cfg = recs[0].get('config') or {}
-                    load_value = cfg.get('base_rate')
+                    load_value = offered_load_from_config_dict(cfg)
                 unit_entries.append({
                     'run_unit_name': run_unit_name,
                     'repeat_metric_files': repeat_metric_files,

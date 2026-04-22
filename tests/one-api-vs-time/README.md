@@ -1,9 +1,11 @@
 # Run from root
 
-Running the workload generator (from the root of the project):
+Running the workload generator (from the repo root). The hotel wrapper expects **`RWG_RATES`**, **`RWG_DURATIONS`**, and **`RWG_BINARY`**; arguments are **`protocol`**, **`api`**, **`output_dir`** (see **`benchmarks/hotel/run.sh`**).
 
 ```bash
-./wrapper/hotel/run.sh grpc 3000 8000 10 hotel-search ./tests/one-api-vs-time
+export RWG_BINARY=./rwg/rwg
+# Example: 3000 rps for 2s, then 8000 rps for 10s (matches old two-phase shape)
+RWG_RATES=3000,8000 RWG_DURATIONS=2,10 ./benchmarks/hotel/run.sh http search-hotel ./tests/one-api-vs-time
 ```
 
 Parse the overall results:

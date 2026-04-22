@@ -17,8 +17,8 @@ Modular system to run experiments end-to-end (execute -> collect -> report) with
 
 Components
 ----------
-1. executor.py: Orchestrates experiments from a JSON spec, manages run folder, reporting.
-2. runner.py: Executes a RunUnit (script or custom logic) and stores raw artifacts.
+1. executor.py: Orchestrates experiments from **`experiments.json`** (each experiment needs **`load_generator`**: **`two_step_sweep`** or **`piecewise`**), manages run folder, reporting.
+2. runner.py: Executes a RunUnit; sets **`RWG_RATES`** / **`RWG_DURATIONS`** for benchmark **`run.sh`** wrappers and stores raw artifacts.
 3. collector.py: Fetches telemetry (Prometheus etc.) and persists metrics snapshots.
 4. report.py: Builds Markdown + JSON summary; extend to call plotting scripts.
 5. config.py: Centralizes configurable parameters (URLs, directories, retries...).
@@ -26,7 +26,9 @@ Components
 
 Usage
 -----
-python -m experiments.exec.executor --experiments-file experiments/exec/sample_experiments.json --config path/to/config.json
+python -m exec.executor --experiments-file configs/tests/<bench>/experiments.json --config configs/tests/<bench>/config.json
+
+See **`exec/README.md`** for **`load_generator`** schema and CLI flags.
 
 Config
 ------
@@ -40,12 +42,10 @@ Append-Only Storage
 -------------------
 Each invocation creates run-YYYYMMDD_HHMMSS under output_base_dir with per-unit subfolders. CSV + JSONL summaries are appended, never overwritten across invocations.
 
-Placeholders (User Implementation Needed)
-----------------------------------------
-1. executor._expand_experiment: Break high-level configs into multiple RunUnit objects.
-2. runner: Environment lifecycle (containers, services) and non-script experiment logic.
-3. collector: Robust metric queries, failure detection, retry policy.
-4. report: Invoke existing plotting scripts and embed image links.
+Extensions
+----------
+1. collector: Tighter metric queries, failure detection, retry policy where needed.
+2. report: Extra plotting hooks and metadata (git hash, cluster id, …).
 
 Next Steps
 ----------
