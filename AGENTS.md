@@ -46,3 +46,5 @@ The agent should repeat this phase until its certain.
 The agent simply executes the agreed plan.
 
 At the end, it should present a summary of changes to the user.
+
+Always update the related REASME files in directories to reflect the new changes. Keep it simple and concise.
