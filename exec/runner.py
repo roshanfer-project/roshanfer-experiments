@@ -510,9 +510,50 @@ class Runner:
                 proc = subprocess.Popen(item['ssh_cmd'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 active_processes.append((item['api'], item['host'], proc, item['remote_out_dir']))
 
+            failslow_thread: Optional[threading.Thread] = None
+            failslow_result: Dict[str, Any] = {}
+            if unit.failslow is not None:
+                fs = unit.failslow
+
+                def _failslow_arm() -> None:
+                    try:
+                        time.sleep(fs.after_sec)
+                        dur_ms = max(0, int(round(fs.duration_sec * 1000)))
+                        payload = json.dumps({"duration_ms": dur_ms, "extra_ms": int(fs.extra_ms)})
+                        cmd: List[str] = ["kubectl", "exec"]
+                        if fs.kubernetes_namespace:
+                            cmd.extend(["-n", fs.kubernetes_namespace])
+                        # BusyBox wget (default on alpine runtime images); avoids requiring curl in the image.
+                        cmd.extend(
+                            [
+                                fs.pod,
+                                "-c",
+                                fs.container,
+                                "--",
+                                "wget",
+                                "-q",
+                                "-O-",
+                                "--header=Content-Type: application/json",
+                                f"--post-data={payload}",
+                                "http://127.0.0.1:19090/failslow",
+                            ]
+                        )
+                        cp = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                        failslow_result["kubectl_returncode"] = cp.returncode
+                        failslow_result["kubectl_stdout"] = (cp.stdout or "")[:2000]
+                        failslow_result["kubectl_stderr"] = (cp.stderr or "")[:2000]
+                        if cp.returncode != 0:
+                            logging.warning("failslow arm failed (kubectl exit %s): %s", cp.returncode, cp.stderr)
+                    except Exception as ex:
+                        failslow_result["error"] = str(ex)
+                        logging.warning("failslow arm exception: %s", ex)
+
+                failslow_thread = threading.Thread(target=_failslow_arm, daemon=True)
+                failslow_thread.start()
+
             # Wait for all
             start_timestamp = datetime.now().isoformat()
-            
+
             for api, host, proc, remote_out_dir in active_processes:
                 stdout, stderr = proc.communicate()
                 
@@ -547,6 +588,14 @@ class Runner:
                         host, 
                         f"rm -rf {remote_out_dir}"
                     ], check=False)
+
+            if failslow_thread is not None and unit.failslow is not None:
+                join_budget = float(unit.failslow.after_sec) + float(unit.failslow.duration_sec) + 90.0
+                failslow_thread.join(timeout=max(120.0, join_budget))
+                if failslow_thread.is_alive():
+                    failslow_result["warning"] = "failslow arm thread still running at join timeout"
+                    logging.warning("failslow arm thread did not finish within join timeout")
+                details["failslow"] = failslow_result
 
             end_timestamp = datetime.now().isoformat()
             

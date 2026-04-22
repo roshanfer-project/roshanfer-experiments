@@ -15,11 +15,11 @@ import yaml
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 OUTPUT_NAME = "all_tests_plots.pdf"
-HEADER_PT = 80.0
+HEADER_PT = 96.0
 # Per-load only; experiment-level latency_vs_load.pdf / goodput_vs_load.pdf replace these.
 SKIP_PDF_NAMES = frozenset({"latency_vs_load_unit.pdf", "goodput_vs_load_unit.pdf"})
 
-Meta = Tuple[str, str, str, str, str]
+Meta = Tuple[str, str, str, str, str, str]
 
 
 def _extract_apis(row: Dict[str, Any]) -> list[str]:
@@ -53,6 +53,25 @@ def _fault_tolerance_display(row: Dict[str, Any]) -> str:
             parts.append(f"{key}={raw[key]}")
     if not parts:
         return "not set (defaults: deadline none, retry none)"
+    return ", ".join(parts)
+
+
+def _failslow_display(row: Dict[str, Any]) -> str:
+    """Format failslow block from run_summary.jsonl row (config includes merged experiment fields)."""
+    cfg = row.get("config")
+    if not isinstance(cfg, dict):
+        cfg = {}
+    raw = cfg.get("failslow")
+    if raw is None:
+        return "not set"
+    if not isinstance(raw, dict):
+        return str(raw)
+    parts: list[str] = []
+    for key in ("pod", "after_sec", "duration_sec", "extra_ms", "container", "kubernetes_namespace"):
+        if key in raw and raw[key] is not None and str(raw[key]) != "":
+            parts.append(f"{key}={raw[key]}")
+    if not parts:
+        return "not set"
     return ", ".join(parts)
 
 
@@ -101,12 +120,14 @@ def _load_run_index(run_ts_root: Path, suite: str) -> Dict[str, Dict[str, Any]]:
                 cfg = row.get("config") or {}
                 apis = _extract_apis(row)
                 ft_text = _fault_tolerance_display(row)
+                fs_text = _failslow_display(row)
                 if en not in by_name:
                     by_name[en] = {
                         "type": row.get("type") or cfg.get("type") or "?",
                         "system": cfg.get("system") or "?",
                         "apis": apis,
                         "fault_tolerance": ft_text,
+                        "failslow": fs_text,
                     }
                 else:
                     prev = by_name[en]
@@ -115,6 +136,7 @@ def _load_run_index(run_ts_root: Path, suite: str) -> Dict[str, Dict[str, Any]]:
                     if not prev.get("apis") and apis:
                         prev["apis"] = apis
                     prev["fault_tolerance"] = ft_text
+                    prev["failslow"] = fs_text
         except (json.JSONDecodeError, OSError):
             continue
     return by_name
@@ -162,6 +184,18 @@ def _fault_tolerance_for_merged(suite: str, figure_name: str, idx: Dict[str, Dic
     return " | ".join(chunks)
 
 
+def _failslow_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
+    keys = _merged_figure_include_keys(suite, figure_name)
+    if not keys:
+        return "?"
+    chunks: list[str] = []
+    for k in keys:
+        row = idx.get(k) or {}
+        fs = row.get("failslow")
+        chunks.append(f"{k}: {fs or '?'}")
+    return " | ".join(chunks)
+
+
 def _apis_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
     keys = _merged_figure_include_keys(suite, figure_name)
     if not keys:
@@ -198,7 +232,8 @@ def _meta_for_pdf(
         mtype = _merged_figure_type(suite, figure_name) or "merged"
         apis_s = _apis_for_merged(suite, figure_name, idx)
         ft_s = _fault_tolerance_for_merged(suite, figure_name, idx)
-        return str(mtype), "merged", bench, apis_s, ft_s
+        fs_s = _failslow_for_merged(suite, figure_name, idx)
+        return str(mtype), "merged", bench, apis_s, ft_s, fs_s
 
     if len(parts) >= 2:
         exp_name = parts[1]
@@ -206,10 +241,11 @@ def _meta_for_pdf(
         if row:
             apis_s = _apis_display(row.get("apis") or [])
             ft_s = str(row.get("fault_tolerance") or "?")
-            return str(row["type"]), str(row["system"]), bench, apis_s, ft_s
-        return "?", "?", bench, "?", "?"
+            fs_s = str(row.get("failslow") or "?")
+            return str(row["type"]), str(row["system"]), bench, apis_s, ft_s, fs_s
+        return "?", "?", bench, "?", "?", "?"
 
-    return "?", "?", bench, "?", "?"
+    return "?", "?", bench, "?", "?", "?"
 
 
 def _header_pdf_bytes(
@@ -220,6 +256,7 @@ def _header_pdf_bytes(
     bench: str,
     apis: str,
     fault_tolerance: str,
+    failslow: str,
 ) -> bytes:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
@@ -232,6 +269,7 @@ def _header_pdf_bytes(
         textwrap.fill(f"bench: {bench}", width=wrap_w),
         textwrap.fill(f"apis: {apis}", width=wrap_w),
         textwrap.fill(f"fault-tolerance: {fault_tolerance}", width=wrap_w),
+        textwrap.fill(f"failslow: {failslow}", width=wrap_w),
     ]
     body = "\n".join(blocks)
 
@@ -262,17 +300,19 @@ def _append_page_with_header(
     writer: Any,
     src_page: Any,
     meta: Meta,
-    header_cache: Dict[Tuple[str, str, str, str, str, int], bytes],
+    header_cache: Dict[Tuple[str, str, str, str, str, str, int], bytes],
 ) -> None:
     from pypdf import PdfReader, Transformation
 
     w = float(src_page.mediabox.width)
     h = float(src_page.mediabox.height)
     header = HEADER_PT
-    etype, system, bench, apis, fault_tolerance = meta
-    key = (etype, system, bench, apis, fault_tolerance, int(round(w)))
+    etype, system, bench, apis, fault_tolerance, failslow = meta
+    key = (etype, system, bench, apis, fault_tolerance, failslow, int(round(w)))
     if key not in header_cache:
-        header_cache[key] = _header_pdf_bytes(w, header, etype, system, bench, apis, fault_tolerance)
+        header_cache[key] = _header_pdf_bytes(
+            w, header, etype, system, bench, apis, fault_tolerance, failslow
+        )
     hreader = PdfReader(io.BytesIO(header_cache[key]))
     hpage = hreader.pages[0]
     hw = float(hpage.mediabox.width)
@@ -318,7 +358,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     writer = PdfWriter()
-    header_cache: Dict[Tuple[str, str, str, str, str, int], bytes] = {}
+    header_cache: Dict[Tuple[str, str, str, str, str, str, int], bytes] = {}
     for path in pdfs:
         meta = _meta_for_pdf(root, run_ts_root, path)
         reader = PdfReader(str(path))

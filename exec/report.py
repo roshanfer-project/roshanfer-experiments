@@ -42,6 +42,8 @@ def generate_report(run_root: Path, experiments: List[ExperimentConfig], run_res
         d["load_generator"] = exp.load_generator.to_dict()
         if exp.fault_tolerance:
             d["fault_tolerance"] = asdict(exp.fault_tolerance)
+        if exp.failslow:
+            d["failslow"] = asdict(exp.failslow)
         return d
 
     summary_json.write_text(json.dumps({

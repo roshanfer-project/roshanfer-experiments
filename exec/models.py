@@ -141,6 +141,35 @@ class FaultToleranceConfig:
 
 
 @dataclass
+class FailSlowConfig:
+    """gRPC-only fail-slow: arm via kubectl exec to pod localhost admin (see callgraph-framework README)."""
+
+    pod: str
+    after_sec: float
+    duration_sec: float
+    extra_ms: int
+    container: str = "app"
+    kubernetes_namespace: Optional[str] = None
+
+    @staticmethod
+    def from_optional(raw: Any) -> Optional["FailSlowConfig"]:
+        if not isinstance(raw, dict):
+            return None
+        d = raw
+        if "pod" not in d or "after_sec" not in d or "duration_sec" not in d or "extra_ms" not in d:
+            return None
+        ns = d.get("kubernetes_namespace")
+        return FailSlowConfig(
+            pod=str(d["pod"]),
+            after_sec=float(d["after_sec"]),
+            duration_sec=float(d["duration_sec"]),
+            extra_ms=int(d["extra_ms"]),
+            container=str(d.get("container") or "app"),
+            kubernetes_namespace=str(ns) if ns else None,
+        )
+
+
+@dataclass
 class ExperimentConfig:
     """Parsed high-level experiment specification."""
 
@@ -161,6 +190,7 @@ class ExperimentConfig:
     cleanup_args: List[str] = field(default_factory=list)
     execution_args: List[str] = field(default_factory=list)
     fault_tolerance: Optional[FaultToleranceConfig] = None
+    failslow: Optional[FailSlowConfig] = None
     params: Dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
@@ -178,6 +208,8 @@ class ExperimentConfig:
         if ft_raw is None:
             ft_raw = merged.get("fault_tolerance")
         ft = FaultToleranceConfig.from_optional(ft_raw)
+        fs_raw = merged.get("failslow")
+        failslow = FailSlowConfig.from_optional(fs_raw)
         return ExperimentConfig(
             name=merged.get("name", ""),
             type=merged["type"],
@@ -196,6 +228,7 @@ class ExperimentConfig:
             cleanup_args=list(merged.get("cleanup_args", [])),
             execution_args=list(merged.get("execution_args", [])),
             fault_tolerance=ft,
+            failslow=failslow,
             params=merged,
         )
 
@@ -225,6 +258,7 @@ class RunUnit:
     services: List[str] = field(default_factory=list)
     cleanup_args: List[str] = field(default_factory=list)
     execution_args: List[str] = field(default_factory=list)
+    failslow: Optional[FailSlowConfig] = None
     params: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     repeats: int = 1
