@@ -257,10 +257,24 @@ class SubplotGrid:
             if ylim is not None:
                 ax.set_ylim(ylim[0], ylim[1])
         else:
-            if auto_ticks and (y_data is not None or ylim is not None):
-                configure_y_axis_ticks(ax, y_data=y_data, style=self.style,
-                                       y_step=y_step, y_type=y_type,
-                                       y_guard=y_guard, ylim=ylim)
+            tick_ylim = ylim
+            if (
+                auto_ticks
+                and y_data is None
+                and tick_ylim is None
+                and (y_step is not None or y_type != "auto")
+            ):
+                tick_ylim = tuple(float(x) for x in ax.get_ylim())
+            if auto_ticks and (y_data is not None or tick_ylim is not None):
+                configure_y_axis_ticks(
+                    ax,
+                    y_data=y_data,
+                    style=self.style,
+                    y_step=y_step,
+                    y_type=y_type,
+                    y_guard=y_guard,
+                    ylim=tick_ylim,
+                )
                 if ylim is not None:
                     ax.set_ylim(ylim[0], ylim[1])
             elif ylim is not None:
