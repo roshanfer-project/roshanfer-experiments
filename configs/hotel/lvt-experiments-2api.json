@@ -2,13 +2,6 @@
     "experiments": [
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 2500,
-                "end": 5000,
-                "step": 500
-            },
-            "base_rate": 1000,
-            "duration_sec": 10,
             "apis": [
                 "search-hotel",
                 "reserve-hotel"
@@ -16,17 +9,21 @@
             "system": "plain",
             "repeat": 2,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 2500,
+                    "end": 5000,
+                    "step": 500
+                }
+            }
         },
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 2500,
-                "end": 5000,
-                "step": 500
-            },
-            "base_rate": 1000,
-            "duration_sec": 10,
             "apis": [
                 "search-hotel",
                 "reserve-hotel"
@@ -34,7 +31,18 @@
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 2500,
+                    "end": 5000,
+                    "step": 500
+                }
+            }
         }
     ]
 }

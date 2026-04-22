@@ -2,13 +2,6 @@
     "experiments": [
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 250,
-                "end": 1000,
-                "step": 250
-            },
-            "base_rate": 250,
-            "duration_sec": 10,
             "apis": [
                 "f1",
                 "f2",
@@ -17,17 +10,21 @@
             "system": "plain",
             "repeat": 1,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 250,
+                "sweep": {
+                    "start": 250,
+                    "end": 1000,
+                    "step": 250
+                }
+            }
         },
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 500,
-                "end": 2000,
-                "step": 500
-            },
-            "base_rate": 500,
-            "duration_sec": 10,
             "apis": [
                 "f1",
                 "f2",
@@ -36,50 +33,62 @@
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 500,
+                    "end": 2000,
+                    "step": 500
+                }
+            }
         },
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 5000,
-                "end": 5000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "sidecar",
             "repeat": 2,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 5000,
-                "end": 5000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1",
                 "f2"
             ],
             "system": "sidecar",
             "repeat": 2,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 5000,
-                "end": 5000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1",
                 "f2",
@@ -87,17 +96,21 @@
             ],
             "system": "sidecar",
             "repeat": 2,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "max-queue",
-            "loads": {
-                "start": 5000,
-                "end": 5000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1",
                 "f2",
@@ -114,6 +127,17 @@
             ],
             "deploy_env": {
                 "queuing_export": "true"
+            },
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
             }
         }
     ]

@@ -1,576 +1,684 @@
 {
-  "experiments": [
-    {
-      "type": "latency-vs-throughput",
-      "loads": {
-        "start": 1000,
-        "end": 6000,
-        "step": 500
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "plain",
-      "repeat": 3,
-      "collector_freq": 200,
-      "warmup": 2
-    },
-    {
-      "type": "latency-vs-throughput",
-      "loads": {
-        "start": 1000,
-        "end": 6000,
-        "step": 500
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200,
-      "warmup": 2
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 14000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "plain",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 8000,
-        "end": 8000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ],
-      "deploy_env": {
-        "queuing_export": "true"
-      }
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ],
-      "deploy_env": {
-        "queuing_export": "true"
-      }
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 14000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "max-queue-motivation",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 9000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "warmup": 2,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 14000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 8000,
-        "end": 8000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 8000,
-        "end": 8000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 500,
-      "duration_sec": 15,
-      "apis": [
-        "search-hotel",
-        "reserve-hotel"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "ingress",
-        "frontend",
-        "search",
-        "reservation",
-        "profile",
-        "user",
-        "rate",
-        "geo"
-      ]
-    }
-  ]
+    "experiments": [
+        {
+            "type": "latency-vs-throughput",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "plain",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 6000,
+                    "step": 500
+                }
+            }
+        },
+        {
+            "type": "latency-vs-throughput",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 6000,
+                    "step": 500
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 14000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "plain",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "deploy_env": {
+                "queuing_export": "true"
+            },
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 8000,
+                    "end": 8000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "deploy_env": {
+                "queuing_export": "true"
+            },
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 14000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue-motivation",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 9000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "warmup": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 14000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 8000,
+                    "end": 8000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 8000,
+                    "end": 8000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "search-hotel",
+                "reserve-hotel"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "search",
+                "reservation",
+                "profile",
+                "user",
+                "rate",
+                "geo"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        }
+    ]
 }

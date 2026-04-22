@@ -2,143 +2,168 @@
     "experiments": [
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 500,
-                "end": 2500,
-                "step": 500
-            },
-            "base_rate": 500,
-            "duration_sec": 10,
             "apis": [
                 "f1"
             ],
             "system": "plain",
             "repeat": 1,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 500,
+                    "end": 2500,
+                    "step": 500
+                }
+            }
         },
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 500,
-                "end": 2500,
-                "step": 500
-            },
-            "base_rate": 500,
-            "duration_sec": 10,
             "apis": [
                 "f1"
             ],
             "system": "sidecar",
             "repeat": 1,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 500,
+                    "end": 2500,
+                    "step": 500
+                }
+            }
         },
         {
             "type": "latency-and-goodput-vs-load",
-            "loads": {
-                "start": 1000,
-                "end": 10000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "sidecar",
             "repeat": 3,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-goodput-vs-load",
-            "loads": {
-                "start": 1000,
-                "end": 10000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "rajomon",
             "repeat": 3,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-goodput-vs-load",
-            "loads": {
-                "start": 1000,
-                "end": 10000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "dagor",
             "repeat": 3,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "sidecar",
             "repeat": 2,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "rajomon",
             "repeat": 2,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
             "system": "dagor",
             "repeat": 2,
-            "collector_freq": 200
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "max-queue",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
@@ -153,17 +178,21 @@
             ],
             "deploy_env": {
                 "queuing_export": "true"
+            },
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
             }
         },
         {
             "type": "max-queue",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
@@ -175,17 +204,21 @@
                 "frontend",
                 "backend1",
                 "backend2"
-            ]
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "max-queue",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
@@ -197,17 +230,21 @@
                 "frontend",
                 "backend1",
                 "backend2"
-            ]
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "resource-waste",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
@@ -219,17 +256,21 @@
                 "frontend",
                 "backend1",
                 "backend2"
-            ]
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "resource-waste",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
@@ -241,17 +282,21 @@
                 "frontend",
                 "backend1",
                 "backend2"
-            ]
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         },
         {
             "type": "resource-waste",
-            "loads": {
-                "start": 4000,
-                "end": 4000,
-                "step": 1000
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
             "apis": [
                 "f1"
             ],
@@ -263,7 +308,18 @@
                 "frontend",
                 "backend1",
                 "backend2"
-            ]
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 500,
+                "sweep": {
+                    "start": 4000,
+                    "end": 4000,
+                    "step": 1000
+                }
+            }
         }
     ]
 }

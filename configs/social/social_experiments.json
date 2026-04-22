@@ -1,547 +1,651 @@
 {
-  "experiments": [
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 14000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "plain",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "plain",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "sidecar",
-      "repeat": 1,
-      "collector_freq": 200
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ],
-      "deploy_env": {
-        "queuing_export": "true"
-      }
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ],
-      "deploy_env": {
-        "queuing_export": "true"
-      }
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 14000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "rajomon",
-      "repeat": 5,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "rajomon",
-      "repeat": 5,
-      "collector_freq": 200
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "max-queue-motivation",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 9000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "sidecar",
-      "repeat": 3,
-      "collector_freq": 200,
-      "warmup": 2,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "rajomon",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 14000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "dagor",
-      "repeat": 10,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 1000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "dagor",
-      "repeat": 5,
-      "collector_freq": 200
-    },
-    {
-      "type": "latency-and-rate-vs-time",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "dagor",
-      "repeat": 5,
-      "collector_freq": 200
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "max-queue",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 10000,
-        "end": 10000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    },
-    {
-      "type": "resource-waste",
-      "loads": {
-        "start": 5000,
-        "end": 5000,
-        "step": 1000
-      },
-      "base_rate": 1000,
-      "duration_sec": 15,
-      "apis": [
-        "compose-post",
-        "read-user-timeline",
-        "read-home-timeline"
-      ],
-      "system": "dagor",
-      "repeat": 3,
-      "collector_freq": 200,
-      "services": [
-        "nginx",
-        "compose",
-        "home",
-        "user",
-        "posts",
-        "graph"
-      ]
-    }
-  ]
+    "experiments": [
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 14000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "plain",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "plain",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "sidecar",
+            "repeat": 1,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "deploy_env": {
+                "queuing_export": "true"
+            },
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "deploy_env": {
+                "queuing_export": "true"
+            },
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 14000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "rajomon",
+            "repeat": 5,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "rajomon",
+            "repeat": 5,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue-motivation",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 9000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "sidecar",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup": 2,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "dagor",
+            "repeat": 10,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 14000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "dagor",
+            "repeat": 5,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "dagor",
+            "repeat": 5,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "max-queue",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "compose-post"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 10000,
+                    "end": 10000,
+                    "step": 1000
+                }
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "compose-post",
+                "read-user-timeline",
+                "read-home-timeline"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200,
+            "services": [
+                "nginx",
+                "compose",
+                "home",
+                "user",
+                "posts",
+                "graph"
+            ],
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 5000,
+                    "end": 5000,
+                    "step": 1000
+                }
+            }
+        }
+    ]
 }

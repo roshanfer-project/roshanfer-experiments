@@ -2,37 +2,45 @@
     "experiments": [
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 1000,
-                "end": 6000,
-                "step": 500
-            },
-            "base_rate": 1000,
-            "duration_sec": 15,
             "apis": [
                 "search-hotel"
             ],
             "system": "plain",
             "repeat": 3,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 6000,
+                    "step": 500
+                }
+            }
         },
         {
             "type": "latency-vs-throughput",
-            "loads": {
-                "start": 1000,
-                "end": 6000,
-                "step": 500
-            },
-            "base_rate": 1000,
-            "duration_sec": 15,
             "apis": [
                 "search-hotel"
             ],
             "system": "sidecar",
             "repeat": 3,
             "collector_freq": 200,
-            "warmup": 2
+            "warmup": 2,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 15,
+                "base_rps": 1000,
+                "sweep": {
+                    "start": 1000,
+                    "end": 6000,
+                    "step": 500
+                }
+            }
         }
     ]
 }

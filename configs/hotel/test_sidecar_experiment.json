@@ -2,17 +2,23 @@
     "experiments": [
         {
             "type": "latency-and-rate-vs-time",
-            "loads": {
-              "start": 8000,
-              "end": 8000,
-              "step": 1000
-            },
-            "base_rate": 3000,
-            "duration_sec": 10,
-            "apis": ["search-hotel"],
+            "apis": [
+                "search-hotel"
+            ],
             "system": "sidecar",
             "repeat": 1,
-            "collector_freq": 200
-          }
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 3000,
+                "sweep": {
+                    "start": 8000,
+                    "end": 8000,
+                    "step": 1000
+                }
+            }
+        }
     ]
 }

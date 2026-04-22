@@ -1,55 +1,67 @@
 {
-  "experiments": [
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 430,
-        "end": 550,
-        "step": 30
-      },
-      "base_rate": 10,
-      "duration_sec": 10,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "sidecar",
-      "repeat": 5,
-      "collector_step": "100ms",
-      "collector_range": "1s"
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 10,
-        "end": 400,
-        "step": 30
-      },
-      "base_rate": 10,
-      "duration_sec": 10,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "plain",
-      "repeat": 2,
-      "collector_step": "100ms",
-      "collector_range": "1s"
-    },
-    {
-      "type": "latency-and-goodput-vs-load",
-      "loads": {
-        "start": 10,
-        "end": 400,
-        "step": 30
-      },
-      "base_rate": 10,
-      "duration_sec": 10,
-      "apis": [
-        "search-hotel"
-      ],
-      "system": "envoy",
-      "repeat": 5,
-      "collector_step": "100ms",
-      "collector_range": "1s"
-    }
-  ]
+    "experiments": [
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "sidecar",
+            "repeat": 5,
+            "collector_step": "100ms",
+            "collector_range": "1s",
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 10,
+                "sweep": {
+                    "start": 430,
+                    "end": 550,
+                    "step": 30
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "plain",
+            "repeat": 2,
+            "collector_step": "100ms",
+            "collector_range": "1s",
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 10,
+                "sweep": {
+                    "start": 10,
+                    "end": 400,
+                    "step": 30
+                }
+            }
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "apis": [
+                "search-hotel"
+            ],
+            "system": "envoy",
+            "repeat": 5,
+            "collector_step": "100ms",
+            "collector_range": "1s",
+            "load_generator": {
+                "kind": "two_step_sweep",
+                "base_duration_sec": 2,
+                "load_duration_sec": 10,
+                "base_rps": 10,
+                "sweep": {
+                    "start": 10,
+                    "end": 400,
+                    "step": 30
+                }
+            }
+        }
+    ]
 }
