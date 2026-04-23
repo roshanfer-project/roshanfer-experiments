@@ -36,7 +36,7 @@
             "system": "dagor",
             "fault_tolerance": {
                 "deadline_mode": "remaining_slo",
-                "retry_mode": "fixed"
+                "retry_mode": "token_bucket"
             },
             "repeat": 2,
             "collector_freq": 200,
