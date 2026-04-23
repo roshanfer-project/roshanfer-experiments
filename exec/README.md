@@ -56,16 +56,40 @@ The remote **`run.sh`** / **`run-plain.sh`** wrappers expect **`RWG_RATES`** and
 **Options:**
 - `--hosts-file PATH`: Override `hosts_file` from config (first `num_generators` lines are generators, rest are K8s nodes).
 - `--num-generators N`: Override `num_generators` from config.
-- `--only-names "exp1,exp2"`: Run specific experiments (use derived names).
+- `--only-names "exp1,exp2"`: Run specific experiments (use derived or explicit names).
 - `--only-types "type1"`: Run specific types.
 - `--name-contains "substring"`: Filter by name substring.
 
-Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}-{system}` (or `{type}-{bench}-{n}-{system}` for multi-API). Examples:
+### Derived experiment names and optional `tag`
+
+If an entry has no top-level **`name`**, the executor assigns one (same logic as `exec.merged_plot_runner.load_experiment_configs` — shared in `exec/experiment_naming.py`):
+
+- **Format:** `{type}-{bench_basename}-{api_slug}[-{tag}]-{system}`  
+  - **`bench_basename`**: last path segment of `config.json`’s `bench` (or per-experiment `bench` when set).  
+  - **`api_slug`**: API ids in JSON order, joined with `-` (e.g. `f1-g1`); if there are no APIs, `none`.  
+  - **`tag`**: optional string; if set, it is **slugified** and inserted before `system` to disambiguate colliding entries (e.g. different load or fault params). **Ignored** when `name` is set.  
+- **Explicit `name`**: If `name` is set, it is used as-is; `tag` is ignored.  
+- **Duplicate bases:** if two rows still get the same base string, a numeric suffix is added: `...-1`, `...-2`, …
+
+Merged figure configs (`merged.yaml` **`include`** keys) must use these final names. Use `python scripts/validate_merged_includes.py` to cross-check a tests tree.
+
+**Examples:**
 ```bash
---only-names "latency-vs-throughput-one-service-plain,latency-vs-throughput-one-service-sidecar"
+--only-names "latency-vs-throughput-one-service-f1-plain,latency-vs-throughput-one-service-f1-sidecar"
 --name-contains "sidecar"
 --only-types "latency-vs-throughput" --name-contains "plain"
 ```
+
+### Profiles (`run_tests.sh`)
+
+For a test dir `configs/tests/<name>/`, `./run_tests.sh --profile P` (with `P` not `default`) uses:
+
+- **`experiments-P.json`** if that file exists, else **`experiments.json`**
+- **`merged-P.yaml`** if that file exists, else **`merged.yaml`**
+
+`configs/hotel` uses **`hotel_experiments.json`** / **`hotel_experiments-P.json`**; `configs/social` uses **`social_experiments.json`**, with **`merged_social.yaml`** as fallback when **`merged.yaml`** is absent.
+
+After a run, `python -m exec.merge_plot_pdfs --profile P plots/` should use the same profile so merged-figure headers match the merged spec (or set **`MERGE_PLOTS_PROFILE`**).
 
 ## CloudLab manifest → hosts
 
@@ -83,6 +107,7 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 
 ```bash
 ./run_tests.sh
+./run_tests.sh --profile fault
 ./run_tests.sh --also-hotel-social
 ./run_tests.sh --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu
 ```

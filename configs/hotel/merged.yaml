@@ -8,33 +8,30 @@ figures:
         label: Rajomon
       latency-and-goodput-vs-load-hotel-1-sidecar:
         label: Roshanfer
-  
   latency-and-goodput-vs-load-hotel-2:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-hotel-2-dagor:
+      latency-and-goodput-vs-load-hotel-search-hotel-reserve-hotel-dagor:
         label: Dagor
-      latency-and-goodput-vs-load-hotel-2-rajomon:
+      latency-and-goodput-vs-load-hotel-search-hotel-reserve-hotel-rajomon:
         label: Rajomon
-      latency-and-goodput-vs-load-hotel-2-sidecar:
+      latency-and-goodput-vs-load-hotel-search-hotel-reserve-hotel-sidecar:
         label: Roshanfer
-  
   latency-and-rate-vs-time-hotel-1:
     type: latency-and-rate-vs-time
     include:
       latency-and-rate-vs-time-hotel-1-dagor:
         label: Dagor
-        unit: "latency-and-rate-vs-time-hotel-1-dagor-rate-10000"
+        unit: latency-and-rate-vs-time-hotel-1-dagor-rate-10000
         repeat: 0
       latency-and-rate-vs-time-hotel-1-rajomon:
         label: Rajomon
-        unit: "latency-and-rate-vs-time-hotel-1-rajomon-rate-10000"
+        unit: latency-and-rate-vs-time-hotel-1-rajomon-rate-10000
         repeat: 0
       latency-and-rate-vs-time-hotel-1-sidecar:
         label: Roshanfer
-        unit: "latency-and-rate-vs-time-hotel-1-sidecar-rate-10000"
+        unit: latency-and-rate-vs-time-hotel-1-sidecar-rate-10000
         repeat: 2
-
   max-queue-hotel-1:
     type: max-queue
     include:
@@ -44,17 +41,15 @@ figures:
         label: Rajomon
       max-queue-hotel-1-sidecar:
         label: Roshanfer
-  
   max-queue-hotel-2:
     type: max-queue
     include:
-      max-queue-hotel-2-dagor:
+      max-queue-hotel-search-hotel-reserve-hotel-dagor:
         label: Dagor
-      max-queue-hotel-2-rajomon:
+      max-queue-hotel-search-hotel-reserve-hotel-rajomon:
         label: Rajomon
-      max-queue-hotel-2-sidecar:
+      max-queue-hotel-search-hotel-reserve-hotel-sidecar:
         label: Roshanfer
-  
   resource-waste-bar-hotel-1:
     type: resource-waste-bar
     include:
@@ -64,19 +59,17 @@ figures:
         label: Rajomon
       resource-waste-hotel-1-sidecar:
         label: Roshanfer
-  
   resource-waste-bar-hotel-2:
     type: resource-waste-bar
     include:
-      resource-waste-hotel-2-dagor:
+      resource-waste-hotel-search-hotel-reserve-hotel-dagor:
         label: Dagor
-      resource-waste-hotel-2-rajomon:
+      resource-waste-hotel-search-hotel-reserve-hotel-rajomon:
         label: Rajomon
-  
   latency-vs-throughput-hotel:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-hotel-sidecar:
+      latency-vs-throughput-hotel-search-hotel-sidecar:
         label: Roshanfer
-      latency-vs-throughput-hotel-plain:
+      latency-vs-throughput-hotel-search-hotel-plain:
         label: Plain

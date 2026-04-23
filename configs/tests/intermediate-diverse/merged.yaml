@@ -2,13 +2,12 @@ figures:
   latency-vs-throughput-intermediate-diverse:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-intermediate-diverse-3-plain:
+      latency-vs-throughput-intermediate-diverse-f1-f2-f3-plain:
         label: Plain
-      latency-vs-throughput-intermediate-diverse-3-sidecar:
+      latency-vs-throughput-intermediate-diverse-f1-f2-f3-sidecar:
         label: Roshanfer
-
   max-queue-intermediate-diverse-3:
     type: max-queue
     include:
-      max-queue-intermediate-diverse-3-sidecar:
+      max-queue-intermediate-diverse-f1-f2-f3-sidecar:
         label: Roshanfer

@@ -38,6 +38,11 @@ try:
 except ImportError:
     PrometheusData = None
 
+try:
+    from exec.experiment_naming import assign_final_names_from_experiment_list
+except ImportError:
+    from experiment_naming import assign_final_names_from_experiment_list
+
 
 def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, bench: str, is_roshanfer: bool = False) -> Dict[str, Dict[str, float]]:
     try:
@@ -1028,17 +1033,6 @@ def load_merged_config(merged_config_path: Path) -> Dict[str, Any]:
     
     return config
 
-def _derive_experiment_name(exp: Dict[str, Any], bench: str) -> str:
-    """Derive name from type, bench, system (matches executor logic)."""
-    bench_slug = bench.split("/")[-1] if bench else ""
-    exp_type = exp.get('type', '')
-    system = exp.get('system', '')
-    apis = exp.get('apis', [])
-    if len(apis) > 1:
-        return f"{exp_type}-{bench_slug}-{len(apis)}-{system}"
-    return f"{exp_type}-{bench_slug}-{system}"
-
-
 def load_experiment_configs(experiments_config_path: Path, bench: str = "") -> Dict[str, Dict[str, Any]]:
     """Load experiment configurations and return as name->config mapping.
     Derives names when missing (matches executor _assign_derived_names)."""
@@ -1049,17 +1043,10 @@ def load_experiment_configs(experiments_config_path: Path, bench: str = "") -> D
         data = json.load(f)
     
     experiments = {}
-    seen: Dict[str, int] = {}
-    for exp in data.get('experiments', []):
-        name = exp.get('name')
-        if not name:
-            base = _derive_experiment_name(exp, bench)
-            if base in seen:
-                seen[base] += 1
-                name = f"{base}-{seen[base]}"
-            else:
-                seen[base] = 0
-                name = base
+    raw = data.get('experiments', [])
+    final_names = assign_final_names_from_experiment_list(raw, bench)
+    for exp, name in zip(raw, final_names):
+        if not str(exp.get('name', '')).strip():
             exp = {**exp, 'name': name}
         experiments[name] = exp
     

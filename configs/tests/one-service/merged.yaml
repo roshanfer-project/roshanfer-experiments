@@ -2,13 +2,12 @@ figures:
   latency-vs-throughput-one-service:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-one-service-plain:
+      latency-vs-throughput-one-service-f1-plain:
         label: Plain
-      latency-vs-throughput-one-service-sidecar:
+      latency-vs-throughput-one-service-f1-sidecar:
         label: Roshanfer
-
   max-queue-one-service:
     type: max-queue
     include:
-      max-queue-one-service-sidecar:
+      max-queue-one-service-f1-sidecar:
         label: Roshanfer

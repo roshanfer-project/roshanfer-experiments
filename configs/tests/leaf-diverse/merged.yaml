@@ -2,13 +2,12 @@ figures:
   latency-vs-throughput-leaf-diverse:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-leaf-diverse-2-plain:
+      latency-vs-throughput-leaf-diverse-f1-f2-plain:
         label: Plain
-      latency-vs-throughput-leaf-diverse-2-sidecar:
+      latency-vs-throughput-leaf-diverse-f1-f2-sidecar:
         label: Roshanfer
-
   max-queue-leaf-diverse-2:
     type: max-queue
     include:
-      max-queue-leaf-diverse-2-sidecar:
+      max-queue-leaf-diverse-f1-f2-sidecar:
         label: Roshanfer

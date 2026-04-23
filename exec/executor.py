@@ -20,6 +20,7 @@ import subprocess
 
 from dataclasses import replace as dc_replace
 from .config import load_config, Config
+from .experiment_naming import derive_experiment_base_from_config
 from .models import ExperimentConfig, RunUnit, RunResult, CollectorResult
 from .runner import Runner
 from .collector import Collector
@@ -117,13 +118,6 @@ def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
         exps.append(ExperimentConfig.from_dict(raw))
     return exps
 
-def _derive_experiment_name(exp: ExperimentConfig, bench: str) -> str:
-    """Derive name from type, bench, system. Include api count when > 1 for uniqueness."""
-    bench_slug = bench.split("/")[-1] if bench else ""
-    if len(exp.apis) > 1:
-        return f"{exp.type}-{bench_slug}-{len(exp.apis)}-{exp.system}"
-    return f"{exp.type}-{bench_slug}-{exp.system}"
-
 def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[ExperimentConfig]:
     """Assign derived names when missing, adding suffix for duplicates."""
     seen: Dict[str, int] = {}
@@ -133,7 +127,7 @@ def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[
             result.append(exp)
             continue
         bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
-        base = _derive_experiment_name(exp, bench)
+        base = derive_experiment_base_from_config(exp, bench)
         if base in seen:
             seen[base] += 1
             name = f"{base}-{seen[base]}"

@@ -2,43 +2,40 @@ figures:
   latency-vs-throughput-dynamic-large:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-dynamic-large-plain:
+      latency-vs-throughput-dynamic-large-f1-plain:
         label: Plain
-      latency-vs-throughput-dynamic-large-sidecar:
+      latency-vs-throughput-dynamic-large-f1-sidecar:
         label: Roshanfer
-
   max-queue-dynamic-large:
     type: max-queue
     include:
-      max-queue-dynamic-large-sidecar:
+      max-queue-dynamic-large-f1-sidecar:
         label: Roshanfer
-      max-queue-dynamic-large-dagor:
+      max-queue-dynamic-large-f1-dagor:
         label: Dagor
-      max-queue-dynamic-large-rajomon:
+      max-queue-dynamic-large-f1-rajomon:
         label: Rajomon
-  
   latency-and-goodput-vs-load-dynamic-large:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-dynamic-large-sidecar:
+      latency-and-goodput-vs-load-dynamic-large-f1-sidecar:
         label: Roshanfer
-      latency-and-goodput-vs-load-dynamic-large-dagor:
+      latency-and-goodput-vs-load-dynamic-large-f1-dagor:
         label: Dagor
-      latency-and-goodput-vs-load-dynamic-large-rajomon:
+      latency-and-goodput-vs-load-dynamic-large-f1-rajomon:
         label: Rajomon
-
   latency-and-rate-vs-time-dynamic-large:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-dynamic-large-sidecar:
+      latency-and-rate-vs-time-dynamic-large-f1-sidecar:
         label: Roshanfer
         unit: latency-and-rate-vs-time-dynamic-large-sidecar-rate-6000
         repeat: 0
-      latency-and-rate-vs-time-dynamic-large-dagor:
+      latency-and-rate-vs-time-dynamic-large-f1-dagor:
         label: Dagor
         unit: latency-and-rate-vs-time-dynamic-large-dagor-rate-6000
         repeat: 0
-      latency-and-rate-vs-time-dynamic-large-rajomon:
+      latency-and-rate-vs-time-dynamic-large-f1-rajomon:
         label: Rajomon
         unit: latency-and-rate-vs-time-dynamic-large-rajomon-rate-6000
         repeat: 0

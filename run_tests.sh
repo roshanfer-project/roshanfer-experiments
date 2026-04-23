@@ -68,6 +68,8 @@ usage() {
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
+  echo "  --profile NAME       Use experiments-<NAME>.json and merged-<NAME>.yaml when present"
+  echo "                       (default: experiments.json + merged.yaml). NAME 'default' is the same."
   echo ""
   echo "Examples:"
   echo "  $0"
@@ -93,6 +95,7 @@ REMOTE_CLEAN=""
 ALSO_HOTEL_SOCIAL=""
 NANOLOG_DEBUG=""
 RUN_COMMENT=""
+PROFILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -158,6 +161,11 @@ while [[ $# -gt 0 ]]; do
     --comment)
       [[ -z "${2:-}" ]] && { echo "Missing value for --comment"; usage; exit 1; }
       RUN_COMMENT="$2"
+      shift 2
+      ;;
+    --profile)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --profile"; usage; exit 1; }
+      PROFILE="$2"
       shift 2
       ;;
     *)
@@ -253,6 +261,44 @@ EXTRA_ARGS=()
 [[ -z "$REMOTE" && -n "$REMOTE_NUM_GENERATORS" ]] && EXTRA_ARGS+=(--num-generators "$REMOTE_NUM_GENERATORS")
 [[ -n "$NANOLOG_DEBUG" ]] && EXTRA_ARGS+=(--nanolog-debug)
 
+# merged-<profile>.yaml / <stem>-<profile>.json when profile set and not 'default'
+# Second arg: default experiments file name in that directory (e.g. experiments.json, hotel_experiments.json)
+resolve_experiments_path() {
+  local dir="$1"
+  local def_file="${2:-experiments.json}"
+  if [[ -n "$PROFILE" && "$PROFILE" != "default" ]]; then
+    local stem="${def_file%.json}"
+    local p="$dir/${stem}-${PROFILE}.json"
+    if [[ -f "$p" ]]; then
+      echo "$p"
+      return
+    fi
+  fi
+  echo "$dir/$def_file"
+}
+
+# Second arg: if set, use as fallback when merged.yaml missing (e.g. merged_social.yaml for social)
+resolve_merged_path() {
+  local dir="$1"
+  local social_fallback="${2:-}"
+  if [[ -n "$PROFILE" && "$PROFILE" != "default" ]]; then
+    local m="$dir/merged-${PROFILE}.yaml"
+    if [[ -f "$m" ]]; then
+      echo "$m"
+      return
+    fi
+  fi
+  if [[ -f "$dir/merged.yaml" ]]; then
+    echo "$dir/merged.yaml"
+    return
+  fi
+  if [[ -n "$social_fallback" && -f "$dir/$social_fallback" ]]; then
+    echo "$dir/$social_fallback"
+    return
+  fi
+  echo "$dir/merged.yaml"
+}
+
 run_bench() {
   local name="$1" config="$2" experiments="$3" merged="${4:-}"
   local out_dir="$OUTPUT_BASE/${RUN_DIR_ID}/${name}"
@@ -296,19 +342,28 @@ for dir in "$TESTS_ROOT"/*/; do
       continue
     fi
   fi
-  if [[ -f "$config" && -f "$experiments" ]]; then
-    run_bench "$test_name" "$config" "$experiments" "$dir/merged.yaml"
+  exp_path=$(resolve_experiments_path "$dir" "experiments.json")
+  merged_path=$(resolve_merged_path "$dir" "")
+  if [[ -f "$config" && -f "$exp_path" ]]; then
+    run_bench "$test_name" "$config" "$exp_path" "$merged_path"
   fi
 done
 
 if [[ -n "$ALSO_HOTEL_SOCIAL" ]]; then
-  bench_filter_allows hotel && run_bench "hotel" "configs/hotel/config.hotel.json" "configs/hotel/hotel_experiments.json" "configs/hotel/merged.yaml"
-  bench_filter_allows social && run_bench "social" "configs/social/config.social.json" "configs/social/social_experiments.json" "configs/social/merged_social.yaml"
+  hdir="configs/hotel"
+  sdir="configs/social"
+  h_exp=$(resolve_experiments_path "$hdir" "hotel_experiments.json")
+  h_merged=$(resolve_merged_path "$hdir" "")
+  s_exp=$(resolve_experiments_path "$sdir" "social_experiments.json")
+  s_merged=$(resolve_merged_path "$sdir" "merged_social.yaml")
+  bench_filter_allows hotel && run_bench "hotel" "configs/hotel/config.hotel.json" "$h_exp" "$h_merged"
+  bench_filter_allows social && run_bench "social" "configs/social/config.social.json" "$s_exp" "$s_merged"
 fi
 
 if [[ -d "$PLOTS_ROOT" ]]; then
-  echo "Merging all plot PDFs -> $PLOTS_ROOT/all_tests_plots.pdf"
-  $PYTHON -m exec.merge_plot_pdfs "$PLOTS_ROOT" || echo "Warning: merge_plot_pdfs failed"
+  _mp="${PROFILE:-default}"
+  echo "Merging all plot PDFs -> $PLOTS_ROOT/all_tests_plots.pdf (profile=${_mp})"
+  $PYTHON -m exec.merge_plot_pdfs --profile "$_mp" "$PLOTS_ROOT" || echo "Warning: merge_plot_pdfs failed"
 fi
 
 if [[ $failed -gt 0 ]]; then

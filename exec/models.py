@@ -178,6 +178,7 @@ class ExperimentConfig:
     load_generator: LoadGeneratorConfig
     script: Optional[str] = None
     bench: str = ""
+    tag: str = ""
     apis: List[str] = field(default_factory=list)
     system: str = ""
     repeat: int = 1
@@ -216,6 +217,7 @@ class ExperimentConfig:
             load_generator=load_generator,
             script=merged.get("script"),
             bench=str(merged.get("bench", "")),
+            tag=str(merged.get("tag", "") or ""),
             apis=list(merged.get("apis", [])),
             system=str(merged.get("system", "")),
             repeat=int(merged.get("repeat", params.get("repeat", 1)) or 1),

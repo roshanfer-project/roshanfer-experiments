@@ -2,20 +2,19 @@ figures:
   latency-vs-throughput-fan-out-fan-in:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-fan-out-fan-in-plain:
+      latency-vs-throughput-fan-out-fan-in-f1-plain:
         label: Plain
-      latency-vs-throughput-fan-out-fan-in-sidecar:
+      latency-vs-throughput-fan-out-fan-in-f1-sidecar:
         label: Roshanfer
   latency-vs-throughput-fan-out-fan-in-2:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-fan-out-fan-in-2-plain:
+      latency-vs-throughput-fan-out-fan-in-f1-g1-plain:
         label: Plain
-      latency-vs-throughput-fan-out-fan-in-2-sidecar:
+      latency-vs-throughput-fan-out-fan-in-f1-g1-sidecar:
         label: Roshanfer
-
   max-queue-fan-out-fan-in-2:
     type: max-queue
     include:
-      max-queue-fan-out-fan-in-2-sidecar:
+      max-queue-fan-out-fan-in-f1-g1-sidecar:
         label: Roshanfer

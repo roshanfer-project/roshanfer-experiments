@@ -2,7 +2,7 @@ figures:
   latency-vs-throughput-hotel:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-hotel-sidecar:
+      latency-vs-throughput-hotel-search-hotel-sidecar:
         label: Roshanfer
-      latency-vs-throughput-hotel-plain:
+      latency-vs-throughput-hotel-search-hotel-plain:
         label: Plain

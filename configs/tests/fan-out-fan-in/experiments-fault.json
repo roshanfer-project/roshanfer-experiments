@@ -1,0 +1,101 @@
+{
+    "experiments": [
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 2,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "piecewise",
+                "phases": [
+                    {
+                        "rps": 500,
+                        "duration_sec": 2
+                    },
+                    {
+                        "rps": 2000,
+                        "duration_sec": 13
+                    }
+                ]
+            },
+            "failslow": {
+                "pod": "shared",
+                "after_sec": 6,
+                "duration_sec": 5,
+                "extra_ms": 10
+            }
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "apis": [
+                "f1"
+            ],
+            "system": "dagor",
+            "fault_tolerance": {
+                "deadline_mode": "remaining_slo",
+                "retry_mode": "fixed"
+            },
+            "repeat": 2,
+            "collector_freq": 200,
+            "load_generator": {
+                "kind": "piecewise",
+                "phases": [
+                    {
+                        "rps": 500,
+                        "duration_sec": 2
+                    },
+                    {
+                        "rps": 2000,
+                        "duration_sec": 13
+                    }
+                ]
+            },
+            "failslow": {
+                "pod": "shared",
+                "after_sec": 6,
+                "duration_sec": 5,
+                "extra_ms": 50
+            }
+        },
+        {
+            "type": "resource-waste",
+            "apis": [
+                "f1"
+            ],
+            "system": "dagor",
+            "fault_tolerance": {
+                "deadline_mode": "remaining_slo",
+                "retry_mode": "token_bucket"
+            },
+            "repeat": 2,
+            "collector_freq": 200,
+            "services": [
+                "ingress",
+                "frontend",
+                "backend1",
+                "backend2",
+                "shared"
+            ],
+            "load_generator": {
+                "kind": "piecewise",
+                "phases": [
+                    {
+                        "rps": 500,
+                        "duration_sec": 2
+                    },
+                    {
+                        "rps": 5000,
+                        "duration_sec": 5
+                    },
+                    {
+                        "rps": 2000,
+                        "duration_sec": 10
+                    }
+                ]
+            }
+        }
+    ]
+}

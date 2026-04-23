@@ -91,8 +91,42 @@ def _configs_tests_dir() -> Path:
     return Path.cwd() / "configs" / "tests"
 
 
+def _suite_config_dir(suite: str) -> Path:
+    """Directory containing config + merged yaml for a plots suite (test name, hotel, or social)."""
+    if suite == "hotel":
+        return Path.cwd() / "configs" / "hotel"
+    if suite == "social":
+        return Path.cwd() / "configs" / "social"
+    return _configs_tests_dir() / suite
+
+
+def _resolved_merged_yaml(suite: str, profile: str) -> Optional[Path]:
+    """Which merged spec was used; depends on --profile. Matches run_tests.sh resolution."""
+    base = _suite_config_dir(suite)
+    pro = (profile or "default").strip() or "default"
+    if pro != "default":
+        alt = base / f"merged-{pro}.yaml"
+        if alt.is_file():
+            return alt
+    p = base / "merged.yaml"
+    if p.is_file():
+        return p
+    if suite == "social":
+        for name in ("merged_social.yaml", "merged_lvt.yaml"):
+            cand = base / name
+            if cand.is_file():
+                return cand
+    return None
+
+
 def _bench_short(suite: str) -> str:
-    cfg = _configs_tests_dir() / suite / "config.json"
+    sdir = _suite_config_dir(suite)
+    for cfg_name in ("config.json", "config.hotel.json", "config.social.json"):
+        cfg = sdir / cfg_name
+        if cfg.is_file():
+            break
+    else:
+        cfg = _configs_tests_dir() / suite / "config.json"
     if not cfg.is_file():
         return suite
     try:
@@ -142,9 +176,11 @@ def _load_run_index(run_ts_root: Path, suite: str) -> Dict[str, Dict[str, Any]]:
     return by_name
 
 
-def _merged_figure_doc(suite: str, figure_name: str) -> Optional[Dict[str, Any]]:
-    yml = _configs_tests_dir() / suite / "merged.yaml"
-    if not yml.is_file():
+def _merged_figure_doc(
+    suite: str, figure_name: str, profile: str = "default"
+) -> Optional[Dict[str, Any]]:
+    yml = _resolved_merged_yaml(suite, profile)
+    if yml is None or not yml.is_file():
         return None
     try:
         doc = yaml.safe_load(yml.read_text()) or {}
@@ -155,15 +191,17 @@ def _merged_figure_doc(suite: str, figure_name: str) -> Optional[Dict[str, Any]]
         return None
 
 
-def _merged_figure_type(suite: str, figure_name: str) -> Optional[str]:
-    fc = _merged_figure_doc(suite, figure_name)
+def _merged_figure_type(suite: str, figure_name: str, profile: str = "default") -> Optional[str]:
+    fc = _merged_figure_doc(suite, figure_name, profile)
     if fc:
         return str(fc.get("type") or "") or None
     return None
 
 
-def _merged_figure_include_keys(suite: str, figure_name: str) -> list[str]:
-    fc = _merged_figure_doc(suite, figure_name)
+def _merged_figure_include_keys(
+    suite: str, figure_name: str, profile: str = "default"
+) -> list[str]:
+    fc = _merged_figure_doc(suite, figure_name, profile)
     if not fc:
         return []
     inc = fc.get("include") or {}
@@ -172,8 +210,10 @@ def _merged_figure_include_keys(suite: str, figure_name: str) -> list[str]:
     return []
 
 
-def _fault_tolerance_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
-    keys = _merged_figure_include_keys(suite, figure_name)
+def _fault_tolerance_for_merged(
+    suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]], profile: str = "default"
+) -> str:
+    keys = _merged_figure_include_keys(suite, figure_name, profile)
     if not keys:
         return "?"
     chunks: list[str] = []
@@ -184,8 +224,10 @@ def _fault_tolerance_for_merged(suite: str, figure_name: str, idx: Dict[str, Dic
     return " | ".join(chunks)
 
 
-def _failslow_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
-    keys = _merged_figure_include_keys(suite, figure_name)
+def _failslow_for_merged(
+    suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]], profile: str = "default"
+) -> str:
+    keys = _merged_figure_include_keys(suite, figure_name, profile)
     if not keys:
         return "?"
     chunks: list[str] = []
@@ -196,8 +238,10 @@ def _failslow_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, 
     return " | ".join(chunks)
 
 
-def _apis_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
-    keys = _merged_figure_include_keys(suite, figure_name)
+def _apis_for_merged(
+    suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]], profile: str = "default"
+) -> str:
+    keys = _merged_figure_include_keys(suite, figure_name, profile)
     if not keys:
         return "?"
     seen: set[str] = set()
@@ -220,6 +264,7 @@ def _meta_for_pdf(
     plots_root: Path,
     run_ts_root: Path,
     pdf_path: Path,
+    profile: str = "default",
 ) -> Meta:
     rel = pdf_path.relative_to(plots_root)
     parts = rel.parts
@@ -229,10 +274,10 @@ def _meta_for_pdf(
 
     if len(parts) >= 2 and parts[1] == "merged":
         figure_name, _kind = _split_merged_stem(pdf_path.stem)
-        mtype = _merged_figure_type(suite, figure_name) or "merged"
-        apis_s = _apis_for_merged(suite, figure_name, idx)
-        ft_s = _fault_tolerance_for_merged(suite, figure_name, idx)
-        fs_s = _failslow_for_merged(suite, figure_name, idx)
+        mtype = _merged_figure_type(suite, figure_name, profile) or "merged"
+        apis_s = _apis_for_merged(suite, figure_name, idx, profile)
+        ft_s = _fault_tolerance_for_merged(suite, figure_name, idx, profile)
+        fs_s = _failslow_for_merged(suite, figure_name, idx, profile)
         return str(mtype), "merged", bench, apis_s, ft_s, fs_s
 
     if len(parts) >= 2:
@@ -333,7 +378,13 @@ def _append_page_with_header(
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Merge all PDFs under a directory into one file.")
     p.add_argument("plots_root", type=Path, help="Root directory to scan recursively for *.pdf")
+    p.add_argument(
+        "--profile",
+        default="",
+        help="Which merged-*.yaml to use for per-suite figure metadata (default: from MERGE_PLOTS_PROFILE or 'default').",
+    )
     args = p.parse_args(argv)
+    pro = (args.profile or os.environ.get("MERGE_PLOTS_PROFILE") or "default").strip() or "default"
     root: Path = args.plots_root.resolve()
     if not root.is_dir():
         print(f"merge_plot_pdfs: not a directory: {root}", file=sys.stderr)
@@ -360,7 +411,7 @@ def main(argv: list[str] | None = None) -> int:
     writer = PdfWriter()
     header_cache: Dict[Tuple[str, str, str, str, str, str, int], bytes] = {}
     for path in pdfs:
-        meta = _meta_for_pdf(root, run_ts_root, path)
+        meta = _meta_for_pdf(root, run_ts_root, path, pro)
         reader = PdfReader(str(path))
         for page in reader.pages:
             _append_page_with_header(writer, page, meta, header_cache)

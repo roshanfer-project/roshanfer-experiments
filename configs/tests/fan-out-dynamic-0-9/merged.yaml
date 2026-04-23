@@ -2,43 +2,40 @@ figures:
   latency-vs-throughput-fan-out-dynamic-0-9:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-fan-out-dynamic-0-9-plain:
+      latency-vs-throughput-fan-out-dynamic-0-9-f1-plain:
         label: Plain
-      latency-vs-throughput-fan-out-dynamic-0-9-sidecar:
+      latency-vs-throughput-fan-out-dynamic-0-9-f1-sidecar:
         label: Roshanfer
-
   max-queue-fan-out-dynamic-0-9:
     type: max-queue
     include:
-      max-queue-fan-out-dynamic-0-9-sidecar:
+      max-queue-fan-out-dynamic-0-9-f1-sidecar:
         label: Roshanfer
-      max-queue-fan-out-dynamic-0-9-dagor:
+      max-queue-fan-out-dynamic-0-9-f1-dagor:
         label: Dagor
-      max-queue-fan-out-dynamic-0-9-rajomon:
+      max-queue-fan-out-dynamic-0-9-f1-rajomon:
         label: Rajomon
-  
   latency-and-goodput-vs-load-fan-out-dynamic-0-9:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-fan-out-dynamic-0-9-sidecar:
+      latency-and-goodput-vs-load-fan-out-dynamic-0-9-f1-sidecar:
         label: Roshanfer
-      latency-and-goodput-vs-load-fan-out-dynamic-0-9-dagor:
+      latency-and-goodput-vs-load-fan-out-dynamic-0-9-f1-dagor:
         label: Dagor
-      latency-and-goodput-vs-load-fan-out-dynamic-0-9-rajomon:
+      latency-and-goodput-vs-load-fan-out-dynamic-0-9-f1-rajomon:
         label: Rajomon
-  
   latency-and-rate-vs-time-fan-out-dynamic-0-9:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-fan-out-dynamic-0-9-sidecar:
+      latency-and-rate-vs-time-fan-out-dynamic-0-9-f1-sidecar:
         label: Roshanfer
         unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-sidecar-rate-4000
         repeat: 0
-      latency-and-rate-vs-time-fan-out-dynamic-0-9-dagor:
+      latency-and-rate-vs-time-fan-out-dynamic-0-9-f1-dagor:
         label: Dagor
         unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-dagor-rate-4000
         repeat: 0
-      latency-and-rate-vs-time-fan-out-dynamic-0-9-rajomon:
+      latency-and-rate-vs-time-fan-out-dynamic-0-9-f1-rajomon:
         label: Rajomon
         unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-rajomon-rate-4000
         repeat: 0
