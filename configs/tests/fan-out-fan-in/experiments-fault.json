@@ -25,7 +25,7 @@
                 "pod": "shared",
                 "after_sec": 6,
                 "duration_sec": 5,
-                "extra_ms": 10
+                "extra_ms": 50
             }
         },
         {
