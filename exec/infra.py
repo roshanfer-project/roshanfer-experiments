@@ -61,13 +61,19 @@ class InfraBuilder:
         logging.info(f"Partitioned hosts: {len(generators)} Generators, {len(deployment)} Deployment")
         return generators, deployment
 
-    def provision_hosts(self, provision_script: Path, log_path: Optional[Path] = None):
+    def provision_hosts(
+        self,
+        provision_script: Path,
+        log_path: Optional[Path] = None,
+        provision_host_logs_dir: Optional[Path] = None,
+    ):
         """
         Runs the provisioning script on all hosts. 
         Assumes the script handles its own SSH loops or we call it once because it iterates hosts.
-        
-        Based on user's 'benchmarks/provisioning/provision.sh', it iterates over 'hosts.txt'.
-        So we just need to run it once.
+
+        provision_host_logs_dir: if set, passed as PROVISION_LOG_DIR so per-host provision
+        transcripts (e.g. provision_host_*.log) are written there; default in the script is
+        benchmarks/provisioning/provision_logs/... when unset.
         """
         if not provision_script.exists():
             raise FileNotFoundError(f"Provision script not found: {provision_script}")
@@ -84,8 +90,15 @@ class InfraBuilder:
             import os
             env = os.environ.copy()
             env["HOSTS_FILE"] = str(self.hosts_file.resolve())
-            
+
+            if provision_host_logs_dir is not None:
+                hl = provision_host_logs_dir.resolve()
+                hl.mkdir(parents=True, exist_ok=True)
+                env["PROVISION_LOG_DIR"] = str(hl)
+
             run_with_logging([str(provision_script)], env=env, log_path=log_path)
+            if provision_host_logs_dir is not None:
+                logging.info("Per-host provision transcripts under %s", provision_host_logs_dir.resolve())
             logging.info("Provisioning completed successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"Provisioning failed with code {e.returncode}")

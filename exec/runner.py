@@ -8,24 +8,22 @@ Responsibilities:
 
 from __future__ import annotations
 
-from datetime import datetime
+import csv
 import json
-import os
-from pathlib import Path
-import traceback
-from typing import Any, Dict, List, Optional
-import subprocess
-import time
-import shutil
 import logging
-
+import os
+import subprocess
+import threading
+import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import Config
 from .models import RunUnit, RunResult
 from .utils import run_with_logging
-import threading
-import csv
-from typing import Any, Dict, List, Optional, Tuple
 
 
 
@@ -130,18 +128,18 @@ class ResourceMonitor:
             logging.warning(f"ResourceMonitor: Failed to get node IPs: {e}")
             return {}
 
-    def _fetch_metrics(self, node_name: str, node_ip: str) -> dict:
-        """Fetch JSON metrics from cpu-stats-exporter running on node:9100"""
+    def _fetch_metrics_bundle(self, node_name: str, node_ip: str) -> Tuple[str, str, Optional[Dict[str, Any]], Optional[str]]:
+        """Fetch JSON from cpu-stats-exporter on node:9100. Used from thread pool — no logging here."""
         try:
             import urllib.request
+
             url = f"http://{node_ip}:9100/metrics"
-            req = urllib.request.Request(url, headers={'User-Agent': 'ResourceMonitor/1.0'})
+            req = urllib.request.Request(url, headers={"User-Agent": "ResourceMonitor/1.0"})
             with urllib.request.urlopen(req, timeout=5) as response:
-                data = response.read().decode('utf-8')
-                return json.loads(data)
+                data = response.read().decode("utf-8")
+                return (node_name, node_ip, json.loads(data), None)
         except Exception as e:
-            logging.warning(f"ResourceMonitor: Failed to fetch from cpu-stats-exporter on {node_ip}:9100: {e}")
-            return {}
+            return (node_name, node_ip, None, str(e))
 
     def _msg_loop(self):
         node_map = self._get_nodes_map()
@@ -159,17 +157,29 @@ class ResourceMonitor:
                 container_metadata = self._get_container_metadata()
                 metadata_refresh_time = time.time()
             
-            cpu_rows = []
-            
-            for node, ip in node_map.items():
-                metrics_data = self._fetch_metrics(node, ip)
-                if not metrics_data:
+            cpu_rows: List[List[Any]] = []
+            current_time = time.time()
+            sorted_pairs = sorted(node_map.items(), key=lambda x: x[0])
+
+            bundles: List[Tuple[str, str, Optional[Dict[str, Any]], Optional[str]]] = []
+            if sorted_pairs:
+                with ThreadPoolExecutor(max_workers=len(sorted_pairs)) as ex:
+                    bundles = list(
+                        ex.map(
+                            lambda p: self._fetch_metrics_bundle(p[0], p[1]),
+                            sorted_pairs,
+                        )
+                    )
+
+            fetch_errors: List[str] = []
+            for node_name, node_ip, metrics_data, ferr in bundles:
+                if ferr is not None:
+                    fetch_errors.append(f"{node_name}({node_ip}): {ferr}")
                     continue
-                    
-                current_time = time.time()
+                assert metrics_data is not None
+
                 containers = metrics_data.get("containers", [])
-                
-                # Process each container
+
                 for container_data in containers:
                     container_id = container_data.get("container_id", "")
                     cpu_nanos = container_data.get("cpu_usage_nanoseconds", 0)
@@ -190,7 +200,7 @@ class ResourceMonitor:
                     container = metadata["container"]
                     cpu_limit = metadata["limit"]
                     
-                    key = (node, ns, pod, container)
+                    key = (node_name, ns, pod, container)
                     rate = 0.0
                     
                     if key in self.prev_cpu:
@@ -212,7 +222,18 @@ class ResourceMonitor:
                     
                     # Always log all containers found in metrics
                     # Rate will be 0 on first iteration, which is expected
-                    cpu_rows.append([ts_str, node, ns, pod, container, f"{utilization:.2f}", f"{cpu_limit:.2f}"])
+                    cpu_rows.append([ts_str, node_name, ns, pod, container, f"{utilization:.2f}", f"{cpu_limit:.2f}"])
+
+            if fetch_errors:
+                sample = "; ".join(fetch_errors[:12])
+                if len(fetch_errors) > 12:
+                    sample += f"; … (+{len(fetch_errors) - 12} more)"
+                logging.warning(
+                    "ResourceMonitor: fetch failed for %d/%d nodes: %s",
+                    len(fetch_errors),
+                    len(node_map),
+                    sample,
+                )
 
             # Write Rows
             if cpu_rows:
@@ -344,22 +365,47 @@ class Runner:
             env = os.environ.copy()
             env["SYSTEM"] = system
             run_with_logging([str(script_path)], env=env, log_path=log_path, verbose=not quiet)
-            
-            # Flush conntrack on deployment hosts
-            logging.info("Flushing conntrack on deployment hosts...")
-            for host in deployment_hosts:
+
+            if not deployment_hosts:
+                return
+
+            ssh_base_cmd = (
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+            )
+
+            def flush_conntrack(host: str) -> Tuple[str, Optional[str]]:
+                cmd = [*ssh_base_cmd, host, "sudo conntrack -F"]
                 try:
-                    cmd = [
-                        "ssh", 
-                        "-o", "StrictHostKeyChecking=no", 
-                        "-o", "UserKnownHostsFile=/dev/null", 
-                        host,
-                        "sudo conntrack -F"
-                    ]
-                    # We run this blindly, if it fails (e.g. conntrack not found), we log but continue
-                    subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                except Exception as e:
-                    logging.warning(f"Failed to flush conntrack on {host}: {e}")
+                    r = subprocess.run(
+                        cmd,
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if r.returncode != 0:
+                        msg = (r.stderr or r.stdout or f"exit {r.returncode}").strip()
+                        return host, (msg[:500] if msg else f"exit {r.returncode}")
+                    return host, None
+                except Exception as exc:
+                    return host, str(exc)
+
+            with ThreadPoolExecutor(max_workers=len(deployment_hosts)) as executor:
+                ct_results = list(executor.map(flush_conntrack, deployment_hosts))
+
+            misses = [(h, m) for h, m in ct_results if m]
+            ok_n = len(deployment_hosts) - len(misses)
+            logging.info(
+                "Teardown conntrack: flushed %d/%d deployment hosts",
+                ok_n,
+                len(deployment_hosts),
+            )
+            for h, msg in misses:
+                logging.warning("Failed to flush conntrack on %s: %s", h, msg)
 
         except Exception as e:
             logging.warning(f"Teardown warning: {e}")

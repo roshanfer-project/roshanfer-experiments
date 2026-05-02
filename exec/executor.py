@@ -305,8 +305,12 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         # Define log paths for infra steps
         prov_log = logs_dir / f"provision_{_timestamp()}.log"
         k8s_log = logs_dir / f"k8s_setup_{_timestamp()}.log"
-        
-        infra.provision_hosts(Path(config.provisioning_script), log_path=prov_log)
+        prov_host_logs_dir = logs_dir / "provision_hosts"
+        infra.provision_hosts(
+            Path(config.provisioning_script),
+            log_path=prov_log,
+            provision_host_logs_dir=prov_host_logs_dir,
+        )
         
         if hasattr(config, "k8s_script") and config.k8s_script:
             infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
