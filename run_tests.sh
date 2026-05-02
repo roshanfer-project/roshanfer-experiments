@@ -49,7 +49,7 @@ usage() {
   echo "  -h, --help       Show this help and exit"
   echo "  --bench NAME    Run only benchmarks matching NAME (comma-separated). Names are"
   echo "                  configs/tests/<name> dirs (e.g. multi-api); with --also-hotel-social,"
-  echo "                  hotel and social are also valid."
+  echo "                  hotel and social are also valid; with --also-alibaba, alibaba-large is valid."
   echo "  --type TYPES    Run only experiments whose JSON \"type\" matches (comma-separated)"
   echo "  --system SYS    Run only experiments with system SYS (plain, sidecar; comma-separated)"
   echo "  --num-apis N    Run only experiments with N APIs (comma-separated, e.g. 1,3)"
@@ -64,6 +64,8 @@ usage() {
   echo "                       Use with --remote to clean then run tests; alone = clean only and exit."
   echo "  --also-hotel-social  After tests, run configs/hotel and configs/social; --bench"
   echo "                       filters these too when set (e.g. --bench hotel runs hotel only)."
+  echo "  --also-alibaba       After tests, run configs/alibaba-large (benchmark alibaba-large);"
+  echo "                       --bench filters this too when set (e.g. --bench alibaba-large)."
   echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for sidecar runs, collect"
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
@@ -77,6 +79,8 @@ usage() {
   echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
   echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
   echo "  $0 --also-hotel-social"
+  echo "  $0 --also-alibaba"
+  echo "  $0 --bench alibaba-large --also-alibaba"
   echo "  $0 --bench chain-2 --comment sidecar-tuning"
 }
 
@@ -91,6 +95,7 @@ CLOUDLAB_SSH_USER=""
 REMOTE_NUM_GENERATORS=""
 REMOTE_CLEAN=""
 ALSO_HOTEL_SOCIAL=""
+ALSO_ALIBABA=""
 NANOLOG_DEBUG=""
 RUN_COMMENT=""
 
@@ -149,6 +154,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --also-hotel-social)
       ALSO_HOTEL_SOCIAL=1
+      shift
+      ;;
+    --also-alibaba)
+      ALSO_ALIBABA=1
       shift
       ;;
     --nanolog-debug)
@@ -304,6 +313,10 @@ done
 if [[ -n "$ALSO_HOTEL_SOCIAL" ]]; then
   bench_filter_allows hotel && run_bench "hotel" "configs/hotel/config.hotel.json" "configs/hotel/hotel_experiments.json" "configs/hotel/merged.yaml"
   bench_filter_allows social && run_bench "social" "configs/social/config.social.json" "configs/social/social_experiments.json" "configs/social/merged_social.yaml"
+fi
+
+if [[ -n "$ALSO_ALIBABA" ]]; then
+  bench_filter_allows alibaba-large && run_bench "alibaba-large" "configs/alibaba-large/config.alibaba.json" "configs/alibaba-large/experiments.json" ""
 fi
 
 if [[ -d "$PLOTS_ROOT" ]]; then
