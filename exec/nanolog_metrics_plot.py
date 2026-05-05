@@ -61,6 +61,7 @@ def parse_logs(files: List[Path]) -> Dict[str, List[Tuple[float, float]]]:
                         value = float(parts[m_idx + 5])
                     except ValueError:
                         continue
+                    # Join first three tokens after sidecar name — patterns like Measured QS-* live in conn_type.
                     full_metric_name = f"{metric_name} {conn_type} {rpc_path}"
                     metrics[full_metric_name].append((timestamp, value))
         except OSError as e:
@@ -166,19 +167,28 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
             chunk = sorted_keys[i : i + plots_per_page]
             grid = pp.SubplotGrid(style, layout=f"{rows}x{cols}")
 
-            for j, metric_name in enumerate(chunk):
-                is_limit = metric_name.startswith("LIMIT")
-                is_count = (
-                    "QS" in metric_name
-                    or "DROP" in metric_name
-                    or "DSC" in metric_name
+            for j, full_metric_name in enumerate(chunk):
+                is_limit = full_metric_name.startswith("LIMIT")
+                # AIMD relative error / queue metrics — not μs latency (even when logged with T:T).
+                is_err = (
+                    "Measured ERR" in full_metric_name
+                    or " ERR-" in full_metric_name
+                    or full_metric_name.startswith("ERR ")
+                )
+                is_dimless = (
+                    "QS" in full_metric_name
+                    or "DROP" in full_metric_name
+                    or "DSC" in full_metric_name
+                    or "TwAvg" in full_metric_name
+                    or "TimeMean" in full_metric_name
+                    or is_err
                     or is_limit
                 )
-                is_drop = "DROP" in metric_name
+                is_drop = "DROP" in full_metric_name
                 row_idx = j // cols
                 col_idx = j % cols
                 ax = grid.get_ax(row_idx, col_idx)
-                data = metrics_data[metric_name]
+                data = metrics_data[full_metric_name]
                 timestamps, results = calculate_quantiles(
                     data,
                     resolution,
@@ -189,7 +199,8 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
                 if not timestamps or results is None:
                     continue
 
-                if not is_count and "Prob" not in metric_name:
+                apply_us_to_ms = not is_dimless and "Prob" not in full_metric_name
+                if apply_us_to_ms:
                     results[50] = [x * 0.001 if not np.isnan(x) else x for x in results[50]]
                     results[95] = [x * 0.001 if not np.isnan(x) else x for x in results[95]]
                     results[99] = [x * 0.001 if not np.isnan(x) else x for x in results[99]]
@@ -199,13 +210,26 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
                     max_val = 1.0
                 y_top = max_val * 1.2
 
+                if is_err:
+                    mins = []
+                    for k in (50, 95, 99):
+                        for x in results[k]:
+                            if not np.isnan(x):
+                                mins.append(float(x))
+                    y_bottom = min(mins) * 1.2 if mins and min(mins) < 0 else 0.0
+                else:
+                    y_bottom = 0.0
+
                 if (
-                    "EMA" in metric_name
-                    or metric_name.startswith("MA ")
-                    or metric_name.startswith("TD-")
-                    or "HIST" in metric_name
+                    "EMA" in full_metric_name
+                    or full_metric_name.startswith("MA ")
+                    or full_metric_name.startswith("TD-")
+                    or "HIST" in full_metric_name
                     or is_limit
-                    or "Local-RT" in metric_name
+                    or "Local-RT" in full_metric_name
+                    or "TwAvg" in full_metric_name
+                    or "TimeMean" in full_metric_name
+                    or is_err
                 ):
                     pp.plot_scatter(ax, timestamps, results[50], label="P50", style=style, color_idx=1)
                     pp.plot_scatter(ax, timestamps, results[95], label="P95", style=style, color_idx=4)
@@ -218,9 +242,15 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
                 grid.configure_ax(
                     ax,
                     xlabel="Time (s)" if row_idx == rows - 1 else "",
-                    ylabel=("Count" if is_count else "Lat (ms)") if col_idx == 0 else "",
-                    title=metric_name,
-                    ylim=(0, y_top),
+                    ylabel=(
+                        ("Err" if is_err else "Count")
+                        if is_dimless
+                        else "Lat (ms)"
+                    )
+                    if col_idx == 0
+                    else "",
+                    title=full_metric_name,
+                    ylim=(y_bottom, y_top),
                 )
 
             for k in range(len(chunk), plots_per_page):
