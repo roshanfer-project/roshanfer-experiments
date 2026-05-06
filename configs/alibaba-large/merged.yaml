@@ -1,0 +1,30 @@
+figures:
+  latency-and-goodput-vs-load-alibaba-large:
+    type: latency-and-goodput-vs-load
+    include:
+      latency-and-goodput-vs-load-alibaba-large-sidecar:
+        label: Roshanfer
+      latency-and-goodput-vs-load-alibaba-large-dagor:
+        label: Dagor
+      latency-and-goodput-vs-load-alibaba-large-rajomon:
+        label: Rajomon
+
+  latency-and-rate-vs-time-alibaba-large:
+    type: latency-and-rate-vs-time
+    include:
+      latency-and-rate-vs-time-alibaba-large-plain:
+        label: Plain
+        unit: latency-and-rate-vs-time-alibaba-large-plain-rate-2500
+        repeat: 0
+      latency-and-rate-vs-time-alibaba-large-sidecar:
+        label: Roshanfer
+        unit: latency-and-rate-vs-time-alibaba-large-sidecar-rate-4000
+        repeat: 0
+      latency-and-rate-vs-time-alibaba-large-dagor:
+        label: Dagor
+        unit: latency-and-rate-vs-time-alibaba-large-dagor-rate-4000
+        repeat: 0
+      latency-and-rate-vs-time-alibaba-large-rajomon:
+        label: Rajomon
+        unit: latency-and-rate-vs-time-alibaba-large-rajomon-rate-4000
+        repeat: 0

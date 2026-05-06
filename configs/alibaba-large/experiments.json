@@ -19,8 +19,8 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 2500,
-                "end": 2500,
+                "start": 4000,
+                "end": 4000,
                 "step": 1000
             },
             "base_rate": 500,
@@ -29,42 +29,88 @@
                 "Z8trRkp4mp"
             ],
             "system": "sidecar",
-            "repeat": 1,
+            "repeat": 3,
             "collector_freq": 200
         },
         {
-            "type": "latency-vs-throughput",
+            "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 500,
-                "end": 2500,
-                "step": 500
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
             },
             "base_rate": 500,
-            "duration_sec": 10,
+            "duration_sec": 15,
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "plain",
-            "repeat": 1,
-            "collector_freq": 200,
-            "warmup": 2
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200
         },
         {
-            "type": "latency-vs-throughput",
+            "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 500,
-                "end": 2500,
-                "step": 500
+                "start": 4000,
+                "end": 4000,
+                "step": 1000
             },
             "base_rate": 500,
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "loads": {
+                "start": 1000,
+                "end": 14000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
             "apis": [
                 "Z8trRkp4mp"
             ],
             "system": "sidecar",
-            "repeat": 1,
-            "collector_freq": 200,
-            "warmup": 2
+            "repeat": 3,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "loads": {
+                "start": 1000,
+                "end": 14000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "dagor",
+            "repeat": 3,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-goodput-vs-load",
+            "loads": {
+                "start": 1000,
+                "end": 14000,
+                "step": 1000
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "rajomon",
+            "repeat": 3,
+            "collector_freq": 200
         }
     ]
 }
