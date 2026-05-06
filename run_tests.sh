@@ -316,7 +316,7 @@ if [[ -n "$ALSO_HOTEL_SOCIAL" ]]; then
 fi
 
 if [[ -n "$ALSO_ALIBABA" ]]; then
-  bench_filter_allows alibaba-large && run_bench "alibaba-large" "configs/alibaba-large/config.alibaba.json" "configs/alibaba-large/experiments.json" ""
+  bench_filter_allows alibaba-large && run_bench "alibaba-large" "configs/alibaba-large/config.alibaba.json" "configs/alibaba-large/experiments.json" "configs/alibaba-large/merged.yaml"
 fi
 
 if [[ -d "$PLOTS_ROOT" ]]; then
