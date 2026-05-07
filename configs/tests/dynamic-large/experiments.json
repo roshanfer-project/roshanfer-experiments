@@ -111,7 +111,7 @@
                 "f1"
             ],
             "system": "sidecar",
-            "repeat": 2,
+            "repeat": 3,
             "collector_freq": 200
         },
         {

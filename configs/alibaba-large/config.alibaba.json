@@ -12,5 +12,11 @@
   "slos": {
     "Z8trRkp4mp": "600"
   },
-  "metrics": {}
+  "metrics": {},
+  "tuner": {
+    "tune_api": "Z8trRkp4mp",
+    "tuner_base": 500,
+    "tuner_rate": 2000,
+    "maximum_goodput": 1800
+  }
 }
