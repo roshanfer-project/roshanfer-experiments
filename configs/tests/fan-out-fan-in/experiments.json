@@ -96,6 +96,7 @@
             "base_rate": 500,
             "duration_sec": 15,
             "apis": [
+                "f1",
                 "g1"
             ],
             "system": "sidecar",
