@@ -1,0 +1,21 @@
+{
+    "experiments": [
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 5000,
+                "end": 50000,
+                "step": 5000
+            },
+            "base_rate": 500,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "sidecar",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        }
+    ]
+}
