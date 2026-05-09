@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from exec.plots.data_loader import extract_series
+from exec.plots.plugins.latency_rate_vs_time_repeat import SLO_LINE_COLOR
 from exec.plots.plotting_primitives import ACM_COMPACT_HALF, SubplotGrid, plot_line, plot_stacked_area
 
 RATE_KEYS_ORDER = ["goodput", "slo_violation", "dropped_in", "dropped"]
@@ -156,7 +157,7 @@ def _save_latency_lines(
             xs.append(x)
         plot_line(ax, x, y, label=_label_fixer(k), style=style, color_idx=i)
     if add_slo:
-        ax.axhline(y=slo_ms, color="r", linestyle="--", label="SLO")
+        ax.axhline(y=slo_ms, color=SLO_LINE_COLOR, linestyle="--", label="SLO")
     x_data = np.concatenate(xs) if xs else None
     grid.configure_ax(
         ax,

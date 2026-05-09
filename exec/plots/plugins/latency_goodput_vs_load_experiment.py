@@ -37,6 +37,14 @@ except ImportError:
             SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line
         )
 
+try:
+    from .latency_rate_vs_time_repeat import SLO_LINE_COLOR
+except ImportError:
+    try:
+        from exec.plots.plugins.latency_rate_vs_time_repeat import SLO_LINE_COLOR  # type: ignore
+    except ImportError:
+        from latency_rate_vs_time_repeat import SLO_LINE_COLOR  # type: ignore
+
 SUPPORTED_TYPES = ['latency-and-goodput-vs-load']
 
 
@@ -187,7 +195,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
         display_api = api.replace('_all', '') if api.endswith('_all') else api
         slo_val = _lookup_slo(slos, display_api)
         if slo_val is not None:
-            ax.axhline(y=slo_val, color='r', linestyle='--',
+            ax.axhline(y=slo_val, color=SLO_LINE_COLOR, linestyle='--',
                        label='SLO', linewidth=style.line_width)
             all_latency_values.append(slo_val)
         

@@ -24,7 +24,7 @@ and generates stacked rate plots and latency line plots using plotting_primitive
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 import pandas as pd
 import numpy as np
 import json
@@ -66,7 +66,7 @@ RATE_COLOR_MAP = {
 }
 
 # Distinct from P50/P99 line colors (first two palette entries are red/blue)
-SLO_LINE_COLOR = '#1a1a1a'
+SLO_LINE_COLOR = 'black'
 
 
 def _load_global_slos() -> Optional[Dict[str, float]]:
@@ -136,25 +136,31 @@ def _lookup_slo(slos: Optional[Dict[str, float]], api: str) -> float:
     return 60.0  # Default SLO
 
 
-def _latency_log_ylim(df: pd.DataFrame, slo_ms: float) -> Tuple[float, float]:
-    """ymax = 1.2 * max(plotted percentiles, SLO); ymin fixed at 1 ms for log scale."""
+def _latency_log_ylim_many(dfs: Sequence[pd.DataFrame], slo_ms: float) -> Tuple[float, float]:
+    """ymax = 1.2 * max(plotted percentiles, SLO) over all frames; ymin 1 ms for log scale."""
     vals: List[float] = []
     if slo_ms > 0:
         vals.append(float(slo_ms))
-    for col in ('p50_latency', 'p99_latency', 'p95_latency'):
-        if col not in df.columns:
-            continue
-        s = pd.to_numeric(df[col], errors='coerce').dropna()
-        if s.empty:
-            continue
-        m = float(s.max())
-        if m > 0 and np.isfinite(m):
-            vals.append(m)
+    for df in dfs:
+        for col in ('p50_latency', 'p99_latency', 'p95_latency'):
+            if col not in df.columns:
+                continue
+            s = pd.to_numeric(df[col], errors='coerce').dropna()
+            if s.empty:
+                continue
+            m = float(s.max())
+            if m > 0 and np.isfinite(m):
+                vals.append(m)
     top = max(vals) if vals else 1.0
     if top <= 0:
         top = 1.0
     ymax = max(1.2 * top, 1.0)
     return (1.0, ymax)
+
+
+def _latency_log_ylim(df: pd.DataFrame, slo_ms: float) -> Tuple[float, float]:
+    """ymax = 1.2 * max(plotted percentiles, SLO); ymin fixed at 1 ms for log scale."""
+    return _latency_log_ylim_many([df], slo_ms)
 
 
 def _rate_ylim_krps(y_series: Dict[str, np.ndarray]) -> Tuple[float, float]:
