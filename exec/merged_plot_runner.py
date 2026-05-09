@@ -273,6 +273,14 @@ def generate_resource_waste_bar_merged(
     if not include_experiments:
         return []
     
+    bench_default = 'hotel'
+    if global_config:
+        try:
+            with open(global_config) as f:
+                bench_default = json.load(f).get('bench', bench_default)
+        except Exception:
+            pass
+    
     produced = []
     exp_names = list(include_experiments.keys())
     
@@ -291,7 +299,7 @@ def generate_resource_waste_bar_merged(
         
         # Get APIs and benchmark type from experiment config
         apis = exp_def.get('apis', [])
-        bench = exp_def.get('bench', 'hotel')  # Default to hotel
+        bench = exp_def.get('bench', bench_default)
         
         # Load all repeats for this experiment (from all exp-XXX dirs)
         repeat_waste_data = []
@@ -588,26 +596,6 @@ def generate_resource_waste_bar_merged(
             bar_groups.append((label, means, stds))
             
         plot_grouped_bars(ax, api_x_indices, bar_groups, style=style)
-        
-        # Add labels for Roshanfer
-        n_groups = len(bar_groups)
-        bar_width = style.bar_width_fraction / n_groups
-        
-        for g_i, (label, heights, errors) in enumerate(bar_groups):
-            if label == 'Roshanfer' or 'sidecar' in label.lower():
-                 offsets = [x - style.bar_width_fraction/2 + g_i*bar_width + bar_width/2
-                          for x in api_x_indices]
-                 
-                 for x, h, err in zip(offsets, heights, errors):
-                     # Always plot or maybe only if > 0? User asked for value.
-                     # Let's verify if h is 0. 
-                     label_text = f"{h:.1f}" if h < 10 else f"{int(round(h))}"
-                     
-                     # Position above bar + error
-                     y_pos = h + (err if err else 0) + (global_max * 0.2 if global_max > 0 else 1.0)
-                     
-                     ax.text(x, y_pos, label_text, ha='center', va='bottom',
-                            fontsize=style.font_size*0.6, fontweight='normal')
 
         # Store filtered services for this API for axis formatting
         if api_idx == 0:
@@ -680,7 +668,7 @@ def generate_resource_waste_bar_merged(
             )
 
     # Compact legend at the top center of the figure
-    grid.add_shared_legend(position="top")
+    grid.add_shared_legend(position="top", two_rows=True if len(all_apis) == 1 else False)
     
     # Save figure
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1001,15 +989,15 @@ def generate_max_queue_merged(
                     show_yticklabels=(i == 0),
                 )
 
-        grid.add_shared_legend(position="top")
+        grid.add_shared_legend(position="top", two_rows=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         fig_path = output_dir / f'{figure_name}{file_suffix}'
         grid.save(fig_path)
         return fig_path
 
     produced = [
-        _save_one_merged('data_max', 'Max Queueing (req)', True, '_max_queue.pdf'),
-        _save_one_merged('data_avg', 'Avg Queueing (req)', True, '_avg_queue.pdf'),
+        _save_one_merged('data_max', 'Queue Size\n  (req)', True, '_max_queue.pdf'),
+        _save_one_merged('data_avg', 'Queue Size\n  (req)', True, '_avg_queue.pdf'),
     ]
     return produced
 
@@ -1137,6 +1125,7 @@ def generate_latency_goodput_vs_load_merged(
         from exec.plots.plotting_primitives import (
             SubplotGrid, ACM_COMPACT_HALF, plot_line
         )
+        from exec.plots.plugins.latency_rate_vs_time_repeat import SLO_LINE_COLOR
     except ImportError:
         try:
             from plots.data_loader import load_repeat_data  # type: ignore
@@ -1144,12 +1133,14 @@ def generate_latency_goodput_vs_load_merged(
             from plots.plotting_primitives import (  # type: ignore
                 SubplotGrid, ACM_COMPACT_HALF, plot_line
             )
+            from plots.plugins.latency_rate_vs_time_repeat import SLO_LINE_COLOR  # type: ignore
         except ImportError:
             from data_loader import load_repeat_data  # type: ignore
             from aggregation import aggregate_by_api  # type: ignore
             from plotting_primitives import (  # type: ignore
                 SubplotGrid, ACM_COMPACT_HALF, plot_line
             )
+            from latency_rate_vs_time_repeat import SLO_LINE_COLOR  # type: ignore
     
     import matplotlib.pyplot as plt
     import math
@@ -1393,7 +1384,7 @@ def generate_latency_goodput_vs_load_merged(
                 slo_num = None
             if slo_num is not None:
                 ax_lat.axhline(
-                    y=slo_num, color='r', linestyle='--',
+                    y=slo_num, color=SLO_LINE_COLOR, linestyle='--',
                     label='SLO', linewidth=style.line_width)
                 all_latency_values.append(slo_num)
                 slo_cap_for_idx[idx] = slo_num * 1.3
@@ -1446,8 +1437,9 @@ def generate_latency_goodput_vs_load_merged(
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
-                          log_y=False,
-                          ylim=(0.0, latency_ylim_top[0]))
+                          log_y=True,
+                          #ylim=(0.0, latency_ylim_top[0])
+                          )
         
         # Goodput (0,1)
         gp_ylim_top = max(goodput_y_top[0] * 1.1, 1e-6)
@@ -1495,8 +1487,8 @@ def generate_latency_goodput_vs_load_merged(
                  xlabel="Offered Load (KRPS)",
                  x_step=2.0,
                  x_data=all_loads,
-                 log_y=False,
-                 ylim=(0.0, latency_ylim_top[idx]),
+                 log_y=True,
+                 #ylim=(0.0, latency_ylim_top[idx]),
                  show_ylabel=(idx==0),
                  show_yticklabels=(idx==0)
              )
@@ -1796,11 +1788,13 @@ def generate_latency_and_rate_vs_time_merged(
         from exec.plots.plugins.latency_rate_vs_time_repeat import (
             SLO_LINE_COLOR,
             _lookup_slo,
+            _latency_log_ylim_many,
         )
     except ImportError:
         from plots.plugins.latency_rate_vs_time_repeat import (  # type: ignore
             SLO_LINE_COLOR,
             _lookup_slo,
+            _latency_log_ylim_many,
         )
 
     slo_f = None
@@ -1811,15 +1805,18 @@ def generate_latency_and_rate_vs_time_merged(
     if slo_f is None:
         slo_f = _lookup_slo(slos_numeric if slos_numeric else None, target_api)
 
-    y_hi_global = float(slo_f) * 1.3
+    lat_dfs = []
+    for item in final_data:
+        df0 = item['realtime'].df
+        lat_dfs.append(df0[df0['relative_time'] <= 15.0].copy())
+    y_lo, y_hi = _latency_log_ylim_many(lat_dfs, float(slo_f))
 
     slo_legend = f"SLO ({slo_f:g} ms)"
     grid_lat = SubplotGrid(style, layout=f"1x{n_plots}")
 
     for i, item in enumerate(final_data):
         ax = grid_lat.get_ax(0, i)
-        df = item['realtime'].df
-        df = df[df['relative_time'] <= 15.0].copy()
+        df = lat_dfs[i]
         time_x = df['relative_time'].values
 
         if 'p50_latency' in df.columns:
@@ -1832,8 +1829,8 @@ def generate_latency_and_rate_vs_time_merged(
         grid_lat.configure_ax(ax,
             ylabel="Latency (ms)" if i == 0 else "",
             xlabel="Time (s)",
-            ylim=(0.0, y_hi_global),
-            log_y=False,
+            ylim=(y_lo, y_hi),
+            log_y=True,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
             x_data=time_x, x_type='int', x_step=3
@@ -1982,6 +1979,7 @@ def generate_latency_vs_throughput_merged(
                 repeat_p99: List[float] = []
                 repeat_goodputs: List[float] = []
                 repeat_p75: List[float] = []
+                repeat_p50: List[float] = []
 
                 for artifact_dir in artifact_dirs:
                     repeat_data = load_repeat_data(artifact_dir)
@@ -1996,6 +1994,7 @@ def generate_latency_vs_throughput_merged(
                             repeat_p99.append(float(overall.p99_latency))
                             repeat_goodputs.append(float(overall.goodput))
                             repeat_p75.append(float(overall.p75_latency))
+                            repeat_p50.append(float(overall.p50_latency))
                         elif os.environ.get('PLOT_DEBUG') == '1':
                             print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
                     elif os.environ.get('PLOT_DEBUG') == '1':
@@ -2010,6 +2009,11 @@ def generate_latency_vs_throughput_merged(
                         if repeat_p75
                         else (None, None, None)
                     )
+                    p50_mean, _, p50_ci = (
+                        aggregate_overall_metric(repeat_p50)
+                        if repeat_p50
+                        else (None, None, None)
+                    )
 
                     if tp_mean is not None and p99_mean is not None:
                         exp_points.append({
@@ -2021,6 +2025,8 @@ def generate_latency_vs_throughput_merged(
                             'p99_ci': p99_ci if p99_ci is not None else 0.0,
                             'p75': p75_mean if p75_mean is not None else 0.0,
                             'p75_ci': p75_ci if p75_ci is not None else 0.0,
+                            'p50': p50_mean if p50_mean is not None else 0.0,
+                            'p50_ci': p50_ci if p50_ci is not None else 0.0,
                             'load_value': unit_load_value.get(unit_name),
                         })
                         if os.environ.get('PLOT_DEBUG') == '1':
@@ -2060,6 +2066,8 @@ def generate_latency_vs_throughput_merged(
                 'p99_ci': [p['p99_ci'] for p in exp_points],
                 'p75': [p['p75'] for p in exp_points],
                 'p75_ci': [p['p75_ci'] for p in exp_points],
+                'p50': [p['p50'] for p in exp_points],
+                'p50_ci': [p['p50_ci'] for p in exp_points],
             }
             
             # Update limits
@@ -2090,67 +2098,164 @@ def generate_latency_vs_throughput_merged(
         )
 
     line_specs = [
-        ('p99', 'p99_ci', 'P99 Latency (ms)', f'{figure_name}_latency_vs_throughput.pdf'),
-        ('p75', 'p75_ci', 'P75 Latency (ms)', f'{figure_name}_latency_vs_throughput_p75.pdf'),
+        ('p99', 'p99_ci', 'P99 latency\n   (ms)', f'{figure_name}_latency_vs_throughput.pdf'),
+        ('p75', 'p75_ci', 'P75 Latency\n   (ms)', f'{figure_name}_latency_vs_throughput_p75.pdf'),
     ]
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    main_tp_pdf = f'{figure_name}_latency_vs_throughput.pdf'
 
     for val_key, ci_key, y_axis_label, pdf_name in line_specs:
-        grid = SubplotGrid(style, layout=f"1x{n_apis}")
+        side_by_side_main = val_key == 'p99' and pdf_name == main_tp_pdf
+        if side_by_side_main:
+            grid = SubplotGrid(style, layout=f"1x{2 * n_apis}")
+        else:
+            grid = SubplotGrid(style, layout=f"1x{n_apis}")
 
         for api_idx, api in enumerate(all_apis):
-            ax_lat = grid.get_ax(0, api_idx)
-
-            if len(all_apis) > 1:
-                ax_lat.set_title(api, fontsize=style.title_size)
-
-            for label, data in plot_data[api].items():
-                color_idx = color_idx_map.get(label, 0)
-
-                lat_vals = data[val_key]
-                lat_cis = data[ci_key]
-
-                # Symmetric CI (same as latency_vs_throughput_experiment); omit only if length mismatch
-                lat_errs = (
-                    [float(c) if c is not None else 0.0 for c in lat_cis]
-                    if len(lat_cis) == len(lat_vals)
-                    else None
-                )
-
-                plot_line(
-                    ax_lat, data['tps'], lat_vals,
-                    yerr=lat_errs,
-                    label=label,
-                    style=style,
-                    color_idx=color_idx,
-                    style_idx=color_idx,
-                    show_markers=True,
-                )
-
             slo_ms = _lookup_slo(slos_numeric if slos_numeric else None, api)
 
-            grid.configure_ax(
-                ax_lat,
-                ylabel=y_axis_label if api_idx == 0 else "",
-                xlabel="Throughput (RPS)",
-                ylim=(0, 2 * slo_ms),
-                grid=True,
-                show_xticklabels=True,
-                show_xlabel=True,
-                show_ylabel=(api_idx == 0),
-                show_yticklabels=True,
-                x_type='int',
-                x_step=1000
-            )
-            ax_lat.axhline(
-                y=float(slo_ms),
-                color=SLO_LINE_COLOR,
-                linestyle='--',
-                linewidth=style.line_width,
-                zorder=5,
-                label=f"SLO ({slo_ms:g} ms)",
-            )
+            if side_by_side_main:
+                ax_p50 = grid.get_ax(0, 2 * api_idx)
+                ax_p99 = grid.get_ax(0, 2 * api_idx + 1)
+
+                if len(all_apis) > 1:
+                    ax_p50.set_title(api, fontsize=style.title_size)
+                    ax_p99.set_title(api, fontsize=style.title_size)
+
+                for label, data in plot_data[api].items():
+                    color_idx = color_idx_map.get(label, 0)
+
+                    p50_vals = data['p50']
+                    p50_cis = data['p50_ci']
+                    p50_errs = (
+                        [float(c) if c is not None else 0.0 for c in p50_cis]
+                        if len(p50_cis) == len(p50_vals)
+                        else None
+                    )
+                    plot_line(
+                        ax_p50, np.asarray(data['tps'], dtype=float) / 1000.0, p50_vals,
+                        yerr=p50_errs,
+                        label=None,
+                        style=style,
+                        color_idx=color_idx,
+                        style_idx=color_idx,
+                        show_markers=True,
+                    )
+
+                    lat_vals = data['p99']
+                    lat_cis = data['p99_ci']
+                    lat_errs = (
+                        [float(c) if c is not None else 0.0 for c in lat_cis]
+                        if len(lat_cis) == len(lat_vals)
+                        else None
+                    )
+                    plot_line(
+                        ax_p99, np.asarray(data['tps'], dtype=float) / 1000.0, lat_vals,
+                        yerr=lat_errs,
+                        label=label,
+                        style=style,
+                        color_idx=color_idx,
+                        style_idx=color_idx,
+                        show_markers=True,
+                    )
+
+                tp_concat = []
+                for _, data in plot_data[api].items():
+                    tp_concat.extend(float(x) / 1000.0 for x in data['tps'])
+                x_throughput = np.array(tp_concat, dtype=float) if tp_concat else None
+
+                for ax_lat, y_lab in (
+                    (ax_p50, 'P50 latency\n   (ms)'),
+                    (ax_p99, 'P99 latency\n   (ms)'),
+                ):
+                    grid.configure_ax(
+                        ax_lat,
+                        ylabel=y_lab if api_idx == 0 else "",
+                        xlabel="Throughput (KRPS)",
+                        ylim=(0, 2 * slo_ms),
+                        grid=True,
+                        show_xticklabels=True,
+                        show_xlabel=True,
+                        show_ylabel=(api_idx == 0),
+                        show_yticklabels=True,
+                        x_data=x_throughput,
+                        x_type='float',
+                        x_step=1.0,
+                    )
+
+                slo_legend = f"SLO ({slo_ms:g} ms)" if api_idx == 0 else None
+                ax_p50.axhline(
+                    y=float(slo_ms),
+                    color=SLO_LINE_COLOR,
+                    linestyle='--',
+                    linewidth=style.line_width,
+                    zorder=5,
+                    label=None,
+                )
+                ax_p99.axhline(
+                    y=float(slo_ms),
+                    color=SLO_LINE_COLOR,
+                    linestyle='--',
+                    linewidth=style.line_width,
+                    zorder=5,
+                    label=slo_legend,
+                )
+            else:
+                ax_lat = grid.get_ax(0, api_idx)
+
+                if len(all_apis) > 1:
+                    ax_lat.set_title(api, fontsize=style.title_size)
+
+                for label, data in plot_data[api].items():
+                    color_idx = color_idx_map.get(label, 0)
+
+                    lat_vals = data[val_key]
+                    lat_cis = data[ci_key]
+
+                    lat_errs = (
+                        [float(c) if c is not None else 0.0 for c in lat_cis]
+                        if len(lat_cis) == len(lat_vals)
+                        else None
+                    )
+
+                    plot_line(
+                        ax_lat, np.asarray(data['tps'], dtype=float) / 1000.0, lat_vals,
+                        yerr=lat_errs,
+                        label=label,
+                        style=style,
+                        color_idx=color_idx,
+                        style_idx=color_idx,
+                        show_markers=True,
+                    )
+
+                tp_concat = []
+                for _, data in plot_data[api].items():
+                    tp_concat.extend(float(x) / 1000.0 for x in data['tps'])
+                x_throughput = np.array(tp_concat, dtype=float) if tp_concat else None
+
+                grid.configure_ax(
+                    ax_lat,
+                    ylabel=y_axis_label if api_idx == 0 else "",
+                    xlabel="Throughput (KRPS)",
+                    ylim=(0, 2 * slo_ms),
+                    grid=True,
+                    show_xticklabels=True,
+                    show_xlabel=True,
+                    show_ylabel=(api_idx == 0),
+                    show_yticklabels=True,
+                    x_data=x_throughput,
+                    x_type='float',
+                    x_step=1.0,
+                )
+                ax_lat.axhline(
+                    y=float(slo_ms),
+                    color=SLO_LINE_COLOR,
+                    linestyle='--',
+                    linewidth=style.line_width,
+                    zorder=5,
+                    label=f"SLO ({slo_ms:g} ms)",
+                )
 
         grid.add_shared_legend(position="top")
         line_path = output_dir / pdf_name
