@@ -36,7 +36,7 @@ class PlotStyle:
     Just set width_points and font sizes; the layout engine handles the rest.
     """
     width_points: float  # Input in points (e.g., 240 for ACM half column)
-    aspect_ratio: float = 0.618  # Golden ratio
+    aspect_ratio: float = 0.35  # Golden ratio
     dpi: int = 300
     
     # Constrained layout padding (inches)
@@ -98,9 +98,10 @@ class PlotStyle:
 
 
 # ACM Presets
-ACM_QUARTER = PlotStyle(width_points=120, aspect_ratio=0.8, font_size=8, title_size=8, legend_size=8)  # 1.665 inches (half column)
-ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=12, title_size=12, legend_size=12)  # 3.33 inches (full column)
-ACM_COMPACT_FULL = PlotStyle(width_points=504, font_size=12, legend_size=12, title_size=12)  # 7 inches (double column)
+TEXT_SIZE = 7
+ACM_QUARTER = PlotStyle(width_points=120, aspect_ratio=0.8, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 1.665 inches (half column)
+ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 3.33 inches (full column)
+ACM_COMPACT_FULL = PlotStyle(width_points=504, font_size=TEXT_SIZE, legend_size=TEXT_SIZE, title_size=TEXT_SIZE, marker_size=4)  # 7 inches (double column)
 
 
 class SubplotGrid:
@@ -151,7 +152,7 @@ class SubplotGrid:
         """Create figure with constrained_layout, optionally using GridSpec."""
         import matplotlib.pyplot as plt
         
-        total_width = self.style.width_inches * self.ncols
+        total_width = self.style.width_inches
         total_height = self.style.width_inches * self.style.aspect_ratio * self.nrows
         
         if width_ratios or height_ratios:
@@ -400,7 +401,11 @@ class SubplotGrid:
             handles, labels,
             loc=loc, ncol=ncol,
             frameon=False,
-            fontsize=self.style.legend_size
+            fontsize=self.style.legend_size,
+            handletextpad=0.4,
+            columnspacing=0.8,
+            handlelength=1.5,
+            borderaxespad=0.2,
         )
     
     def save(self, path: Path):
@@ -411,7 +416,7 @@ class SubplotGrid:
         """
         import matplotlib.pyplot as plt
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.fig.savefig(path, bbox_inches='tight', dpi=self.style.dpi)
+        self.fig.savefig(path, bbox_inches='tight', pad_inches=0.01, dpi=self.style.dpi)
         plt.close(self.fig)
 
 
