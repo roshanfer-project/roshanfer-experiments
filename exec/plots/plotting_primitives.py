@@ -9,7 +9,7 @@ Design goals:
 - Consistent compact spacing across all plots
 - Support for uneven subplot sizing (GridSpec)
 - Helper functions for common label patterns
-- High-contrast colors optimized for print
+- Colorblind-friendly categorical colors (Okabe–Ito), still print-ready
 
 Usage:
     >>> style = ACM_COMPACT_HALF  # 3.33" half column
@@ -52,7 +52,7 @@ class PlotStyle:
     
     # Line/marker styles
     line_width: float = 1.8
-    marker_size: float = 4.5
+    marker_size: float = 5.5
     
     # Bar plot settings
     bar_width_fraction: float = 0.8  # Fraction of x-unit
@@ -65,20 +65,31 @@ class PlotStyle:
     y_tick_type: str = "auto"  # "int", "float", or "auto"
     axis_guard_fraction: float = 0.03  # Padding fraction for professional appearance (default)
     
-    # High-contrast academic colors (optimized for print)
+    # Okabe–Ito palette (Wong 2011); distinct under common CVD, fine for print
     colors: List[str] = field(default_factory=lambda: [
-        '#e41a1c',  # Red (high contrast)
-        '#377eb8',  # Blue
-        '#4daf4a',  # Green
-        '#984ea3',  # Purple
-        '#ff7f00',  # Orange
-        '#a65628',  # Brown
-        '#f781bf',  # Pink
-        '#999999',  # Gray
+        '#E69F00',  # orange
+        '#56B4E9',  # sky blue
+        '#009E73',  # bluish green
+        '#F0E442',  # yellow
+        '#0072B2',  # blue
+        '#D55E00',  # vermillion
+        '#CC79A7',  # reddish purple
+        '#000000',  # black
     ])
     
-    line_styles: List[str] = field(default_factory=lambda: ['-', '--', '-.', ':'])
-    markers: List[str] = field(default_factory=lambda: ['o', 's', '^', 'D', 'v', 'P', '*'])
+    # Eight patterns (align with len(colors)); dash tuples read well in print/PDF
+    line_styles: List[Any] = field(default_factory=lambda: [
+        '-',
+        '--',
+        '-.',
+        ':',
+        (0, (8, 4)),
+        (0, (4, 2, 1, 2)),
+        (0, (2, 2)),
+        (0, (12, 3, 2, 3)),
+    ])
+    # Silhouettes differ at legend size; one entry per color index
+    markers: List[str] = field(default_factory=lambda: ['o', 's', '^', 'v', 'D', 'p', 'P', '*'])
     
     @property
     def width_inches(self) -> float:
@@ -87,9 +98,9 @@ class PlotStyle:
 
 
 # ACM Presets
-ACM_QUARTER = PlotStyle(width_points=120, aspect_ratio=0.8, font_size=8, title_size=8, legend_size=7)  # 1.665 inches (half column)
-ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=11, title_size=11, legend_size=11)  # 3.33 inches (full column)
-ACM_COMPACT_FULL = PlotStyle(width_points=504)  # 7 inches (double column)
+ACM_QUARTER = PlotStyle(width_points=120, aspect_ratio=0.8, font_size=8, title_size=8, legend_size=8)  # 1.665 inches (half column)
+ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=12, title_size=12, legend_size=12)  # 3.33 inches (full column)
+ACM_COMPACT_FULL = PlotStyle(width_points=504, font_size=12, legend_size=12, title_size=12)  # 7 inches (double column)
 
 
 class SubplotGrid:
@@ -568,7 +579,7 @@ def configure_y_axis_ticks(ax, y_data=None, style: Optional[PlotStyle] = None,
 
 def plot_line(ax, x, y, yerr=None, label: Optional[str] = None,
               style: Optional[PlotStyle] = None,
-              color_idx: int = 0, style_idx: int = 0, 
+              color_idx: int = 0, style_idx: Optional[int] = None,
               show_markers: bool = False, **kwargs):
     """Generic line plot with optional error bars.
     
@@ -580,7 +591,7 @@ def plot_line(ax, x, y, yerr=None, label: Optional[str] = None,
         label: Legend label
         style: PlotStyle (uses ACM_COMPACT_HALF if None)
         color_idx: Index into style.colors
-        style_idx: Index into style.line_styles and style.markers
+        style_idx: Index into style.line_styles and style.markers (defaults to color_idx)
         show_markers: Whether to show markers on line (default: False)
         **kwargs: Additional matplotlib arguments (overrides defaults)
         
@@ -589,11 +600,12 @@ def plot_line(ax, x, y, yerr=None, label: Optional[str] = None,
     """
     style = style or ACM_COMPACT_HALF
     color = kwargs.pop('color', style.colors[color_idx % len(style.colors)])
-    linestyle = kwargs.pop('linestyle', style.line_styles[style_idx % len(style.line_styles)])
+    si = style_idx if style_idx is not None else color_idx
+    linestyle = kwargs.pop('linestyle', style.line_styles[si % len(style.line_styles)])
     
     # Only add markers if explicitly requested
     if show_markers:
-        marker = kwargs.pop('marker', style.markers[style_idx % len(style.markers)])
+        marker = kwargs.pop('marker', style.markers[si % len(style.markers)])
         marker_size = style.marker_size
     else:
         marker = kwargs.pop('marker', None)
