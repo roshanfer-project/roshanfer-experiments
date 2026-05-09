@@ -1914,7 +1914,7 @@ def generate_latency_vs_throughput_merged(
     n_apis = len(all_apis)
 
     # Use ACM compact style
-    style = ACM_QUARTER if n_apis == 1 else ACM_COMPACT_HALF
+    style = ACM_COMPACT_HALF
 
     # Data structure: data[api][exp_label] = {'tps': [], 'p99': [], ...}
     plot_data = {api: {} for api in all_apis}
