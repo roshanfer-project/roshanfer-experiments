@@ -12,20 +12,20 @@ figures:
     include:
       max-queue-dynamic-large-sidecar:
         label: Roshanfer
-      max-queue-dynamic-large-dagor:
-        label: Dagor
       max-queue-dynamic-large-rajomon:
         label: Rajomon
+      max-queue-dynamic-large-dagor:
+        label: Dagor
   
   latency-and-goodput-vs-load-dynamic-large:
     type: latency-and-goodput-vs-load
     include:
       latency-and-goodput-vs-load-dynamic-large-sidecar:
         label: Roshanfer
-      latency-and-goodput-vs-load-dynamic-large-dagor:
-        label: Dagor
       latency-and-goodput-vs-load-dynamic-large-rajomon:
         label: Rajomon
+      latency-and-goodput-vs-load-dynamic-large-dagor:
+        label: Dagor
 
   latency-and-rate-vs-time-dynamic-large:
     type: latency-and-rate-vs-time
@@ -34,11 +34,11 @@ figures:
         label: Roshanfer
         unit: latency-and-rate-vs-time-dynamic-large-sidecar-rate-6000
         repeat: 0
-      latency-and-rate-vs-time-dynamic-large-dagor:
-        label: Dagor
-        unit: latency-and-rate-vs-time-dynamic-large-dagor-rate-6000
-        repeat: 0
       latency-and-rate-vs-time-dynamic-large-rajomon:
         label: Rajomon
         unit: latency-and-rate-vs-time-dynamic-large-rajomon-rate-6000
+        repeat: 0
+      latency-and-rate-vs-time-dynamic-large-dagor:
+        label: Dagor
+        unit: latency-and-rate-vs-time-dynamic-large-dagor-rate-6000
         repeat: 0

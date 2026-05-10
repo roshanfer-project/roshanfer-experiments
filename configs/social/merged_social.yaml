@@ -1,66 +1,66 @@
 figures:
-  latency-and-goodput-vs-load-social-1:
+  latency-and-goodput-vs-load-social:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-social-1-dagor:
-        label: Dagor
-      latency-and-goodput-vs-load-social-1-rajomon:
-        label: Rajomon
-      latency-and-goodput-vs-load-social-1-sidecar:
+      latency-and-goodput-vs-load-social-sidecar:
         label: Roshanfer
+      latency-and-goodput-vs-load-social-rajomon:
+        label: Rajomon
+      latency-and-goodput-vs-load-social-dagor:
+        label: Dagor
   
   latency-and-goodput-vs-load-social-3:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-social-3-dagor:
-        label: Dagor
-      latency-and-goodput-vs-load-social-3-rajomon:
-        label: Rajomon
       latency-and-goodput-vs-load-social-3-sidecar:
         label: Roshanfer
+      latency-and-goodput-vs-load-social-3-rajomon:
+        label: Rajomon
+      latency-and-goodput-vs-load-social-3-dagor:
+        label: Dagor
   
-  latency-and-rate-vs-time-social-1:
+  latency-and-rate-vs-time-social:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-social-1-dagor:
-        label: Dagor
-        unit: "latency-and-rate-vs-time-social-1-dagor-rate-10000"
-        repeat: 4
-      latency-and-rate-vs-time-social-1-rajomon:
-        label: Rajomon
-        unit: "latency-and-rate-vs-time-social-1-rajomon-rate-10000"
-        repeat: 0
-      latency-and-rate-vs-time-social-1-sidecar:
+      latency-and-rate-vs-time-social-sidecar:
         label: Roshanfer
-        unit: "latency-and-rate-vs-time-social-1-sidecar-rate-10000"
+        unit: "latency-and-rate-vs-time-social-sidecar-rate-10000"
         repeat: 0
+      latency-and-rate-vs-time-social-rajomon:
+        label: Rajomon
+        unit: "latency-and-rate-vs-time-social-rajomon-rate-10000"
+        repeat: 0
+      latency-and-rate-vs-time-social-dagor:
+        label: Dagor
+        unit: "latency-and-rate-vs-time-social-dagor-rate-10000"
+        repeat: 4
 
-  max-queue-social-1:
+  max-queue-social:
     type: max-queue
     include:
-      max-queue-social-1-dagor:
-        label: Dagor
-      max-queue-social-1-rajomon:
-        label: Rajomon
-      max-queue-social-1-sidecar:
+      max-queue-social-sidecar:
         label: Roshanfer
+      max-queue-social-rajomon:
+        label: Rajomon
+      max-queue-social-dagor:
+        label: Dagor
   
   max-queue-social-3:
     type: max-queue
     include:
-      max-queue-social-3-dagor:
-        label: Dagor
-      max-queue-social-3-rajomon:
-        label: Rajomon
       max-queue-social-3-sidecar:
         label: Roshanfer
+      max-queue-social-3-rajomon:
+        label: Rajomon
+      max-queue-social-3-dagor:
+        label: Dagor
   
-  resource-waste-bar-social-1:
+  resource-waste-bar-social:
     type: resource-waste-bar
     include:
-      resource-waste-social-1-dagor:
-        label: Dagor
-      resource-waste-social-1-rajomon:
-        label: Rajomon
-      resource-waste-social-1-sidecar:
+      resource-waste-social-sidecar:
         label: Roshanfer
+      resource-waste-social-rajomon:
+        label: Rajomon
+      resource-waste-social-dagor:
+        label: Dagor
