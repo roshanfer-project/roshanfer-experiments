@@ -1144,8 +1144,7 @@ def generate_latency_goodput_vs_load_merged(
     
     import matplotlib.pyplot as plt
     import math
-    from dataclasses import replace
-    
+
     produced: List[Path] = []
     include_experiments = figure_config.get('include', {})
     
@@ -1278,11 +1277,6 @@ def generate_latency_goodput_vs_load_merged(
     if n_apis == 1:
         # Single API: Side-by-side (Latency, Goodput)
         layout = "1x2"
-        # We need a bit more width for side-by-side? 
-        # ACM_COMPACT_HALF is 240pt. 120pt per plot is standard quarter width. 
-        # So "1x2" in 240pt means two 120pt plots side-by-side. This is perfect.
-        # However, we need space for the inner goodput label
-        style = replace(style, wspace=0.15)
     else:
         # Multi API: Goodput first row, Latency second row
         layout = f"2x{n_apis}"
@@ -1433,7 +1427,7 @@ def generate_latency_goodput_vs_load_merged(
         
         # Latency (0,0)
         grid.configure_ax(grid.get_ax(0,0), 
-                          ylabel="P99 Latency (ms)", 
+                          ylabel="P99 Latency\n   (ms)", 
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
@@ -1444,7 +1438,7 @@ def generate_latency_goodput_vs_load_merged(
         # Goodput (0,1)
         gp_ylim_top = max(goodput_y_top[0] * 1.1, 1e-6)
         grid.configure_ax(grid.get_ax(0,1), 
-                          ylabel="Goodput (KRPS)", 
+                          ylabel="Goodput\n (KRPS)", 
                           xlabel="Offered Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
@@ -1466,7 +1460,7 @@ def generate_latency_goodput_vs_load_merged(
              ax_gp = grid.get_ax(0, idx)
              gp_ylim_top = max(goodput_y_top[idx] * 1.1, 1e-6)
              grid.configure_ax(ax_gp,
-                 ylabel="Goodput (KRPS)" if idx == 0 else "",
+                 ylabel="Goodput\n (KRPS)" if idx == 0 else "",
                  xlabel="",
                  show_xlabel=False,
                  show_xticklabels=False,
@@ -1483,7 +1477,7 @@ def generate_latency_goodput_vs_load_merged(
              # Row 1: Latency
              ax_lat = grid.get_ax(1, idx)
              grid.configure_ax(ax_lat,
-                 ylabel="P99 Latency (ms)" if idx == 0 else "",
+                 ylabel="P99 Latency\n   (ms)" if idx == 0 else "",
                  xlabel="Offered Load (KRPS)",
                  x_step=2.0,
                  x_data=all_loads,
@@ -1727,10 +1721,12 @@ def generate_latency_and_rate_vs_time_merged(
     if n_plots == 0: return []
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    style = ACM_COMPACT_HALF
+    from dataclasses import replace as _replace
+    style = _replace(ACM_COMPACT_HALF, aspect_ratio=0.75)
 
     # --- 1. GENERATE RATE PLOT ---
     print(f"Generating merged rate plot for {target_api}...")
+    rate_style = _replace(ACM_COMPACT_HALF, aspect_ratio=0.9)
     grid_rate = SubplotGrid(style, layout=f"1x{n_plots}")
     
     rate_max = 0.0
@@ -1761,16 +1757,14 @@ def generate_latency_and_rate_vs_time_merged(
         if y_series:
             plot_stacked_area(ax, time_x, y_series, style=style, color_map=RATE_COLOR_MAP)
             
-        # Title & Axis
-        ax.set_title(item['label'], fontsize=style.title_size)
-        grid_rate.configure_ax(ax, 
+        grid_rate.configure_ax(ax,
             ylabel="Rate (KRPS)" if i == 0 else "",
             xlabel="Time (s)",
             ylim=rate_ylim,
             y_step=2,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
-            x_data=time_x, x_type='int', x_step=3
+            x_data=time_x, x_type='int', x_step=3,
         )
         
     # Rate Legend
@@ -1825,15 +1819,17 @@ def generate_latency_and_rate_vs_time_merged(
         if 'p99_latency' in df.columns:
             plot_line(ax, time_x, df['p99_latency'].values, label='P99', style=style, color_idx=1)
 
-        ax.set_title(item['label'], fontsize=style.title_size)
         grid_lat.configure_ax(ax,
             ylabel="Latency (ms)" if i == 0 else "",
             xlabel="Time (s)",
             ylim=(y_lo, y_hi),
             log_y=True,
+            show_xlabel=False,
+            show_xticklabels=False,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
-            x_data=time_x, x_type='int', x_step=3
+            x_data=time_x, x_type='int', x_step=3,
+            title=item['label'], show_title=True
         )
         ax.axhline(
             y=float(slo_f),

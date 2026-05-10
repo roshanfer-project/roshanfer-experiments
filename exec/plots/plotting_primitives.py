@@ -36,7 +36,7 @@ class PlotStyle:
     Just set width_points and font sizes; the layout engine handles the rest.
     """
     width_points: float  # Input in points (e.g., 240 for ACM half column)
-    aspect_ratio: float = 0.35  # Golden ratio
+    aspect_ratio: float = 0.7  # per-subplot height / per-subplot width
     dpi: int = 300
     
     # Constrained layout padding (inches)
@@ -154,7 +154,7 @@ class SubplotGrid:
         import matplotlib.pyplot as plt
         
         total_width = self.style.width_inches
-        total_height = self.style.width_inches * self.style.aspect_ratio * self.nrows
+        total_height = self.style.width_inches * self.style.aspect_ratio * self.nrows / self.ncols
         
         if width_ratios or height_ratios:
             self.fig = plt.figure(
@@ -208,6 +208,7 @@ class SubplotGrid:
     def configure_ax(self, ax, xlabel: str = "", ylabel: str = "", title: str = "",
                     show_xlabel: bool = True, show_ylabel: bool = True,
                     show_xticklabels: bool = True, show_yticklabels: bool = True,
+                    show_title: bool = True,
                     grid: bool = True, log_y: bool = False, log_x: bool = False,
                     x_data=None, y_data=None, 
                     x_step: Optional[float] = None, y_step: Optional[float] = None,
@@ -227,6 +228,7 @@ class SubplotGrid:
             show_ylabel: Whether to display y-label
             show_xticklabels: Whether to display x-tick labels
             show_yticklabels: Whether to display y-tick labels
+            show_title: Whether to display subplot title
             grid: Whether to show grid
             log_y: Use logarithmic y-axis
             log_x: Use logarithmic x-axis
@@ -246,7 +248,7 @@ class SubplotGrid:
             ax.set_xlabel(xlabel, fontsize=self.style.font_size)
         if ylabel and show_ylabel:
             ax.set_ylabel(ylabel, fontsize=self.style.font_size)
-        if title:
+        if title and show_title:
             ax.set_title(title, fontsize=self.style.title_size, pad=4)
             
         # Enforce tick label size
@@ -562,6 +564,8 @@ def configure_y_axis_ticks(ax, y_data=None, style: Optional[PlotStyle] = None,
         tick_start = math.floor(final_y_min / y_step) * y_step
         tick_end = math.ceil(final_y_max / y_step) * y_step
         y_ticks = np.arange(tick_start, tick_end + y_step/2, y_step)
+        # Drop ticks outside ylim to prevent labels bleeding into the legend area
+        y_ticks = y_ticks[(y_ticks >= final_y_min - 1e-9) & (y_ticks <= final_y_max + 1e-9)]
         
         # Format tick labels
         if y_type == "int" or (y_type == "auto" and all(abs(t - round(t)) < 1e-9 for t in y_ticks)):

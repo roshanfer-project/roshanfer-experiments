@@ -23,6 +23,7 @@ and generates stacked rate plots and latency line plots using plotting_primitive
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 import pandas as pd
@@ -35,20 +36,20 @@ try:
     from ..data_loader import load_repeat_data, RealtimeData
     from ..plotting_primitives import (
         SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER,
-        plot_line, plot_stacked_area
+        PlotStyle, plot_line, plot_stacked_area
     )
 except ImportError:
     try:
         from exec.plots.data_loader import load_repeat_data, RealtimeData  # type: ignore
         from exec.plots.plotting_primitives import (  # type: ignore
             SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER,
-            plot_line, plot_stacked_area
+            PlotStyle, plot_line, plot_stacked_area
         )
     except ImportError:
         from data_loader import load_repeat_data, RealtimeData  # type: ignore
         from plotting_primitives import (  # type: ignore
             SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER,
-            plot_line, plot_stacked_area
+            PlotStyle, plot_line, plot_stacked_area
         )
 
 
@@ -246,7 +247,9 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
     n_apis = len(api_realtime)
     layout = f"row-{n_apis}"
     
-    grid = SubplotGrid(style, layout=layout)
+    style_grid = replace(style, aspect_ratio=0.9)
+    grid = SubplotGrid(style_grid, layout=layout)
+    nrows = 1
     
     # 1. Pre-calculate data and global Y max for consistent scaling
     prepared_data = {}
@@ -289,17 +292,27 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
         # Plot stacked area
         # Plot stacked area
         plot_stacked_area(ax, x, y_series, style=style, color_map=RATE_COLOR_MAP)
-        
-        # Add subplot title (API name)
-        display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
-        ax.set_title(display_api, fontsize=style.title_size)
 
-        # Set consistent Y-limit for accurate visual comparison
-        ax.set_ylim(0, ylim_max)
-    
-    # Configure labels (leftmost gets Y-label, bottom row gets X-labels)
-    grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Rate (KRPS)",
-    x_data=x, x_type='int', x_step=3)
+        row, col = 0, idx
+        bottom = row == nrows - 1
+        grid.configure_ax(
+            ax,
+            xlabel="Time (s)",
+            ylabel="Rate (KRPS)",
+            title="",
+            show_title=False,
+            show_xlabel=bottom,
+            show_ylabel=(col == 0),
+            show_xticklabels=bottom,
+            show_yticklabels=(col == 0),
+            grid=True,
+            x_data=x,
+            x_type="int",
+            x_step=3,
+            y_type="int",
+            y_step=2,
+            ylim=(0.0, ylim_max),
+        )
     
     # Add shared legend
     grid.add_shared_legend(position="top")
@@ -359,7 +372,8 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
     n_apis = len(api_realtime)
     layout = f"row-{n_apis}"
     
-    grid = SubplotGrid(style, layout=layout)
+    style_grid = replace(style, aspect_ratio=0.8)
+    grid = SubplotGrid(style_grid, layout=layout)
     
     for idx, (api_name, realtime) in enumerate(sorted(api_realtime.items())):
         ax = grid.get_ax(0, idx)
@@ -390,20 +404,27 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
             y=float(slo_ms), color=SLO_LINE_COLOR, linestyle='--', label='SLO',
             linewidth=style.line_width, zorder=4,
         )
-        
-        # Add subplot title
+
         display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
-        ax.set_title(display_api, fontsize=style.title_size)
-        
-        # Configure log scale
-        ax.set_yscale('log')
         y_lo, y_hi = _latency_log_ylim(df, float(slo_ms))
-        ax.set_ylim(y_lo, y_hi)
-        ax.grid(True, alpha=0.3)
-    
-    # Configure labels
-    grid.configure_labels(pattern="leftmost_y_bottom_x", xlabel="Time (s)", ylabel="Latency (ms)",
-    x_type='int', x_step=3, x_data=x)
+        col = idx
+        grid.configure_ax(
+            ax,
+            title=display_api,
+            show_title=True,
+            xlabel="Time (s)",
+            ylabel="Latency (ms)",
+            show_xlabel=False,
+            show_xticklabels=False,
+            show_ylabel=(col == 0),
+            show_yticklabels=(col == 0),
+            grid=True,
+            log_y=True,
+            x_data=x,
+            x_type="int",
+            x_step=3,
+            ylim=(y_lo, y_hi),
+        )
     
     # Add shared legend
     grid.add_shared_legend(position="top")
