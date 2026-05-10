@@ -99,7 +99,8 @@ class PlotStyle:
 
 # ACM Presets
 TEXT_SIZE = 7
-ACM_QUARTER = PlotStyle(width_points=120, aspect_ratio=0.8, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 1.665 inches (half column)
+ACM_THIRD_COLUMN = PlotStyle(width_points=80, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)
+ACM_QUARTER = PlotStyle(width_points=120, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 1.665 inches (half column)
 ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 3.33 inches (full column)
 ACM_COMPACT_FULL = PlotStyle(width_points=504, font_size=TEXT_SIZE, legend_size=TEXT_SIZE, title_size=TEXT_SIZE, marker_size=4)  # 7 inches (double column)
 
