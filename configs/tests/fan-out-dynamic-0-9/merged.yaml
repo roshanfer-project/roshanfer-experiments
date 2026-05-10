@@ -12,20 +12,20 @@ figures:
     include:
       max-queue-fan-out-dynamic-0-9-sidecar:
         label: Roshanfer
-      max-queue-fan-out-dynamic-0-9-dagor:
-        label: Dagor
       max-queue-fan-out-dynamic-0-9-rajomon:
         label: Rajomon
+      max-queue-fan-out-dynamic-0-9-dagor:
+        label: Dagor
   
   latency-and-goodput-vs-load-fan-out-dynamic-0-9:
     type: latency-and-goodput-vs-load
     include:
       latency-and-goodput-vs-load-fan-out-dynamic-0-9-sidecar:
         label: Roshanfer
-      latency-and-goodput-vs-load-fan-out-dynamic-0-9-dagor:
-        label: Dagor
       latency-and-goodput-vs-load-fan-out-dynamic-0-9-rajomon:
         label: Rajomon
+      latency-and-goodput-vs-load-fan-out-dynamic-0-9-dagor:
+        label: Dagor
   
   latency-and-rate-vs-time-fan-out-dynamic-0-9:
     type: latency-and-rate-vs-time
@@ -34,11 +34,11 @@ figures:
         label: Roshanfer
         unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-sidecar-rate-4000
         repeat: 0
-      latency-and-rate-vs-time-fan-out-dynamic-0-9-dagor:
-        label: Dagor
-        unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-dagor-rate-4000
-        repeat: 0
       latency-and-rate-vs-time-fan-out-dynamic-0-9-rajomon:
         label: Rajomon
         unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-rajomon-rate-4000
+        repeat: 0
+      latency-and-rate-vs-time-fan-out-dynamic-0-9-dagor:
+        label: Dagor
+        unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-dagor-rate-4000
         repeat: 0
