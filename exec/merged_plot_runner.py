@@ -34,6 +34,25 @@ except ImportError:
     PrometheusData = None
 
 
+_SOCIAL_SERVICE_ORDER = (
+    'ingress', 'nginx', 'compose', 'user', 'home', 'posts', 'graph',
+)
+
+
+def _social_service_rank(name: str) -> tuple:
+    aliases = {'post': 'posts'}
+    canonical = aliases.get(name, name)
+    try:
+        idx = _SOCIAL_SERVICE_ORDER.index(canonical)
+    except ValueError:
+        idx = len(_SOCIAL_SERVICE_ORDER)
+    return (idx, name)
+
+
+def _sort_services_social(services: List[str]) -> List[str]:
+    return sorted(services, key=_social_service_rank)
+
+
 def _calculate_waste_from_prometheus(prom_data, loaded_data: dict, apis: list, bench: str, is_roshanfer: bool = False) -> Dict[str, Dict[str, float]]:
     try:
         from exec.plots.plugins.resource_waste_unit import _normalize_service_name
@@ -283,7 +302,11 @@ def generate_resource_waste_bar_merged(
     
     produced = []
     exp_names = list(include_experiments.keys())
-    
+    use_social_order = all(
+        experiment_configs[en].get('bench', bench_default) == 'social'
+        for en in exp_names
+    )
+
     # For each experiment, aggregate resource waste per service
     exp_data = []
     all_services = set()
@@ -415,7 +438,9 @@ def generate_resource_waste_bar_merged(
         return out
     
     all_services_unfiltered = unique_ordered([svc for ed in exp_data for svc in ed['services']])
-    
+    if use_social_order:
+        all_services_unfiltered = _sort_services_social(all_services_unfiltered)
+
     # Get all unique APIs across experiments
     all_apis = set()
     for ed in exp_data:
@@ -721,6 +746,17 @@ def generate_max_queue_merged(
     if not include_experiments:
         return []
     exp_names = list(include_experiments.keys())
+    bench_default = 'hotel'
+    if global_config:
+        try:
+            with open(global_config) as f:
+                bench_default = json.load(f).get('bench', bench_default)
+        except Exception:
+            pass
+    use_social_order = all(
+        experiment_configs[en].get('bench', bench_default) == 'social'
+        for en in exp_names
+    )
     ncols = len(exp_names)
     # For each experiment, aggregate max queue per (service, api)
     exp_data = []
@@ -898,6 +934,8 @@ def generate_max_queue_merged(
     if os.environ.get('PLOT_DEBUG'):
         print(f"[max-queue-merged] Filtering services: original={len(all_services)} kept={len(non_zero_services)} dropped={set(all_services)-set(non_zero_services)}")
     all_services = non_zero_services
+    if use_social_order:
+        all_services = _sort_services_social(all_services)
 
     if not all_services:
         print("[max-queue-merged] All services have zero max and avg queue; skipping plots.")
@@ -1422,13 +1460,13 @@ def generate_latency_goodput_vs_load_merged(
     # --- Configuration ---
     if n_apis == 1:
         # Layout: 1x2. Col 0: Latency, Col 1: Goodput
-        # Both share X: Offered Load.
+        # Both share X: Load (KRPS).
         # Y labels separate.
         
         # Latency (0,0)
         grid.configure_ax(grid.get_ax(0,0), 
                           ylabel="P99 Latency\n   (ms)", 
-                          xlabel="Offered Load (KRPS)",
+                          xlabel="Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
                           log_y=True,
@@ -1439,7 +1477,7 @@ def generate_latency_goodput_vs_load_merged(
         gp_ylim_top = max(goodput_y_top[0] * 1.1, 1e-6)
         grid.configure_ax(grid.get_ax(0,1), 
                           ylabel="Goodput\n (KRPS)", 
-                          xlabel="Offered Load (KRPS)",
+                          xlabel="Load (KRPS)",
                           x_step=2.0,
                           x_data=all_loads,
                           log_y=False,
@@ -1478,7 +1516,7 @@ def generate_latency_goodput_vs_load_merged(
              ax_lat = grid.get_ax(1, idx)
              grid.configure_ax(ax_lat,
                  ylabel="P99 Latency\n   (ms)" if idx == 0 else "",
-                 xlabel="Offered Load (KRPS)",
+                 xlabel="Load (KRPS)",
                  x_step=2.0,
                  x_data=all_loads,
                  log_y=True,
@@ -1761,7 +1799,7 @@ def generate_latency_and_rate_vs_time_merged(
             ylabel="Rate (KRPS)" if i == 0 else "",
             xlabel="Time (s)",
             ylim=rate_ylim,
-            y_step=2,
+            y_step=3,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
             x_data=time_x, x_type='int', x_step=3,
