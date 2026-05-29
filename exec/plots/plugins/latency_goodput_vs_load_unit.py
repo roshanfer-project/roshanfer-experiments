@@ -184,7 +184,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
     # Configure labels
     grid_lat.configure_labels(
         pattern="leftmost_y_bottom_x",
-        xlabel="Offered Load (KRPS)",
+        xlabel="Load (KRPS)",
         ylabel="P99 Latency (ms)"
     )
     
@@ -235,7 +235,7 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
     # Configure labels
     grid_gp.configure_labels(
         pattern="leftmost_y_bottom_x",
-        xlabel="Offered Load (KRPS)",
+        xlabel="Load (KRPS)",
         ylabel="Goodput (KRPS)"
     )
     
