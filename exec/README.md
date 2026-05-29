@@ -78,6 +78,8 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 
 `--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run.
 
+`--namespace NS` selects namespace-specific config files (`config-<ns>.json`, `experiments-<ns>.json`) instead of the default `config.json` / `experiments.json`. The namespace is stored in `exp_runs_test/<run_id>/.namespace` for plot regeneration. See [Config namespaces](#config-namespaces) below.
+
 `--remote-clean` (with the same `--cloudlab-manifest` and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` using **deployment** hosts only (all lines after the first `num_generators`). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
 
 ### Local vs Remote Host Resolution
@@ -116,6 +118,27 @@ Example:
 ```
 
 Standalone: `python -m exec.rajomon_tuner --config ... --system rajomon --bench tests/my-bench --output tuning.json`.
+
+## Config namespaces
+
+Use namespaces to try alternate experiment setups without changing existing configs. The **default** namespace (no flag, or `--namespace default`) uses today's filenames unchanged.
+
+| Suite | Default | Namespace `<ns>` |
+|-------|---------|------------------|
+| `configs/tests/<name>/` | `config.json`, `experiments.json`, `merged.yaml` | `config-<ns>.json`, `experiments-<ns>.json`, `merged-<ns>.yaml` |
+| `configs/hotel/` | `config.hotel.json`, `hotel_experiments.json`, `merged.yaml` | `config.hotel-<ns>.json`, `hotel_experiments-<ns>.json`, `merged-<ns>.yaml` |
+| `configs/social/` | `config.social.json`, `social_experiments.json`, `merged_social.yaml` | `config.social-<ns>.json`, `social_experiments-<ns>.json`, `merged_social-<ns>.yaml` |
+| `configs/alibaba-large/` | `config.alibaba.json`, `experiments.json`, `merged.yaml` | `config.alibaba-<ns>.json`, `experiments-<ns>.json`, `merged-<ns>.yaml` |
+
+A suite is run for namespace `<ns>` only when both config and experiments files exist. Merged plots are optional (skipped if the merged file is missing).
+
+```bash
+./run_tests.sh --namespace newsys --bench leaf-diverse
+python -m exec.namespace resolve --kind tests --dir configs/tests/leaf-diverse --namespace newsys
+python -m exec.namespace list-tests --namespace newsys
+```
+
+Run dirs record the namespace in `.namespace`; `scripts/regenerate_run_plots.sh` reads it automatically.
 
 ## Config (`config.json`)
 

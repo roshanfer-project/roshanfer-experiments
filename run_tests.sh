@@ -3,6 +3,7 @@
 # Each run: data under ./exp_runs_test/<run_id>/<test_name>/; run_id is YYYYMMDD_HHMMSS
 # optionally with _<comment>; plots under ./exp_runs_test/<run_id>/plots/<test_name>/;
 # combined PDF at plots/all_tests_plots.pdf
+# Use --namespace to pick config-<ns>.json / experiments-<ns>.json (default: config.json).
 
 cd "$(dirname "$0")"
 
@@ -70,6 +71,8 @@ usage() {
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
+  echo "  --namespace NS       Use namespace-specific configs (config-<ns>.json,"
+  echo "                       experiments-<ns>.json). Default namespace uses config.json."
   echo ""
   echo "Examples:"
   echo "  $0"
@@ -82,6 +85,7 @@ usage() {
   echo "  $0 --also-alibaba"
   echo "  $0 --bench alibaba-large --also-alibaba"
   echo "  $0 --bench chain-2 --comment sidecar-tuning"
+  echo "  $0 --namespace newsys --bench leaf-diverse"
 }
 
 BENCH_FILTER=""
@@ -98,6 +102,7 @@ ALSO_HOTEL_SOCIAL=""
 ALSO_ALIBABA=""
 NANOLOG_DEBUG=""
 RUN_COMMENT=""
+NAMESPACE="default"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -169,6 +174,11 @@ while [[ $# -gt 0 ]]; do
       RUN_COMMENT="$2"
       shift 2
       ;;
+    --namespace)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --namespace"; usage; exit 1; }
+      NAMESPACE="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
       usage
@@ -199,6 +209,9 @@ if [[ -n "$RUN_COMMENT" ]]; then
 fi
 echo "Run directory: $OUTPUT_BASE/$RUN_DIR_ID"
 PLOTS_ROOT="$OUTPUT_BASE/${RUN_DIR_ID}/plots"
+mkdir -p "$OUTPUT_BASE/${RUN_DIR_ID}"
+echo "$NAMESPACE" > "$OUTPUT_BASE/${RUN_DIR_ID}/.namespace"
+echo "Namespace: $NAMESPACE"
 failed=0
 
 REMOTE_ARGS=()
@@ -262,6 +275,15 @@ EXTRA_ARGS=()
 [[ -z "$REMOTE" && -n "$REMOTE_NUM_GENERATORS" ]] && EXTRA_ARGS+=(--num-generators "$REMOTE_NUM_GENERATORS")
 [[ -n "$NANOLOG_DEBUG" ]] && EXTRA_ARGS+=(--nanolog-debug)
 
+resolve_suite_paths() {
+  local name="$1"
+  local json
+  json=$($PYTHON -m exec.namespace resolve-by-name --name "$name" --namespace "$NAMESPACE" --tests-root "$TESTS_ROOT" 2>/dev/null) || return 1
+  RESOLVED_CONFIG=$(echo "$json" | $PYTHON -c "import json,sys; d=json.load(sys.stdin); print(d['config'])")
+  RESOLVED_EXPERIMENTS=$(echo "$json" | $PYTHON -c "import json,sys; d=json.load(sys.stdin); print(d['experiments'])")
+  RESOLVED_MERGED=$(echo "$json" | $PYTHON -c "import json,sys; d=json.load(sys.stdin); m=d.get('merged'); print(m or '')")
+}
+
 run_bench() {
   local name="$1" config="$2" experiments="$3" merged="${4:-}"
   local out_dir="$OUTPUT_BASE/${RUN_DIR_ID}/${name}"
@@ -296,27 +318,50 @@ bench_filter_allows() {
   [[ ",$BENCH_FILTER," == *",$n,"* ]]
 }
 
-for dir in "$TESTS_ROOT"/*/; do
-  test_name=$(basename "$dir")
-  config="$dir/config.json"
-  experiments="$dir/experiments.json"
-  if [[ -n "$BENCH_FILTER" ]]; then
-    if [[ ",$BENCH_FILTER," != *",$test_name,"* ]]; then
-      continue
+if [[ -n "$BENCH_FILTER" ]]; then
+  IFS=',' read -ra _bench_names <<< "$BENCH_FILTER"
+  for test_name in "${_bench_names[@]}"; do
+    test_name="${test_name#"${test_name%%[![:space:]]*}"}"
+    test_name="${test_name%"${test_name##*[![:space:]]}"}"
+    [[ -z "$test_name" ]] && continue
+    case "$test_name" in
+      hotel|social|alibaba-large) continue ;;
+    esac
+    if ! resolve_suite_paths "$test_name"; then
+      echo "Error: no config+experiments for bench '$test_name' in namespace '$NAMESPACE'"
+      failed=$((failed + 1))
     fi
-  fi
-  if [[ -f "$config" && -f "$experiments" ]]; then
-    run_bench "$test_name" "$config" "$experiments" "$dir/merged.yaml"
-  fi
-done
+  done
+fi
+
+while IFS= read -r test_name; do
+  [[ -z "$test_name" ]] && continue
+  bench_filter_allows "$test_name" || continue
+  resolve_suite_paths "$test_name" || continue
+  run_bench "$test_name" "$RESOLVED_CONFIG" "$RESOLVED_EXPERIMENTS" "$RESOLVED_MERGED"
+done < <($PYTHON -m exec.namespace list-tests --root "$TESTS_ROOT" --namespace "$NAMESPACE")
 
 if [[ -n "$ALSO_HOTEL_SOCIAL" ]]; then
-  bench_filter_allows hotel && run_bench "hotel" "configs/hotel/config.hotel.json" "configs/hotel/hotel_experiments.json" "configs/hotel/merged.yaml"
-  bench_filter_allows social && run_bench "social" "configs/social/config.social.json" "configs/social/social_experiments.json" "configs/social/merged_social.yaml"
+  for opt_name in hotel social; do
+    bench_filter_allows "$opt_name" || continue
+    if resolve_suite_paths "$opt_name"; then
+      run_bench "$opt_name" "$RESOLVED_CONFIG" "$RESOLVED_EXPERIMENTS" "$RESOLVED_MERGED"
+    elif [[ -n "$BENCH_FILTER" && ",$BENCH_FILTER," == *",$opt_name,"* ]]; then
+      echo "Error: no config+experiments for bench '$opt_name' in namespace '$NAMESPACE'"
+      failed=$((failed + 1))
+    fi
+  done
 fi
 
 if [[ -n "$ALSO_ALIBABA" ]]; then
-  bench_filter_allows alibaba-large && run_bench "alibaba-large" "configs/alibaba-large/config.alibaba.json" "configs/alibaba-large/experiments.json" "configs/alibaba-large/merged.yaml"
+  if bench_filter_allows alibaba-large; then
+    if resolve_suite_paths "alibaba-large"; then
+      run_bench "alibaba-large" "$RESOLVED_CONFIG" "$RESOLVED_EXPERIMENTS" "$RESOLVED_MERGED"
+    elif [[ -n "$BENCH_FILTER" && ",$BENCH_FILTER," == *",alibaba-large,"* ]]; then
+      echo "Error: no config+experiments for bench 'alibaba-large' in namespace '$NAMESPACE'"
+      failed=$((failed + 1))
+    fi
+  fi
 fi
 
 if [[ -d "$PLOTS_ROOT" ]]; then

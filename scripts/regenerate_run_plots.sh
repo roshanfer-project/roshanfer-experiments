@@ -1,48 +1,60 @@
 #!/usr/bin/env bash
 # Regenerate plot_runner + merged_plot_runner + merge_plot_pdfs for one exp_runs_test run.
 # Suites: configs/tests/<name>/ plus hotel, social, alibaba-large (same layout as run_tests.sh).
-# Usage: ./scripts/regenerate_run_plots.sh 20260410_123116_dynamic-large
+# Usage: ./scripts/regenerate_run_plots.sh [--namespace NS] <run_id>
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 usage() {
-  echo "Usage: $0 <run_id>" >&2
+  echo "Usage: $0 [--namespace NS] <run_id>" >&2
   echo "  run_id: folder name under exp_runs_test/ (e.g. 20260410_123116_dynamic-large)" >&2
+  echo "  --namespace NS: override namespace (default: read from run dir .namespace)" >&2
   exit 1
 }
 
-[[ $# -eq 1 ]] || usage
-RUN_ID="$1"
+NAMESPACE=""
+RUN_ID=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --namespace)
+      [[ -z "${2:-}" ]] && usage
+      NAMESPACE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      [[ -z "$RUN_ID" ]] || usage
+      RUN_ID="$1"
+      shift
+      ;;
+  esac
+done
+
+[[ -n "$RUN_ID" ]] || usage
 RUN_ROOT="exp_runs_test/${RUN_ID}"
 [[ -d "$RUN_ROOT" ]] || { echo "Not a directory: $RUN_ROOT" >&2; exit 1; }
 
 PYTHON=python3
 [[ -x .venv/bin/python ]] && PYTHON=.venv/bin/python
 
+if [[ -z "$NAMESPACE" ]]; then
+  NAMESPACE=$($PYTHON -c "from exec.namespace import read_run_namespace; from pathlib import Path; print(read_run_namespace(Path('$RUN_ROOT')))")
+fi
+
 resolve_suite_configs() {
   local name="$1"
   cfg=""
   exp=""
   merged=""
-  if [[ -f "configs/tests/${name}/config.json" ]]; then
-    cfg="configs/tests/${name}/config.json"
-    exp="configs/tests/${name}/experiments.json"
-    merged="configs/tests/${name}/merged.yaml"
-  elif [[ "$name" == "alibaba-large" ]]; then
-    cfg="configs/alibaba-large/config.alibaba.json"
-    exp="configs/alibaba-large/experiments.json"
-    merged="configs/alibaba-large/merged.yaml"
-  elif [[ "$name" == "hotel" ]]; then
-    cfg="configs/hotel/config.hotel.json"
-    exp="configs/hotel/hotel_experiments.json"
-    merged="configs/hotel/merged.yaml"
-  elif [[ "$name" == "social" ]]; then
-    cfg="configs/social/config.social.json"
-    exp="configs/social/social_experiments.json"
-    merged="configs/social/merged_social.yaml"
-  fi
+  local json
+  json=$($PYTHON -m exec.namespace resolve-by-name --name "$name" --namespace "$NAMESPACE" 2>/dev/null) || return 0
+  cfg=$(echo "$json" | $PYTHON -c "import json,sys; d=json.load(sys.stdin); print(d['config'])")
+  exp=$(echo "$json" | $PYTHON -c "import json,sys; d=json.load(sys.stdin); print(d['experiments'])")
+  merged=$(echo "$json" | $PYTHON -c "import json,sys; d=json.load(sys.stdin); m=d.get('merged'); print(m or '')")
 }
 
 any=0
@@ -57,13 +69,13 @@ for dir in "$RUN_ROOT"/*/; do
   any=1
   idx="$("$PYTHON" -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get(\"experiment_index\", sys.argv[2]))" "$cfg" "$name")"
   out="$RUN_ROOT/plots/$name"
-  echo "[$RUN_ID] $name (experiment_index=$idx)"
+  echo "[$RUN_ID] $name (namespace=$NAMESPACE, experiment_index=$idx)"
   "$PYTHON" -m exec.plot_runner \
     --experiment-index "$idx" \
     --experiments-root "$RUN_ROOT/$name" \
     --config-file "$cfg" \
     --output-dir "$out"
-  if [[ -f "$merged" ]]; then
+  if [[ -n "$merged" && -f "$merged" ]]; then
     "$PYTHON" -m exec.merged_plot_runner \
       --merged-config "$merged" \
       --experiments-file "$exp" \
@@ -75,10 +87,10 @@ for dir in "$RUN_ROOT"/*/; do
 done
 
 if [[ "$any" -eq 0 ]]; then
-  echo "No suite dirs under $RUN_ROOT matched configs/tests/<name> or hotel/social/alibaba-large configs" >&2
+  echo "No suite dirs under $RUN_ROOT matched configs for namespace '$NAMESPACE'" >&2
   exit 1
 fi
 
 mkdir -p "$RUN_ROOT/plots"
-"$PYTHON" -m exec.merge_plot_pdfs "$RUN_ROOT/plots"
+"$PYTHON" -m exec.merge_plot_pdfs "$RUN_ROOT/plots" --namespace "$NAMESPACE"
 echo "Done: $RUN_ROOT/plots/all_tests_plots.pdf"

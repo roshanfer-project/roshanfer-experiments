@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import yaml
 
+from exec.namespace import DEFAULT_NAMESPACE, read_run_namespace, resolve_suite_by_name
+
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 OUTPUT_NAME = "all_tests_plots.pdf"
@@ -46,20 +48,21 @@ MERGED_STEMS = (
 )
 
 
-def _configs_tests_dir() -> Path:
-    return Path.cwd() / "configs" / "tests"
-
-
-def _bench_short(suite: str) -> str:
-    cfg = _configs_tests_dir() / suite / "config.json"
-    if not cfg.is_file():
+def _bench_short(suite: str, namespace: str) -> str:
+    files = resolve_suite_by_name(suite, namespace)
+    if not files or not files.config.is_file():
         return suite
     try:
-        data = json.loads(cfg.read_text())
+        data = json.loads(files.config.read_text())
         b = data.get("bench") or ""
         return Path(str(b)).name if b else suite
     except (json.JSONDecodeError, OSError):
         return suite
+
+
+def _merged_yaml_path(suite: str, namespace: str) -> Optional[Path]:
+    files = resolve_suite_by_name(suite, namespace)
+    return files.merged if files else None
 
 
 def _load_run_index(run_ts_root: Path, suite: str) -> Dict[str, Dict[str, Any]]:
@@ -95,9 +98,9 @@ def _load_run_index(run_ts_root: Path, suite: str) -> Dict[str, Dict[str, Any]]:
     return by_name
 
 
-def _merged_figure_doc(suite: str, figure_name: str) -> Optional[Dict[str, Any]]:
-    yml = _configs_tests_dir() / suite / "merged.yaml"
-    if not yml.is_file():
+def _merged_figure_doc(suite: str, figure_name: str, namespace: str) -> Optional[Dict[str, Any]]:
+    yml = _merged_yaml_path(suite, namespace)
+    if not yml or not yml.is_file():
         return None
     try:
         doc = yaml.safe_load(yml.read_text()) or {}
@@ -108,15 +111,15 @@ def _merged_figure_doc(suite: str, figure_name: str) -> Optional[Dict[str, Any]]
         return None
 
 
-def _merged_figure_type(suite: str, figure_name: str) -> Optional[str]:
-    fc = _merged_figure_doc(suite, figure_name)
+def _merged_figure_type(suite: str, figure_name: str, namespace: str) -> Optional[str]:
+    fc = _merged_figure_doc(suite, figure_name, namespace)
     if fc:
         return str(fc.get("type") or "") or None
     return None
 
 
-def _merged_figure_include_keys(suite: str, figure_name: str) -> list[str]:
-    fc = _merged_figure_doc(suite, figure_name)
+def _merged_figure_include_keys(suite: str, figure_name: str, namespace: str) -> list[str]:
+    fc = _merged_figure_doc(suite, figure_name, namespace)
     if not fc:
         return []
     inc = fc.get("include") or {}
@@ -125,8 +128,8 @@ def _merged_figure_include_keys(suite: str, figure_name: str) -> list[str]:
     return []
 
 
-def _apis_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]]) -> str:
-    keys = _merged_figure_include_keys(suite, figure_name)
+def _apis_for_merged(suite: str, figure_name: str, idx: Dict[str, Dict[str, Any]], namespace: str) -> str:
+    keys = _merged_figure_include_keys(suite, figure_name, namespace)
     if not keys:
         return "?"
     seen: set[str] = set()
@@ -149,17 +152,18 @@ def _meta_for_pdf(
     plots_root: Path,
     run_ts_root: Path,
     pdf_path: Path,
+    namespace: str,
 ) -> Meta:
     rel = pdf_path.relative_to(plots_root)
     parts = rel.parts
     suite = parts[0] if parts else ""
-    bench = _bench_short(suite)
+    bench = _bench_short(suite, namespace)
     idx = _load_run_index(run_ts_root, suite)
 
     if len(parts) >= 2 and parts[1] == "merged":
         figure_name, _kind = _split_merged_stem(pdf_path.stem)
-        mtype = _merged_figure_type(suite, figure_name) or "merged"
-        apis_s = _apis_for_merged(suite, figure_name, idx)
+        mtype = _merged_figure_type(suite, figure_name, namespace) or "merged"
+        apis_s = _apis_for_merged(suite, figure_name, idx, namespace)
         return str(mtype), "merged", bench, apis_s
 
     if len(parts) >= 2:
@@ -252,6 +256,11 @@ def _append_page_with_header(
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Merge all PDFs under a directory into one file.")
     p.add_argument("plots_root", type=Path, help="Root directory to scan recursively for *.pdf")
+    p.add_argument(
+        "--namespace",
+        default=None,
+        help=f"Config namespace (default: read {DEFAULT_NAMESPACE} from run dir .namespace)",
+    )
     args = p.parse_args(argv)
     root: Path = args.plots_root.resolve()
     if not root.is_dir():
@@ -259,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     run_ts_root = root.parent
+    namespace = args.namespace or read_run_namespace(run_ts_root)
     out_path = root / OUTPUT_NAME
     out_resolved = out_path.resolve()
     pdfs = sorted(
@@ -279,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     writer = PdfWriter()
     header_cache: Dict[Tuple[str, str, str, str, int], bytes] = {}
     for path in pdfs:
-        meta = _meta_for_pdf(root, run_ts_root, path)
+        meta = _meta_for_pdf(root, run_ts_root, path, namespace)
         reader = PdfReader(str(path))
         for page in reader.pages:
             _append_page_with_header(writer, page, meta, header_cache)
