@@ -417,7 +417,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                         try:
                             # Merge tuning params with experiment-specific env vars
                             # Priority: deploy_env (exp config) > deploy_params (tuning result)
-                            extra_env = unit.params.get("deploy_env", {})
+                            raw_env = unit.params.get("deploy_env")
+                            extra_env = raw_env if isinstance(raw_env, dict) else {}
                             final_env_vars = {**deploy_params, **extra_env}
 
                             # Deploy per repeat
