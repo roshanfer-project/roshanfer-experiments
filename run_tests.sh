@@ -52,7 +52,7 @@ usage() {
   echo "                  configs/tests/<name> dirs (e.g. multi-api); with --also-hotel-social,"
   echo "                  hotel and social are also valid; with --also-alibaba, alibaba-large is valid."
   echo "  --type TYPES    Run only experiments whose JSON \"type\" matches (comma-separated)"
-  echo "  --system SYS    Run only experiments with system SYS (plain, sidecar; comma-separated)"
+  echo "  --system SYS    Run only experiments with system SYS (plain, sidecar, envoy; comma-separated)"
   echo "  --num-apis N    Run only experiments with N APIs (comma-separated, e.g. 1,3)"
   echo "  --shared-generator  Allow fewer generators than APIs (assign round-robin)"
   echo "  --remote          Use CloudLab manifest for hosts (requires --cloudlab-manifest, --num-generators)"

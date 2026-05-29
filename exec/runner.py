@@ -307,8 +307,10 @@ class Runner:
             cmd.append(str(status_file))
 
         try:
-             # Run synchronously
-             run_with_logging(cmd, env=os.environ.copy(), log_path=log_path)
+             build_env = os.environ.copy()
+             if system == "envoy":
+                 build_env["SKIP_SIDECAR_BUILD"] = "1"
+             run_with_logging(cmd, env=build_env, log_path=log_path)
              logging.info(f"Build of {system} successful.")
         except subprocess.CalledProcessError as e:
              raise RuntimeError(f"Build failed for {system}: {e}")
@@ -525,7 +527,7 @@ class Runner:
                     f"mkdir -p {remote_out_dir} && "
                     f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
                 )
-                if not (unit.system in ["plain", "sidecar"]):
+                if not (unit.system in ["plain", "sidecar", "envoy"]):
                     # add --ignore-errors
                     cmd_str += " --ignore-errors"
                 
