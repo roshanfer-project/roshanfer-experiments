@@ -292,6 +292,7 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
         # Check for new RWG data sources
         output_dir_data = artifact_dir / 'output'
         has_rwg_data = output_dir_data.exists() and any(output_dir_data.glob('overall-*.json'))
+        has_cpu_data = (artifact_dir / 'raw' / 'cpu_metrics.csv').is_file()
         
         # Load Prometheus data via data_loader
         # We check both legacy and new data availability
@@ -308,10 +309,10 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
             if os.environ.get('PLOT_DEBUG') == '1':
                 traceback.print_exc()
         
-        # Skip if no data available (neither legacy nor new nor prometheus)
-        if not metric_files and not has_rwg_data and not prometheus_data:
+        # Skip if no data available (neither legacy nor new nor prometheus nor cpu metrics)
+        if not metric_files and not has_rwg_data and not prometheus_data and not has_cpu_data:
             if os.environ.get('PLOT_DEBUG') == '1':
-                print(f"[plot_runner] skip repeat {repeat_index}: no data (checked metrics_dir and output/)")
+                print(f"[plot_runner] skip repeat {repeat_index}: no data (checked metrics_dir, output/, raw/cpu_metrics.csv)")
             continue
         
         # rwg_data might be None if load failed or empty
@@ -326,6 +327,8 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                 data_sources.append(f"RWG({len(rwg_files)} APIs)")
             if prometheus_data:
                  data_sources.append("PrometheusData")
+            if has_cpu_data:
+                data_sources.append("cpu_metrics")
             print(f"[plot_runner] repeat {repeat_index} data: {', '.join(data_sources)}")
         
         out_dir = output_root / rec.get('experiment_name') / rec.get('group_name', rec.get('run_unit_name','')) / f'repeat_{int(repeat_index):03d}'

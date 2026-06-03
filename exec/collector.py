@@ -43,7 +43,7 @@ class Collector:
 
         # 1. Collect Service Logs (Optional)
         if collect_service_logs:
-             self._collect_service_logs(unit, raw_dir)
+             self._collect_service_logs(unit, raw_dir, metrics_dir)
              if self.config.nanolog_debug and unit.system == "sidecar":
                  self._nanolog_decompress_and_plot(unit_dir, raw_dir)
 
@@ -57,6 +57,9 @@ class Collector:
         # 4. Copy/Link Metrics for Plot Runner
         self._copy_metrics_for_plotting(output_dir, metrics_dir)
 
+        # 5. Index Envoy stats CSVs (collect_logs.sh -> metrics/envoy/)
+        self._index_envoy_metrics(metrics_dir, index)
+
         # Persist Index
         (metrics_dir / "_index.json").write_text(json.dumps(index, indent=2))
 
@@ -67,7 +70,7 @@ class Collector:
             notes="",
         )
 
-    def _collect_service_logs(self, unit: RunUnit, raw_dir: Path):
+    def _collect_service_logs(self, unit: RunUnit, raw_dir: Path, metrics_dir: Path):
         """Invoke benchmarks/<bench>/collect_logs.sh to gather logs."""
         script_path = Path("benchmarks") / unit.bench / "collect_logs.sh"
         if not script_path.exists():
@@ -79,6 +82,10 @@ class Collector:
         env["DEPLOYMENT_HOSTS"] = ",".join(unit.deployment_hosts)
         env["OUTPUT_DIR"] = str(raw_dir / "service_logs")
         env["SYSTEM"] = unit.system
+        if unit.system == "envoy":
+            envoy_metrics = metrics_dir / "envoy"
+            envoy_metrics.mkdir(parents=True, exist_ok=True)
+            env["ENVOY_METRICS_DIR"] = str(envoy_metrics.resolve())
         if self.config.nanolog_debug and unit.system == "sidecar":
             env["COLLECT_SIDECAR_NANOLOG"] = "1"
 
@@ -347,6 +354,18 @@ class Collector:
                 err_msg = f"RWG parse failed (code {e.returncode}).\nStderr: {stderr}\nStdout: {stdout}"
                 logging.error(err_msg)
                 index["reports"][api] = {"status": "error", "msg": err_msg}
+
+    def _index_envoy_metrics(self, metrics_dir: Path, index: Dict[str, Any]) -> List[str]:
+        envoy_dir = metrics_dir / "envoy"
+        files: List[str] = []
+        if not envoy_dir.is_dir():
+            index["envoy_metrics"] = {}
+            return files
+        for fp in sorted(envoy_dir.glob("*.csv")):
+            rel = str(fp.relative_to(metrics_dir))
+            files.append(rel)
+        index["envoy_metrics"] = {"dir": "envoy", "files": files}
+        return files
 
     def _copy_metrics_for_plotting(self, output_dir: Path, metrics_dir: Path):
         """Copy overall-*.json from output_dir to metrics_dir so plot runner finds them."""
