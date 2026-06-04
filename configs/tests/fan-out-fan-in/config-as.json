@@ -1,0 +1,18 @@
+{
+    "output_base_dir": "./exp_runs",
+    "experiment_index": "fan-out-fan-in",
+    "num_generators": 1,
+    "raw_artifact_subdir": "raw",
+    "metrics_subdir": "metrics",
+    "rwg_binary_path": "./rwg/rwg",
+    "bench": "tests/fan-out-fan-in",
+    "hosts_file": "configs/tests/fan-out-fan-in/hosts.txt",
+    "ssh_binary": "ssh",
+    "git_root": "..",
+    "slos": {
+      "f1": "35",
+      "g1": "20"
+    },
+    "metrics": {},
+    "post_deploy_wait_sec": 1
+  }

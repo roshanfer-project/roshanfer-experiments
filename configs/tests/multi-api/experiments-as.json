@@ -1,0 +1,41 @@
+{
+    "experiments": [
+        {
+            "type": "latency-and-rate-vs-time",
+            "load_mode": "phases",
+            "apis": [
+                "f1",
+                "f2"
+            ],
+            "system": "envoy",
+            "repeat": 1,
+            "collector_freq": 200,
+            "api_loads": {
+                "f1": {
+                    "phases": [
+                        {
+                            "rate": 1000,
+                            "duration_sec": 6
+                        },
+                        {
+                            "rate": 1600,
+                            "duration_sec": 12
+                        }
+                    ]
+                },
+                "f2": {
+                    "phases": [
+                        {
+                            "rate": 1000,
+                            "duration_sec": 6
+                        },
+                        {
+                            "rate": 1000,
+                            "duration_sec": 12
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

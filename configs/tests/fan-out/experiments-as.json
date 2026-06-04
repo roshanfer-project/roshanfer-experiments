@@ -1,0 +1,20 @@
+{
+    "experiments": [
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 1200,
+                "end": 1200,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "envoy",
+            "repeat": 1,
+            "collector_freq": 200
+        }
+    ]
+}
