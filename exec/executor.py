@@ -21,6 +21,13 @@ import subprocess
 from dataclasses import replace as dc_replace
 from .config import load_config, Config
 from .models import ExperimentConfig, RunUnit, RunResult, CollectorResult
+from .load import (
+    expand_sweep_steady_rates,
+    legacy_sweep_steady_rates,
+    metadata_from_phases,
+    resolve_phases_mode,
+    resolve_sweep_api_phases,
+)
 from .runner import Runner
 from .collector import Collector
 from .infra import InfraBuilder
@@ -110,55 +117,102 @@ def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[
         result.append(dc_replace(exp, name=name))
     return result
 
-def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
-    # Custom expansion logic mapping exp params to units
-    start = exp.loads.start if exp.loads else exp.base_rate
-    end = exp.loads.end + 1 if exp.loads else (exp.base_rate + 1)
-    step = exp.loads.step if exp.loads else 1
+def _make_run_unit(
+    exp: ExperimentConfig,
+    *,
+    name: str,
+    script: str,
+    bench: str,
+    api_phases: Dict[str, List],
+    generator_hosts: List[str],
+    deployment: List[str],
+) -> RunUnit:
+    base, rate, duration = metadata_from_phases(api_phases)
+    return RunUnit(
+        name=name,
+        type=exp.type,
+        script=script,
+        base=base,
+        rate=rate,
+        duration=duration,
+        system=exp.system,
+        apis=exp.apis,
+        bench=bench,
+        collector_freq=exp.collector_freq,
+        warmup=exp.warmup,
+        cooldown=exp.cooldown,
+        services=exp.services,
+        cleanup_args=exp.cleanup_args,
+        execution_args=exp.execution_args,
+        metadata={},
+        repeats=exp.repeat,
+        generator_hosts=generator_hosts,
+        deployment_hosts=deployment,
+        params=exp.params,
+        api_phases=api_phases,
+    )
 
+
+def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
     script = exp.script or ("run.sh" if exp.system in ("sidecar", "envoy") else "run-plain.sh")
 
-    if exp.loads is None and exp.base_rate == 0:
-        # Single run, no load sweep?
-        yield RunUnit(
+    if exp.load_mode == "phases":
+        api_phases = resolve_phases_mode(exp)
+        yield _make_run_unit(
+            exp,
             name=exp.name,
-            type=exp.type,
             script=script,
-            base=0, rate=0, duration=exp.duration,
-            system=exp.system, apis=exp.apis, bench=bench,
-            collector_freq=exp.collector_freq, warmup=exp.warmup, cooldown=exp.cooldown,
-            services=exp.services, execution_args=exp.execution_args,
-            repeats=exp.repeat,
+            bench=bench,
+            api_phases=api_phases,
             generator_hosts=generator_hosts,
-            deployment_hosts=deployment,
-            params=exp.params
+            deployment=deployment,
         )
         return
 
-    for load in range(start, end, step):
-        variant_name = f"{exp.name}-rate-{load}"
-        yield RunUnit(
-            name=variant_name,
-            type=exp.type,
+    if exp.load_mode == "sweep":
+        steady_rate_steps = expand_sweep_steady_rates(exp)
+        for steady_rates in steady_rate_steps:
+            api_phases = resolve_sweep_api_phases(exp, steady_rates)
+            max_rate = max(steady_rates.values())
+            variant_name = f"{exp.name}-rate-{max_rate}"
+            yield _make_run_unit(
+                exp,
+                name=variant_name,
+                script=script,
+                bench=bench,
+                api_phases=api_phases,
+                generator_hosts=generator_hosts,
+                deployment=deployment,
+            )
+        return
+
+    # Legacy: global loads / base_rate / duration_sec
+    if exp.loads is None and exp.base_rate == 0:
+        api_phases = resolve_sweep_api_phases(exp, {api: 0 for api in exp.apis}) if exp.apis else {}
+        yield _make_run_unit(
+            exp,
+            name=exp.name,
             script=script,
-            base=exp.base_rate,
-            rate=load,
-            duration=exp.duration,
-            system=exp.system,
-            apis=exp.apis,
             bench=bench,
-            collector_freq=exp.collector_freq,
-            warmup=exp.warmup,
-            cooldown=exp.cooldown,
-            services=exp.services,
-            cleanup_args=exp.cleanup_args,
-            execution_args=exp.execution_args,
-            metadata={},
-            repeats=exp.repeat,
+            api_phases=api_phases,
             generator_hosts=generator_hosts,
-            deployment_hosts=deployment,
-            params=exp.params
+            deployment=deployment,
+        )
+        return
+
+    for steady_rates in legacy_sweep_steady_rates(exp):
+        api_phases = resolve_sweep_api_phases(exp, steady_rates)
+        load = max(steady_rates.values()) if steady_rates else exp.base_rate
+        variant_name = f"{exp.name}-rate-{load}"
+        yield _make_run_unit(
+            exp,
+            name=variant_name,
+            script=script,
+            bench=bench,
+            api_phases=api_phases,
+            generator_hosts=generator_hosts,
+            deployment=deployment,
         )
 
 def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:

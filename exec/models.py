@@ -25,6 +25,37 @@ class LoadRange:
 
 
 @dataclass
+class LoadPhase:
+    rate: int
+    duration_sec: int
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "LoadPhase":
+        return LoadPhase(
+            rate=int(d["rate"]),
+            duration_sec=int(d.get("duration_sec", d.get("duration", 0))),
+        )
+
+
+@dataclass
+class ApiLoadSpec:
+    loads: Optional[LoadRange] = None
+    base_rate: Optional[int] = None
+    phases: List[LoadPhase] = field(default_factory=list)
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "ApiLoadSpec":
+        loads_obj = d.get("loads")
+        loads = LoadRange.from_dict(loads_obj) if isinstance(loads_obj, dict) else None
+        base_rate = d.get("base_rate")
+        if base_rate is not None:
+            base_rate = int(base_rate)
+        phases_raw = d.get("phases", [])
+        phases = [LoadPhase.from_dict(p) for p in phases_raw] if phases_raw else []
+        return ApiLoadSpec(loads=loads, base_rate=base_rate, phases=phases)
+
+
+@dataclass
 class ExperimentConfig:
     """Parsed high-level experiment specification.
 
@@ -36,6 +67,9 @@ class ExperimentConfig:
     type: str
     script: Optional[str] = None
     loads: Optional[LoadRange] = None
+    load_mode: Optional[str] = None
+    warmup_duration_sec: int = 2
+    api_loads: Dict[str, ApiLoadSpec] = field(default_factory=dict)
     base_rate: int = 0
     duration_sec: int = 0
     bench: str = ""
@@ -59,11 +93,23 @@ class ExperimentConfig:
         merged = {**params, **{k: v for k, v in d.items() if k not in {"params"}}}
         loads_obj = merged.get("loads")
         loads = LoadRange.from_dict(loads_obj) if isinstance(loads_obj, dict) else None
+        load_mode = merged.get("load_mode") or None
+        if load_mode is not None:
+            load_mode = str(load_mode)
+        api_loads_raw = merged.get("api_loads", {})
+        api_loads = {
+            str(k): ApiLoadSpec.from_dict(v)
+            for k, v in api_loads_raw.items()
+            if isinstance(v, dict)
+        }
         return ExperimentConfig(
             name=merged.get("name", ""),
             type=merged["type"],
             script=merged.get("script"),
             loads=loads,
+            load_mode=load_mode,
+            warmup_duration_sec=int(merged.get("warmup_duration_sec", 2) or 2),
+            api_loads=api_loads,
             base_rate=int(merged.get("base_rate", merged.get("base", 0)) or 0),
             duration_sec=int(merged.get("duration_sec", merged.get("duration", 0)) or 0),
             bench=str(merged.get("bench", "")),
@@ -122,6 +168,7 @@ class RunUnit:
     repeats: int = 1
     generator_hosts: List[str] = field(default_factory=list)
     deployment_hosts: List[str] = field(default_factory=list)
+    api_phases: Dict[str, List[LoadPhase]] = field(default_factory=dict)
 
     def base_name(self) -> str:
         return self.name

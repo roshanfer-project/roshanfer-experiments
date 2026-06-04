@@ -522,10 +522,20 @@ class Runner:
                         logging.warning(f"Warning: Could not resolve node alias: {e}")
                         target_addr = "node0"
 
+                phases = unit.api_phases.get(api, [])
+                if phases:
+                    rwg_rates = ",".join(str(p.rate) for p in phases)
+                    rwg_durations = ",".join(str(p.duration_sec) for p in phases)
+                    phase_env = f"RWG_RATES='{rwg_rates}' RWG_DURATIONS='{rwg_durations}' "
+                    cmd_base, cmd_rate, cmd_duration = 0, 0, 0
+                else:
+                    phase_env = ""
+                    cmd_base, cmd_rate, cmd_duration = unit.base, unit.rate, unit.duration
+
                 cmd_str = (
                     f"cd {remote_wrapper_path} && "
                     f"mkdir -p {remote_out_dir} && "
-                    f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
+                    f"{phase_env}TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {cmd_base} {cmd_rate} {cmd_duration} {api} {remote_out_dir}"
                 )
                 if not (unit.system in ["plain", "sidecar", "envoy"]):
                     # add --ignore-errors

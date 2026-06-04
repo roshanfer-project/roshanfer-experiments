@@ -56,6 +56,87 @@ Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}
 --only-types "latency-vs-throughput" --name-contains "plain"
 ```
 
+## Experiment load schema
+
+Each entry in `experiments.json` controls how RWG drives load. There are three styles:
+
+| Style | When | Per-API config |
+|-------|------|----------------|
+| **Legacy** | `load_mode` omitted | Not required — global `loads` / `base_rate` / `duration_sec` apply to all APIs |
+| **`load_mode: "sweep"`** | Explicit 2-phase sweep | **Required** — every API must have `api_loads.<api>.loads` |
+| **`load_mode: "phases"`** | Arbitrary multi-phase profile | **Required** — every API must have `api_loads.<api>.phases` |
+
+When `load_mode` is set, every API listed in `apis[]` must appear in `api_loads` (no fallback to top-level `loads`).
+
+RWG runs a sequence of rate/duration **phases** per API. Legacy and sweep modes always produce two phases: warmup then steady. The experiment-level `warmup` field (passed to `rwg parse`) is separate from the RWG warmup phase.
+
+### Legacy (backward compatible)
+
+```json
+{
+  "loads": { "start": 1600, "end": 1600, "step": 1000 },
+  "base_rate": 1000,
+  "duration_sec": 15,
+  "apis": ["f1", "f2"]
+}
+```
+
+Runtime phases per API: `[{rate: 1000, duration_sec: 2}, {rate: 1600, duration_sec: 15}]`. Warmup duration defaults to 2s (`warmup_duration_sec`).
+
+### Explicit sweep (`load_mode: "sweep"`)
+
+Global timing: `warmup_duration_sec` (default 2), `base_rate` (warmup rate default), `duration_sec` (steady duration).
+
+Per-API steady-rate sweep in `api_loads`. Sweeps are zip-aligned — all APIs must produce the same number of load steps.
+
+```json
+{
+  "load_mode": "sweep",
+  "warmup_duration_sec": 2,
+  "base_rate": 1000,
+  "duration_sec": 15,
+  "apis": ["f1", "f2"],
+  "api_loads": {
+    "f1": { "loads": { "start": 1600, "end": 2000, "step": 200 } },
+    "f2": { "loads": { "start": 800, "end": 1200, "step": 200 } }
+  }
+}
+```
+
+Run units are named `{experiment}-rate-{N}` where `N` is the max steady rate across APIs at that step.
+
+Optional per-API warmup override: `api_loads.<api>.base_rate`.
+
+### Multi-phase (`load_mode: "phases"`)
+
+Single run unit with arbitrary phases per API:
+
+```json
+{
+  "load_mode": "phases",
+  "apis": ["f1", "f2"],
+  "api_loads": {
+    "f1": { "phases": [
+      { "rate": 1000, "duration_sec": 2 },
+      { "rate": 1600, "duration_sec": 15 }
+    ]},
+    "f2": { "phases": [
+      { "rate": 1000, "duration_sec": 2 },
+      { "rate": 800, "duration_sec": 20 }
+    ]}
+  }
+}
+```
+
+Top-level `loads` / `base_rate` / `duration_sec` are ignored in this mode.
+
+### Validation
+
+- `load_mode` set → every `apis[]` entry must have `api_loads[api]`
+- Unknown keys in `api_loads` → error
+- `load_mode: "sweep"` → all per-API `loads` ranges must yield the same step count
+- `load_mode: "phases"` → each API must have at least one phase
+
 ## CloudLab manifest → hosts
 
 Download the experiment **manifest** (XML) from the CloudLab portal, then:
