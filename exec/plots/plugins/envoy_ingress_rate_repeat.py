@@ -16,7 +16,7 @@ except ImportError:
 
 SUPPORTED_TYPES = ["latency-and-rate-vs-time"]
 
-_EMA_ALPHA = 0.1
+_EMA_ALPHA = 0.3
 
 
 def _ema(values, alpha: float = _EMA_ALPHA):
@@ -65,7 +65,7 @@ def _plot_sidecar(ax, df: pd.DataFrame, style: PlotStyle) -> None:
                 ax,
                 x,
                 _ema(y),
-                label=f"{lid} EMA (α=0.1)",
+                label=f"{lid} EMA (α=0.3)",
                 style=style,
                 color_idx=idx,
                 style_idx=idx % 2,
@@ -75,7 +75,7 @@ def _plot_sidecar(ax, df: pd.DataFrame, style: PlotStyle) -> None:
         return
     y = _gap_series(df, "Ingress-Req", "Ingress-Resp")
     plot_line(
-        ax, x, _ema(y), label="EMA (α=0.1)", style=style, color_idx=1, style_idx=1
+        ax, x, _ema(y), label="EMA (α=0.3)", style=style, color_idx=1, style_idx=1
     )
 
 
