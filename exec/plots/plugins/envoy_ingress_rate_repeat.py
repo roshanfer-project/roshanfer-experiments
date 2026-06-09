@@ -79,13 +79,15 @@ def _plot_sidecar(ax, df: pd.DataFrame, style: PlotStyle) -> None:
     )
 
 
-def _max_gap(df: pd.DataFrame) -> float:
+def _max_ema_gap(df: pd.DataFrame) -> float:
     y_max = 0.0
     for _, req_col, resp_col in _listener_pairs(df):
-        y_max = max(y_max, float(_gap_series(df, req_col, resp_col).max()))
+        y_max = max(y_max, float(
+            _ema(_gap_series(df, req_col, resp_col)).max()))
     if "Ingress-Req" in df.columns and "Ingress-Resp" in df.columns:
         y_max = max(
-            y_max, float(_gap_series(df, "Ingress-Req", "Ingress-Resp").max())
+            y_max,
+            float(_ema(_gap_series(df, "Ingress-Req", "Ingress-Resp")).max()),
         )
     return y_max
 
@@ -93,12 +95,12 @@ def _max_gap(df: pd.DataFrame) -> float:
 def _shared_ylim(sidecars: Dict[str, pd.DataFrame]) -> tuple[float, float]:
     global_max = 0.0
     for df in sidecars.values():
-        y_max = _max_gap(df)
+        y_max = _max_ema_gap(df)
         if y_max > global_max:
             global_max = y_max
     if global_max <= 0:
         return 0.0, 1.0
-    return 0.0, max(1.0, 1.2 * global_max)
+    return 0.0, max(1.0, global_max)
 
 
 def _grid_layout(n: int) -> Tuple[str, int, int]:
@@ -147,11 +149,9 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
             grid=True,
             x_data=x,
             x_type="int",
-            x_step=3,
             y_data=[0.0, ylim[1]],
             y_type="int",
-            ylim=(0, 100),
-            y_step=20
+            ylim=ylim
         )
 
     for idx in range(n, nrows * ncols):

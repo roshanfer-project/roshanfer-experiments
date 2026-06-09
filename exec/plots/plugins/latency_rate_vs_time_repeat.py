@@ -186,9 +186,6 @@ def _prepare_rate_data_for_stack(realtime: RealtimeData) -> Dict[str, np.ndarray
     """
     df = realtime.df
     
-    # Filter to first 15 seconds (match legacy behavior)
-    df = df[df['relative_time'] <= 15.0].copy()
-    
     if df.empty:
         return {}
     
@@ -224,7 +221,6 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
         return
     
     df = realtime.df
-    df = df[df['relative_time'] <= 15.0].copy()
     x = df['relative_time'].values
     
     # Plot stacked area
@@ -233,7 +229,7 @@ def _plot_single_api_rate(realtime: RealtimeData, out_path: Path, style: PlotSty
     
     y_lo, y_hi = _rate_ylim_krps(y_series)
     grid.configure_ax(ax, xlabel='Time (s)', ylabel='Rate (KRPS)', grid=True,
-    x_data=x, x_type='int', x_step=3, y_type='int', y_step=2, ylim=(y_lo, y_hi))
+    x_data=x, x_type='int', y_type='int', y_step=2, ylim=(y_lo, y_hi))
     
     # Add legend
     grid.add_shared_legend(position="top-left", two_rows=True)
@@ -286,7 +282,6 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
             continue
         
         df = realtime.df
-        df = df[df['relative_time'] <= 15.0].copy()
         x = df['relative_time'].values
         
         # Plot stacked area
@@ -308,7 +303,6 @@ def _plot_multi_api_rate(api_realtime: Dict[str, RealtimeData], out_path: Path, 
             grid=True,
             x_data=x,
             x_type="int",
-            x_step=3,
             y_type="int",
             y_step=2,
             ylim=(0.0, ylim_max),
@@ -327,7 +321,6 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     ax = grid.get_ax(0, 0)
     
     df = realtime.df
-    df = df[df['relative_time'] <= 15.0].copy()
     
     if df.empty:
         grid.save(out_path)
@@ -355,7 +348,7 @@ def _plot_single_api_latency(realtime: RealtimeData, out_path: Path, style: Plot
     
     # Configure axis (log scale for latency)
     grid.configure_ax(ax, xlabel='Time (s)', ylabel='Latency (ms)', grid=True, log_y=True,
-    x_data=x, x_type='int', x_step=3)
+    x_data=x, x_type='int')
     y_lo, y_hi = _latency_log_ylim(df, float(slo_ms))
     ax.set_ylim(y_lo, y_hi)
     
@@ -379,7 +372,6 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         ax = grid.get_ax(0, idx)
         
         df = realtime.df
-        df = df[df['relative_time'] <= 15.0].copy()
         
         if df.empty:
             continue
@@ -422,7 +414,6 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
             log_y=True,
             x_data=x,
             x_type="int",
-            x_step=3,
             ylim=(y_lo, y_hi),
         )
     

@@ -1770,7 +1770,6 @@ def generate_latency_and_rate_vs_time_merged(
     rate_max = 0.0
     for item in final_data:
         df = item['realtime'].df
-        df = df[df['relative_time'] <= 15.0]
         cols = ['goodput', 'slo_violations', 'dropped_requests']
         existing = [c for c in cols if c in df.columns]
         if existing:
@@ -1783,7 +1782,6 @@ def generate_latency_and_rate_vs_time_merged(
     for i, item in enumerate(final_data):
         ax = grid_rate.get_ax(0, i)
         df = item['realtime'].df
-        df = df[df['relative_time'] <= 15.0].copy()
         time_x = df['relative_time'].values
         
         y_series = {}
@@ -1802,7 +1800,7 @@ def generate_latency_and_rate_vs_time_merged(
             y_step=3,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
-            x_data=time_x, x_type='int', x_step=3,
+            x_data=time_x, x_type='int',
         )
         
     # Rate Legend
@@ -1840,7 +1838,7 @@ def generate_latency_and_rate_vs_time_merged(
     lat_dfs = []
     for item in final_data:
         df0 = item['realtime'].df
-        lat_dfs.append(df0[df0['relative_time'] <= 15.0].copy())
+        lat_dfs.append(df0.copy())
     y_lo, y_hi = _latency_log_ylim_many(lat_dfs, float(slo_f))
 
     slo_legend = f"SLO ({slo_f:g} ms)"
@@ -1866,7 +1864,7 @@ def generate_latency_and_rate_vs_time_merged(
             show_xticklabels=False,
             show_ylabel=(i==0),
             show_yticklabels=(i==0),
-            x_data=time_x, x_type='int', x_step=3,
+            x_data=time_x, x_type='int',
             title=item['label'], show_title=True
         )
         ax.axhline(

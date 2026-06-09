@@ -76,6 +76,64 @@ def _y_limits(df: pd.DataFrame) -> tuple[float, float]:
     return 0.0, top
 
 
+def _load_throttle_metrics(csv_path: Path) -> pd.DataFrame | None:
+    if not csv_path.is_file():
+        return None
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception:
+        return None
+    required = {"timestamp", "pod", "container", "nr_throttled", "nr_periods"}
+    if not required.issubset(df.columns):
+        return None
+    df = df[~df["pod"].apply(_is_infra_pod)].copy()
+    df = df[df["container"] == APP_CONTAINER].copy()
+    df["nr_throttled"] = pd.to_numeric(df["nr_throttled"], errors="coerce")
+    df["nr_periods"] = pd.to_numeric(df["nr_periods"], errors="coerce")
+    df = df.dropna(subset=["nr_throttled", "nr_periods"])
+    if df.empty:
+        return None
+    ts = pd.to_datetime(df["timestamp"], errors="coerce")
+    df = df.assign(_ts=ts).dropna(subset=["_ts"])
+    if df.empty:
+        return None
+    t0 = df["_ts"].min()
+    df["relative_time_s"] = (df["_ts"] - t0).dt.total_seconds()
+    return _add_cumulative_throttle(df)
+
+
+def _add_cumulative_throttle(df: pd.DataFrame) -> pd.DataFrame | None:
+    df = df[df["nr_periods"] > 0].copy()
+    if df.empty:
+        return None
+    df["cumulative_throttle"] = df["nr_throttled"] / df["nr_periods"]
+    return df
+
+
+def _plot_throttle_pods(ax, throttle_df: pd.DataFrame, pods: List[str], pod_colors: Dict[str, int], style) -> None:
+    for pod in pods:
+        grp = throttle_df[throttle_df["pod"] ==
+                          pod].sort_values("relative_time_s")
+        if grp.empty:
+            continue
+        plot_line(
+            ax,
+            grp["relative_time_s"].values,
+            grp["cumulative_throttle"].values,
+            label=pod,
+            style=style,
+            color_idx=pod_colors[pod],
+        )
+
+
+def _throttle_y_limits(throttle_df: pd.DataFrame) -> tuple[float, float]:
+    if throttle_df.empty:
+        return 0.0, 1.0
+    top = float(throttle_df["cumulative_throttle"].max())
+    top = min(1.0, max(0.1, top))
+    return 0.0, top
+
+
 def generate_repeat_plots(ctx: Dict) -> List[Path]:
     artifact_dir = Path(ctx["artifact_dir"])
     out_dir = Path(ctx["output_dir"])
@@ -89,13 +147,19 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     if app_df.empty and sidecar_df.empty:
         return []
 
-    all_pods = sorted(set(app_df["pod"].unique()) | set(sidecar_df["pod"].unique()))
+    all_pods = sorted(set(app_df["pod"].unique())
+                      | set(sidecar_df["pod"].unique()))
     pod_colors = {pod: idx for idx, pod in enumerate(all_pods)}
     ylim = _y_limits(df)
 
+    throttle_df = _load_throttle_metrics(
+        artifact_dir / "raw" / "cpu_metrics.csv")
+    has_throttle = throttle_df is not None and not throttle_df.empty
+
     out_dir.mkdir(parents=True, exist_ok=True)
     style = replace(ACM_COMPACT_HALF, aspect_ratio=1)
-    grid = SubplotGrid(style, layout="1x2")
+    layout = "1x3" if has_throttle else "1x2"
+    grid = SubplotGrid(style, layout=layout)
 
     ax_app = grid.get_ax(0, 0)
     _plot_pods(ax_app, app_df, all_pods, pod_colors, style)
@@ -104,16 +168,15 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
         title="Apps",
         show_title=True,
         xlabel="Time (s)",
-        ylabel="CPU utilization (% of limit)",
+        ylabel="Norm. CPU Util.",
         show_ylabel=True,
         grid=True,
         x_data=df["relative_time_s"].values,
-        y_data=app_df["normalized_pct"].values if not app_df.empty else [0, ylim[1]],
+        y_data=app_df["normalized_pct"].values if not app_df.empty else [
+            0, ylim[1]],
         ylim=ylim,
-        y_step=20,
         y_type="int",
-        x_type="int",
-        x_step=3,
+        x_type="int"
     )
 
     ax_sidecar = grid.get_ax(0, 1)
@@ -122,20 +185,41 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
         ax_sidecar,
         title="Sidecars",
         show_title=True,
-        xlabel="Time (s)",
+        xlabel="Time (s)" if not has_throttle else None,
         show_ylabel=False,
         show_yticklabels=False,
         grid=True,
         x_data=df["relative_time_s"].values,
-        y_data=sidecar_df["normalized_pct"].values if not sidecar_df.empty else [0, ylim[1]],
+        y_data=sidecar_df["normalized_pct"].values if not sidecar_df.empty else [
+            0, ylim[1]],
         ylim=ylim,
         y_step=20,
         y_type="int",
-        x_type="int",
-        x_step=3,
+        x_type="int"
     )
 
+    if has_throttle:
+        throttle_ylim = _throttle_y_limits(throttle_df)
+        ax_throttle = grid.get_ax(0, 2)
+        _plot_throttle_pods(ax_throttle, throttle_df,
+                            all_pods, pod_colors, style)
+        grid.configure_ax(
+            ax_throttle,
+            title="Apps",
+            show_title=True,
+            xlabel="Time (s)",
+            ylabel="Cum. CPU throttle",
+            show_ylabel=True,
+            grid=True,
+            x_data=throttle_df["relative_time_s"].values,
+            y_data=throttle_df["cumulative_throttle"].values,
+            ylim=throttle_ylim,
+            y_type="float",
+            x_type="int"
+        )
+
     grid.add_shared_legend(position="top-right")
-    out_path = out_dir / f"cpu_utilization_vs_time_repeat_{repeat_index:03d}.pdf"
+    out_path = out_dir / \
+        f"cpu_utilization_vs_time_repeat_{repeat_index:03d}.pdf"
     grid.save(out_path)
     return [out_path]

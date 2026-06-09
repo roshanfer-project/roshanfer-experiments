@@ -84,8 +84,6 @@ def _aggregate_units(all_units: List[Path]) -> Dict[str, pd.DataFrame]:
 
 def _save_rate_stack(rate_df: pd.DataFrame, out_path: Path, time_col: str, value_col: str) -> None:
     df = rate_df.copy()
-    if time_col in df.columns:
-        df = df[df[time_col] <= 15.0].copy()
     if df.empty:
         return
     available = df.metric.unique()
@@ -133,8 +131,6 @@ def _save_latency_lines(
     y_max: float = 500.0,
 ) -> None:
     df = lat_df.copy()
-    if time_col in df.columns:
-        df = df[df[time_col] <= 15.0].copy()
     if df.empty:
         return
     seen: set[str] = set()

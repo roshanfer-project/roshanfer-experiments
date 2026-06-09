@@ -43,7 +43,10 @@ class ResourceMonitor:
         if not self.cpu_output_file.exists():
             with self.cpu_output_file.open("w") as f:
                 writer = csv.writer(f)
-                writer.writerow(["timestamp", "node", "namespace", "pod", "container", "utilization", "limit"])
+                writer.writerow([
+                    "timestamp", "node", "namespace", "pod", "container",
+                    "utilization", "limit", "nr_throttled", "nr_periods",
+                ])
                 
         self.thread.start()
 
@@ -127,6 +130,14 @@ class ResourceMonitor:
         except Exception as e:
             logging.warning(f"ResourceMonitor: Failed to get node IPs: {e}")
             return {}
+
+    @staticmethod
+    def _throttle_csv_fields(container_data: Dict[str, Any], container: str) -> Tuple[str, str]:
+        if container != "app":
+            return ("", "")
+        nr_throttled = container_data.get("nr_throttled", 0)
+        nr_periods = container_data.get("nr_periods", 0)
+        return (str(int(nr_throttled)), str(int(nr_periods)))
 
     def _fetch_metrics_bundle(self, node_name: str, node_ip: str) -> Tuple[str, str, Optional[Dict[str, Any]], Optional[str]]:
         """Fetch JSON from cpu-stats-exporter on node:9100. Used from thread pool — no logging here."""
@@ -222,7 +233,11 @@ class ResourceMonitor:
                     
                     # Always log all containers found in metrics
                     # Rate will be 0 on first iteration, which is expected
-                    cpu_rows.append([ts_str, node_name, ns, pod, container, f"{utilization:.2f}", f"{cpu_limit:.2f}"])
+                    cpu_rows.append([
+                        ts_str, node_name, ns, pod, container,
+                        f"{utilization:.2f}", f"{cpu_limit:.2f}",
+                        *self._throttle_csv_fields(container_data, container),
+                    ])
 
             if fetch_errors:
                 sample = "; ".join(fetch_errors[:12])
