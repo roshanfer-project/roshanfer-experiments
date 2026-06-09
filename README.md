@@ -36,6 +36,8 @@ See config.py for available fields. Provide a JSON file overriding any subset, e
   "prometheus_url": "http://prometheus:9090"
 }
 
+Experiment load fields (`loads`, `load_mode`, `api_loads`) are documented in [exec/README.md](exec/README.md#experiment-load-schema).
+
 Append-Only Storage
 -------------------
 Each invocation creates run-YYYYMMDD_HHMMSS under output_base_dir with per-unit subfolders. CSV + JSONL summaries are appended, never overwritten across invocations.
