@@ -13,12 +13,12 @@
                 "f1": {
                     "phases": [
                         {
-                            "rate": 1000,
+                            "rate": 500,
                             "duration_sec": 6
                         },
                         {
-                            "rate": 1600,
-                            "duration_sec": 12
+                            "rate": 1150,
+                            "duration_sec": 30
                         }
                     ]
                 }
