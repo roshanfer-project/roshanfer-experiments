@@ -367,7 +367,18 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
     
     style_grid = replace(style, aspect_ratio=0.8)
     grid = SubplotGrid(style_grid, layout=layout)
-    
+
+    lat_dfs: List[pd.DataFrame] = []
+    slo_vals: List[float] = []
+    for api_name, realtime in sorted(api_realtime.items()):
+        df = realtime.df
+        if df.empty:
+            continue
+        lat_dfs.append(df)
+        slo_vals.append(_lookup_slo(slos, api_name))
+    slo_for_ylim = max(slo_vals) if slo_vals else 60.0
+    y_lo, y_hi = _latency_log_ylim_many(lat_dfs, float(slo_for_ylim))
+
     for idx, (api_name, realtime) in enumerate(sorted(api_realtime.items())):
         ax = grid.get_ax(0, idx)
         
@@ -398,7 +409,6 @@ def _plot_multi_api_latency(api_realtime: Dict[str, RealtimeData], out_path: Pat
         )
 
         display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
-        y_lo, y_hi = _latency_log_ylim(df, float(slo_ms))
         col = idx
         grid.configure_ax(
             ax,

@@ -175,12 +175,22 @@ Hosts are always read from a plain-text file (one `[user@]host` per line, `#` co
 ## Tuning
 
 The orchestrator automatically looks for a tuner script in `tuner/<system>_tuner.py` or `exec/<system>_tuner.py`.
-If found, it runs the tuner before deploying the system.
-Results are saved to `exp_runs/exp-<id>/tuning/<system>.json`.
+If found, it runs the tuner before deploying the system (unless cached parameters are available).
+Results are saved to `exp_runs/exp-<id>/tuning/<system>/best_params.json`.
+
+**Parameter lookup order** (for systems with a tuner module):
+
+1. Run cache: `{output_base_dir}/exp-<id>/tuning/<system>/best_params.json`
+2. Config suite cache: `{config_file_dir}/tuning/<system>/best_params.json` (e.g. `configs/tests/fanin-lb/tuning/rajomon-lb/best_params.json` next to `config-lb.json`)
+3. Live tuning via `exec/<system>_tuner.py`
+
+When params are loaded from the config suite cache, they are copied into the run cache for resume/audit. Both flat JSON objects and `{"parameters": {...}}` wrappers are accepted.
 
 To create a new tuner, copy `exec/tuner_template.py` to `exec/<system>_tuner.py` and implement your optimization logic.
 
 ### Rajomon tuner (`exec/rajomon_tuner.py`)
+
+Used for **`rajomon`** and **`rajomon-lb`**. The executor maps `rajomon-lb` to this module (same five knobs); deploy still uses `SYSTEM=rajomon-lb` so the benchmark deploy script picks the LB branch.
 
 The executor calls `optimize_system` with the same `config.json` path as the experiment run. Optional top-level **`tuner`** object:
 
@@ -198,7 +208,16 @@ Example:
 }
 ```
 
-Standalone: `python -m exec.rajomon_tuner --config ... --system rajomon --bench tests/my-bench --output tuning.json`.
+Standalone:
+
+```bash
+python -m exec.rajomon_tuner --config configs/tests/fanin-lb/config-lb.json --system rajomon-lb --bench tests/fanin-lb --output tuning.json
+python -m exec.rajomon_tuner --config ... --system rajomon --bench tests/my-bench --output tuning.json
+```
+
+Cached params per run: `exp-<id>/tuning/rajomon-lb/best_params.json` (or `.../rajomon/...` for single-replica rajomon).
+
+Pre-tuned params can also live under the test suite config directory, e.g. `configs/tests/fanin-lb/tuning/rajomon-lb/best_params.json` (used when the run cache is missing).
 
 ## Config namespaces
 

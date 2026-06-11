@@ -221,15 +221,78 @@ def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:
         mx = max(mx, len(e.apis))
     return mx if mx > 0 else 1
 
+
+def _resolve_tuner_module(system: str) -> str:
+    aliases = {"rajomon-lb": "rajomon"}
+    base = aliases.get(system, system.replace("-", "_"))
+    return f"exec.{base}_tuner"
+
+
+def _system_has_tuner(system: str) -> bool:
+    import importlib
+
+    try:
+        module = importlib.import_module(_resolve_tuner_module(system))
+    except ImportError:
+        return False
+    return hasattr(module, "optimize_system")
+
+
+def _config_tuning_params_path(config_path: Path, system: str) -> Path:
+    return config_path.parent / "tuning" / _safe_name(system) / "best_params.json"
+
+
+def _load_best_params(path: Path) -> Dict[str, Any]:
+    try:
+        return json.loads(path.read_text())
+    except Exception as e:
+        logging.warning(f"Failed to read best params from {path}: {e}")
+        return {}
+
+
+def _resolve_tuning_params(
+    system: str,
+    bench: str,
+    tuning_dir: Path,
+    logs_dir: Path,
+    config_path: Path,
+    tag: str,
+    generators: List[str],
+    deployment: List[str],
+) -> Tuple[Dict[str, Any], bool]:
+    if not _system_has_tuner(system):
+        return {}, False
+
+    system_tuning_dir = tuning_dir / _safe_name(system)
+    system_tuning_dir.mkdir(parents=True, exist_ok=True)
+    run_cache = system_tuning_dir / "best_params.json"
+    config_cache = _config_tuning_params_path(config_path, system)
+
+    if run_cache.exists():
+        tuning_params = _load_best_params(run_cache)
+        if tuning_params:
+            logging.info(f"Using tuning parameters from run cache {run_cache}. Skipping tuning.")
+            return tuning_params, False
+        logging.warning(f"Run cache at {run_cache} unreadable. Trying other sources.")
+
+    if config_cache.exists():
+        tuning_params = _load_best_params(config_cache)
+        if tuning_params:
+            logging.info(f"Using tuning parameters from config dir {config_cache}. Skipping tuning.")
+            return tuning_params, True
+        logging.warning(f"Config cache at {config_cache} unreadable. Proceeding with tuning.")
+
+    return _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment), True
+
+
 def _run_tuner(system: str, bench: str, tuning_dir: Path, logs_dir: Path, config_path: Path, tag: str, generators: List[str], deployment: List[str]) -> Dict[str, Any]:
     """Run tuner module natively and return params."""
     try:
         import importlib
         import contextlib
-        
-        # Determine module name
-        module_name = f"exec.{system}_tuner"
-        
+
+        module_name = _resolve_tuner_module(system)
+
         try:
             module = importlib.import_module(module_name)
         except ImportError:
@@ -428,23 +491,18 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             continue
 
         # B. Tuning
-        best_params_file = tuning_dir / "best_params.json"
-        if best_params_file.exists():
-            logging.info(f"Found existing best parameters at {best_params_file}. Skipping tuning.")
-            try:
-                tuning_params = json.loads(best_params_file.read_text())
-            except Exception as e:
-                logging.warning(f"Failed to read best params from {best_params_file}: {e}. Proceeding with tuning.")
-                tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
-        else:
-            tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
-        # Extract 'parameters' key if present, otherwise assume the whole dict is properties
+        tuning_params, persist_tuning = _resolve_tuning_params(
+            system, bench, tuning_dir, logs_dir, config_path, tag=tag,
+            generators=generators, deployment=deployment,
+        )
         deploy_params = tuning_params.get("parameters", tuning_params)
-        
-        if deploy_params:
+        best_params_file = tuning_dir / _safe_name(system) / "best_params.json"
+
+        if deploy_params and persist_tuning:
             try:
-                (tuning_dir / "best_params.json").write_text(json.dumps(deploy_params, indent=2))
-                logging.info(f"Persisted best parameters to {tuning_dir / 'best_params.json'}")
+                best_params_file.parent.mkdir(parents=True, exist_ok=True)
+                best_params_file.write_text(json.dumps(deploy_params, indent=2))
+                logging.info(f"Persisted best parameters to {best_params_file}")
             except Exception as e:
                 logging.warning(f"Failed to persist best params: {e}")
         
