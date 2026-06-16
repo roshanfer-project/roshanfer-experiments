@@ -44,7 +44,7 @@ class Collector:
         # 1. Collect Service Logs (Optional)
         if collect_service_logs:
              self._collect_service_logs(unit, raw_dir, metrics_dir)
-             if self.config.nanolog_debug and unit.system == "sidecar":
+             if self.config.nanolog_debug and unit.system in ("sidecar", "sidecar-lb"):
                  self._nanolog_decompress_and_plot(unit_dir, raw_dir)
 
         # 2. Generate/Validate JSON Reports from CSV (Local processing)
@@ -86,7 +86,7 @@ class Collector:
             envoy_metrics = metrics_dir / "envoy"
             envoy_metrics.mkdir(parents=True, exist_ok=True)
             env["ENVOY_METRICS_DIR"] = str(envoy_metrics.resolve())
-        if self.config.nanolog_debug and unit.system == "sidecar":
+        if self.config.nanolog_debug and unit.system in ("sidecar", "sidecar-lb"):
             env["COLLECT_SIDECAR_NANOLOG"] = "1"
 
         # Create subfolder

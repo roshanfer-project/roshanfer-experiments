@@ -155,7 +155,7 @@ def _make_run_unit(
 
 def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
-    script = exp.script or ("run.sh" if exp.system in ("sidecar", "envoy") else "run-plain.sh")
+    script = exp.script or ("run.sh" if exp.system in ("sidecar", "sidecar-lb", "envoy") else "run-plain.sh")
 
     if exp.load_mode == "phases":
         api_phases = resolve_phases_mode(exp)
@@ -647,13 +647,13 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
-    p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar, envoy, ...).")
+    p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar, sidecar-lb, envoy, ...).")
     p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
     p.add_argument("--hosts-file", help="Override hosts_file from config.json")
     p.add_argument("--num-generators", type=int, help="Override num_generators from config.json")
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
-    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for sidecar units.")
+    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for sidecar and sidecar-lb units.")
     return p.parse_args(argv)
 
 def main(argv: List[str] | None = None) -> int:

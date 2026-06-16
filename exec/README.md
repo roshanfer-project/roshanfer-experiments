@@ -9,7 +9,7 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
 
 1.  **Partition**: Hosts are split into **Generators** and **Deployment** nodes.
 2.  **Tune**: System-specific tuners find optimal parameters (e.g., resource limits).
-3.  **Deploy**: The system is deployed ONCE per benchmark/system.
+3.  **Deploy**: The system is deployed ONCE per benchmark/system. Supported systems: `plain`, `plain-lb`, `sidecar`, `sidecar-lb`, `envoy`, `rajomon`, `rajomon-lb`, `dagor`, `dagor-lb`.
 4.  **Run**: Workload generators run remotely on generator nodes.
 5.  **Collect**: Logs and metrics are pulled to the local machine.
 
