@@ -404,7 +404,10 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     if config.nanolog_debug:
         os.environ["SIDECAR_ENABLE_NANOLOG"] = "1"
         logging.info("nanolog_debug: SIDECAR_ENABLE_NANOLOG=1 for sidecar builds")
-    
+
+    if config.sidecar_deploy_debug:
+        logging.info("sidecar_deploy_debug: deploy.sh sidecar/sidecar-lb debug enabled")
+
     # 2. Infrastructure Setup
     infra = InfraBuilder(Path(config.hosts_file))
     max_apis = _get_max_apis_needed(all_exps)
@@ -654,6 +657,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--num-generators", type=int, help="Override num_generators from config.json")
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
     p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for sidecar and sidecar-lb units.")
+    p.add_argument("--debug", action="store_true", help="Deploy sidecar/sidecar-lb with deploy.sh debug (glog via sidecar-debug-glog.env, debug restart behavior).")
     return p.parse_args(argv)
 
 def main(argv: List[str] | None = None) -> int:
@@ -667,6 +671,8 @@ def main(argv: List[str] | None = None) -> int:
         config = dc_replace(config, num_generators=ns.num_generators)
     if getattr(ns, "nanolog_debug", False):
         config = dc_replace(config, nanolog_debug=True)
+    if getattr(ns, "debug", False):
+        config = dc_replace(config, sidecar_deploy_debug=True)
     cfg_path = Path(ns.config) if ns.config else Path("config.json")
     
     filters = {

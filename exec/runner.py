@@ -354,9 +354,13 @@ class Runner:
         env["TAG"] = tag
         env["DEPLOYMENT_HOSTS"] = ",".join(deployment_hosts)
 
+        cmd = [str(script_path)]
+        if self.config.sidecar_deploy_debug and system in ("sidecar", "sidecar-lb"):
+            cmd.extend([system, "debug"])
+
         # Run Deploy Script
         try:
-            run_with_logging([str(script_path)], env=env, log_path=log_path, verbose=not quiet)
+            run_with_logging(cmd, env=env, log_path=log_path, verbose=not quiet)
             if not quiet:
                  logging.info(f"Deployment of {system} successful.")
         except subprocess.CalledProcessError as e:

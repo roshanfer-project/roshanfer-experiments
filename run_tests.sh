@@ -69,6 +69,8 @@ usage() {
   echo "                       --bench filters this too when set (e.g. --bench alibaba-large)."
   echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for sidecar runs, collect"
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
+  echo "  --debug              Deploy sidecar/sidecar-lb with deploy.sh debug (glog via"
+  echo "                       k8s/sidecar-debug-glog.env, debug restart behavior)."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
   echo "  --namespace NS       Use namespace-specific configs (config-<ns>.json,"
@@ -85,6 +87,7 @@ usage() {
   echo "  $0 --also-alibaba"
   echo "  $0 --bench alibaba-large --also-alibaba"
   echo "  $0 --bench chain-2 --comment sidecar-tuning"
+  echo "  $0 --bench chain-2 --system sidecar-lb --debug --comment sidecar-lb-test"
   echo "  $0 --namespace newsys --bench leaf-diverse"
 }
 
@@ -101,6 +104,7 @@ REMOTE_CLEAN=""
 ALSO_HOTEL_SOCIAL=""
 ALSO_ALIBABA=""
 NANOLOG_DEBUG=""
+SIDECAR_DEPLOY_DEBUG=""
 RUN_COMMENT=""
 NAMESPACE="default"
 
@@ -167,6 +171,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --nanolog-debug)
       NANOLOG_DEBUG=1
+      shift
+      ;;
+    --debug)
+      SIDECAR_DEPLOY_DEBUG=1
       shift
       ;;
     --comment)
@@ -274,6 +282,7 @@ EXTRA_ARGS=()
 [[ -n "$SHARED_GENERATOR" ]] && EXTRA_ARGS+=(--shared-generator)
 [[ -z "$REMOTE" && -n "$REMOTE_NUM_GENERATORS" ]] && EXTRA_ARGS+=(--num-generators "$REMOTE_NUM_GENERATORS")
 [[ -n "$NANOLOG_DEBUG" ]] && EXTRA_ARGS+=(--nanolog-debug)
+[[ -n "$SIDECAR_DEPLOY_DEBUG" ]] && EXTRA_ARGS+=(--debug)
 
 resolve_suite_paths() {
   local name="$1"
