@@ -11,11 +11,11 @@
                 "f1": {
                     "phases": [
                         {
-                            "rate": 400,
+                            "rate": 300,
                             "duration_sec": 5
                         },
                         {
-                            "rate": 800,
+                            "rate": 600,
                             "duration_sec": 15
                         }
                     ]
@@ -23,36 +23,12 @@
                 "g1": {
                     "phases": [
                         {
-                            "rate": 300,
+                            "rate": 400,
                             "duration_sec": 10
                         },
                         {
                             "rate": 800,
                             "duration_sec": 10
-                        }
-                    ]
-                }
-            },
-            "system": "plain-lb",
-            "repeat": 1,
-            "collector_freq": 200
-        },
-        {
-            "type": "latency-and-rate-vs-time",
-            "load_mode": "phases",
-            "apis": [
-                "f1"
-            ],
-            "api_loads": {
-                "f1": {
-                    "phases": [
-                        {
-                            "rate": 500,
-                            "duration_sec": 5
-                        },
-                        {
-                            "rate": 1000,
-                            "duration_sec": 15
                         }
                     ]
                 }
@@ -109,11 +85,11 @@
                 "f1": {
                     "phases": [
                         {
-                            "rate": 500,
+                            "rate": 300,
                             "duration_sec": 5
                         },
                         {
-                            "rate": 1000,
+                            "rate": 600,
                             "duration_sec": 15
                         }
                     ]
@@ -121,17 +97,128 @@
                 "g1": {
                     "phases": [
                         {
-                            "rate": 500,
+                            "rate": 400,
                             "duration_sec": 10
                         },
                         {
-                            "rate": 1000,
+                            "rate": 800,
                             "duration_sec": 10
                         }
                     ]
                 }
             },
             "system": "rajomon-lb",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "load_mode": "phases",
+            "apis": [
+                "f1",
+                "g1"
+            ],
+            "api_loads": {
+                "f1": {
+                    "phases": [
+                        {
+                            "rate": 300,
+                            "duration_sec": 5
+                        },
+                        {
+                            "rate": 600,
+                            "duration_sec": 15
+                        }
+                    ]
+                },
+                "g1": {
+                    "phases": [
+                        {
+                            "rate": 400,
+                            "duration_sec": 10
+                        },
+                        {
+                            "rate": 800,
+                            "duration_sec": 10
+                        }
+                    ]
+                }
+            },
+            "system": "sidecar",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "load_mode": "phases",
+            "apis": [
+                "f1",
+                "g1"
+            ],
+            "api_loads": {
+                "f1": {
+                    "phases": [
+                        {
+                            "rate": 300,
+                            "duration_sec": 5
+                        },
+                        {
+                            "rate": 600,
+                            "duration_sec": 15
+                        }
+                    ]
+                },
+                "g1": {
+                    "phases": [
+                        {
+                            "rate": 400,
+                            "duration_sec": 10
+                        },
+                        {
+                            "rate": 800,
+                            "duration_sec": 10
+                        }
+                    ]
+                }
+            },
+            "system": "sidecar-lb",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "load_mode": "phases",
+            "apis": [
+                "f1",
+                "g1"
+            ],
+            "api_loads": {
+                "f1": {
+                    "phases": [
+                        {
+                            "rate": 300,
+                            "duration_sec": 5
+                        },
+                        {
+                            "rate": 600,
+                            "duration_sec": 15
+                        }
+                    ]
+                },
+                "g1": {
+                    "phases": [
+                        {
+                            "rate": 400,
+                            "duration_sec": 10
+                        },
+                        {
+                            "rate": 800,
+                            "duration_sec": 10
+                        }
+                    ]
+                }
+            },
+            "system": "plain",
             "repeat": 1,
             "collector_freq": 200
         }
