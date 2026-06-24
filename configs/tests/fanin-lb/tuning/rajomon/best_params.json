@@ -1,0 +1,7 @@
+{
+  "priceUpdateRate": 3466.9292796413497,
+  "tokenUpdateRate": 34495.34030704997,
+  "priceStep": 313.19466276753195,
+  "latencyThreshold": 700.0,
+  "tokenUpdateStep": 22.546027565192567
+}
