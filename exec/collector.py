@@ -205,6 +205,9 @@ class Collector:
                             m_labels = item.get("metric", {})
                             api = m_labels.get("api", "unknown")
                             service = m_labels.get("job", "unknown")
+                            instance = m_labels.get("instance", "")
+                            if instance:
+                                service = f"{service}-{instance}"
                             
                             # Value tuple: [timestamp, value_str]
                             val_tuple = item.get("value", [])
@@ -230,12 +233,7 @@ class Collector:
                 except Exception as e:
                     logging.warning(f"Failed to query metric {metric}: {e}")
 
-            # Ingress Calculation
-            # Iterate over APIs we found in metrics
-            # Or should we iterate over unit.apis?
-            # It's safer to iterate over keys in 'data' or unit.apis.
-            # Let's iterate over unit.apis to ensure we cover expected ones
-            
+            # Ingress: derived queue before entry service; only when bare frontend/nginx job exists (non-LB).
             for api in unit.apis:
                 if api not in data:
                      # No metrics for this API, skip ingress calc
@@ -264,7 +262,10 @@ class Collector:
                         continue
                     
                     if not has_frontend and not has_nginx:
-                        logging.warning(f"Skipping ingress calc for {api}: Neither 'frontend' nor 'nginx' service found.")
+                        logging.info(
+                            f"Skipping ingress calc for {api}: no exact 'frontend' or 'nginx' key "
+                            "(replicated modes use per-replica push grouping; ingress not reported)."
+                        )
                         continue
                     
                     # Exactly one exists
