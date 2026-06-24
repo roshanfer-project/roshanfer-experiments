@@ -15,6 +15,7 @@ Usage:
     >>> style = ACM_COMPACT_HALF  # 3.33" half column
     >>> grid = SubplotGrid(style, layout="row-3")
     >>> plot_line(grid.get_ax(0, 0), x_data, y_data, style=style)
+    >>> plot_cdf(grid.get_ax(0, 1), values=latency_samples, style=style)
     >>> grid.configure_labels(pattern="leftmost_y_bottom_x", ylabel="Latency (ms)")
     >>> grid.add_shared_legend(position="top")
     >>> grid.save(Path("output.pdf"))
@@ -24,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, Sequence, Union
 import numpy as np
 
 
@@ -298,19 +299,20 @@ class SubplotGrid:
         if log_x:
             from matplotlib.ticker import LogLocator, NullFormatter
             ax.set_xscale('log')
-            # Show minor ticks 2..9
+            ax.xaxis.set_major_locator(LogLocator(base=10.0, numticks=15))
             locmin = LogLocator(base=10.0, subs=np.arange(2, 10) * 1.0, numticks=100)
             ax.xaxis.set_minor_locator(locmin)
             ax.xaxis.set_minor_formatter(NullFormatter())
+            if xlim is not None:
+                ax.set_xlim(max(float(xlim[0]), 1e-9), float(xlim[1]))
         
-        # Configure ticks automatically if requested and data/range is provided
-        if auto_ticks and (x_data is not None or xlim is not None):
+        # Linear x ticks only; log-x uses LogLocator above
+        if auto_ticks and not log_x and (x_data is not None or xlim is not None):
             configure_x_axis_ticks(ax, x_data=x_data, style=self.style,
                                    x_step=x_step, x_type=x_type,
                                    x_guard=x_guard, xlim=xlim)
-        else:
-            if xlim is not None:
-                ax.set_xlim(xlim[0], xlim[1])
+        elif not log_x and xlim is not None:
+            ax.set_xlim(xlim[0], xlim[1])
         
         # Apply tick label visibility settings LAST to override any auto-configuration
         if not show_xticklabels:
@@ -497,8 +499,9 @@ def configure_x_axis_ticks(ax, x_data=None, style: Optional[PlotStyle] = None,
         ax.set_xticks(x_ticks)
         ax.set_xticklabels(x_labels, fontsize=style.font_size - 1)
         
-        # Set limits with guards (only if xlim was not explicitly provided)
-        if xlim is None:
+        if xlim is not None:
+            ax.set_xlim(final_x_min, final_x_max)
+        else:
             x_span = final_x_max - final_x_min
             x_pad = x_guard * x_span if x_span > 0 else x_guard * x_step
             ax.set_xlim(final_x_min - x_pad, final_x_max + x_pad)
@@ -576,8 +579,9 @@ def configure_y_axis_ticks(ax, y_data=None, style: Optional[PlotStyle] = None,
         ax.set_yticks(y_ticks)
         ax.set_yticklabels(y_labels, fontsize=style.font_size - 1)
         
-        # Set limits with guards (only if ylim was not explicitly provided)
-        if ylim is None:
+        if ylim is not None:
+            ax.set_ylim(final_y_min, final_y_max)
+        else:
             y_span = final_y_max - final_y_min
             y_pad = y_guard * y_span if y_span > 0 else y_guard * y_step
             ax.set_ylim(final_y_min - y_pad, final_y_max + y_pad)
@@ -715,6 +719,54 @@ def plot_grouped_bars(ax, x_positions, bar_groups: List[Tuple[str, List[float], 
                     y_pos = h + (err if err else 0) + (max(heights)*0.01)
                     ax.text(x, y_pos, label_text, ha='center', va='bottom', 
                            fontsize=style.font_size*0.8, rotation=0)
+    return ax
+
+
+def compute_ecdf(values: Sequence[float]) -> Tuple[np.ndarray, np.ndarray]:
+    """Empirical CDF from raw samples.
+
+    Returns (sorted_values, cumulative_prob) with y in [0, 1].
+    """
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    v.sort()
+    n = len(v)
+    if n == 0:
+        return np.array([]), np.array([])
+    y = np.arange(1, n + 1, dtype=float) / n
+    return v, y
+
+
+def plot_cdf(ax, values: Optional[Sequence[float]] = None,
+             x: Optional[Union[Sequence[float], np.ndarray]] = None,
+             y: Optional[Union[Sequence[float], np.ndarray]] = None,
+             label: Optional[str] = None,
+             style: Optional[PlotStyle] = None,
+             color_idx: int = 0, style_idx: Optional[int] = None,
+             step: bool = True, **kwargs):
+    """Plot empirical CDF. Pass raw ``values`` or precomputed ``(x, y)``."""
+    style = style or ACM_COMPACT_HALF
+    if values is not None:
+        x_arr, y_arr = compute_ecdf(values)
+    elif x is not None and y is not None:
+        x_arr = np.asarray(x, dtype=float)
+        y_arr = np.asarray(y, dtype=float)
+    else:
+        raise ValueError("plot_cdf requires either values or (x, y)")
+
+    if x_arr.size == 0:
+        return ax
+
+    color = kwargs.pop('color', style.colors[color_idx % len(style.colors)])
+    si = style_idx if style_idx is not None else color_idx
+    linestyle = kwargs.pop('linestyle', style.line_styles[si % len(style.line_styles)])
+
+    if step:
+        ax.step(x_arr, y_arr, where='post', label=label, color=color,
+                linestyle=linestyle, linewidth=style.line_width, **kwargs)
+    else:
+        ax.plot(x_arr, y_arr, label=label, color=color,
+                linestyle=linestyle, linewidth=style.line_width, **kwargs)
     return ax
 
 

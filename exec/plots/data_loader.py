@@ -3,6 +3,7 @@
 This module provides centralized data loading for RWG outputs:
 - overall-{api}.json: Aggregated metrics for entire run
 - realtime-{api}.csv: Time-series metrics at configured frequency
+- out-{api}.csv: Per-request raw RWG output
 
 Design goals:
 - Single source of truth for RWG data parsing
@@ -15,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
+import numpy as np
 import pandas as pd
 import json
 
@@ -172,6 +174,62 @@ class PrometheusData:
             # Return empty on parse error
             print(f"Warning: Failed to parse prometheus.json: {e}")
             return cls(metrics={})
+
+
+_SUCCESS_STATUS = {1: 200, 2: 0}
+
+
+def load_out_latencies_ms(csv_path: Path, *, version: int = 1,
+                          warmup: int = 0, cooldown: int = 0) -> np.ndarray:
+    """Load successful-request E2E latencies (ms) from out-{api}.csv."""
+    if not csv_path.is_file():
+        return np.array([])
+
+    try:
+        from rwg.analyzer import read_csv
+    except ImportError:
+        df = pd.read_csv(csv_path, keep_default_na=False)
+    else:
+        df = read_csv(str(csv_path))
+
+    if df is None or df.empty:
+        return np.array([])
+
+    required = {'latency', 'status_code', 'timestamp'}
+    if not required.issubset(df.columns):
+        return np.array([])
+
+    df = df.copy()
+    df['timestamp'] = pd.to_datetime(df['timestamp'], format='ISO8601', errors='coerce')
+    df = df.dropna(subset=['timestamp'])
+    if df.empty:
+        return np.array([])
+
+    df = df.sort_values('timestamp')
+    start = df['timestamp'].iloc[0]
+    end = df['timestamp'].iloc[-1]
+    filtered_start = start + pd.Timedelta(seconds=warmup)
+    filtered_end = end - pd.Timedelta(seconds=cooldown)
+    if filtered_start >= filtered_end:
+        return np.array([])
+
+    mask = (df['timestamp'] >= filtered_start) & (df['timestamp'] <= filtered_end)
+    window_df = df.loc[mask]
+    if window_df.empty:
+        return np.array([])
+
+    success_code = _SUCCESS_STATUS.get(version, 200)
+    status = pd.to_numeric(window_df['status_code'], errors='coerce')
+    success_mask = status == success_code
+    success_df = window_df[success_mask]
+    if success_df.empty:
+        return np.array([])
+
+    latencies = pd.to_numeric(success_df['latency'], errors='coerce').dropna()
+    if latencies.empty:
+        return np.array([])
+
+    return (latencies.values.astype(float) / 1000.0)
 
 
 def load_repeat_data(repeat_dir: Path) -> Dict[str, Tuple[OverallData, Optional[RealtimeData], Optional[PrometheusData]]]:
