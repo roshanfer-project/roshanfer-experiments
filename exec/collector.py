@@ -8,13 +8,16 @@ Responsibilities:
 
 from __future__ import annotations
 
+import csv
 import json
 import subprocess
 import shutil
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import logging
+from datetime import datetime, timezone
+from urllib.parse import quote
 
 from .config import Config
 from .models import RunUnit, RunResult, CollectorResult
@@ -290,45 +293,175 @@ class Collector:
             prom_metrics_file.write_text(json.dumps(data, indent=2))
             logging.info(f"Prometheus metrics saved to {prom_metrics_file}")
 
+            self._collect_queuing_timeseries(unit, prom_url, output_dir)
+
         except Exception as e:
             logging.warning(f"Top-level error collecting Prometheus metrics: {e}")
             prom_metrics_file.write_text("{}")
 
+    def _prom_query_range(
+        self, prom_url: str, query: str, start: float, end: float, step: str = "1s"
+    ) -> List[Dict[str, Any]]:
+        url = (
+            f"{prom_url}/api/v1/query_range?query={quote(query, safe='')}"
+            f"&start={start}&end={end}&step={step}"
+        )
+        with urllib.request.urlopen(url, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return payload.get("data", {}).get("result", [])
+
+    def _realtime_window(self, realtime_csv: Path) -> Tuple[datetime, datetime] | None:
+        if not realtime_csv.is_file():
+            return None
+        start_ts: datetime | None = None
+        end_ts: datetime | None = None
+        with realtime_csv.open(newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                ts = datetime.fromisoformat(row["timestamp"])
+                if start_ts is None:
+                    start_ts = ts
+                end_ts = ts
+        if start_ts is None or end_ts is None:
+            return None
+        return start_ts, end_ts
+
+    def _service_label(self, metric: Dict[str, Any]) -> str:
+        labels = metric.get("metric", {})
+        service = labels.get("job", "unknown")
+        instance = labels.get("instance", "")
+        if instance:
+            service = f"{service}-{instance}"
+        return service
+
+    def _collect_queuing_timeseries(self, unit: RunUnit, prom_url: str, output_dir: Path) -> None:
+        quantile_fields = [
+            ("p50_queuing_ms", 0.50),
+            ("p95_queuing_ms", 0.95),
+            ("p99_queuing_ms", 0.99),
+        ]
+        fieldnames = [
+            "timestamp",
+            "relative_time",
+            "service",
+            "p50_queuing_ms",
+            "p95_queuing_ms",
+            "p99_queuing_ms",
+            "sample_count",
+        ]
+
+        for api in unit.apis:
+            realtime_csv = output_dir / f"realtime-{api}.csv"
+            window = self._realtime_window(realtime_csv)
+            if window is None:
+                logging.warning(f"Skipping queuing timeseries for {api}: {realtime_csv} missing or empty")
+                continue
+
+            start_ts, end_ts = window
+            if start_ts.tzinfo is None:
+                start_ts = start_ts.replace(tzinfo=timezone.utc)
+            if end_ts.tzinfo is None:
+                end_ts = end_ts.replace(tzinfo=timezone.utc)
+            start = start_ts.timestamp()
+            end = end_ts.timestamp()
+            if end <= start:
+                logging.warning(f"Skipping queuing timeseries for {api}: invalid time window")
+                continue
+
+            rows: Dict[Tuple[int, str], Dict[str, Any]] = {}
+            for field, q in quantile_fields:
+                query = (
+                    f'histogram_quantile({q}, sum by (job, instance) '
+                    f'(queuing_delay_microseconds{{api="{api}"}})) / 1000'
+                )
+                try:
+                    series = self._prom_query_range(prom_url, query, start, end, step="1s")
+                except Exception as e:
+                    logging.warning(f"Failed queuing range query {query}: {e}")
+                    continue
+
+                for item in series:
+                    service = self._service_label(item)
+                    for ts_str, val_str in item.get("values", []):
+                        ts = int(float(ts_str))
+                        key = (ts, service)
+                        if key not in rows:
+                            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                            rows[key] = {
+                                "timestamp": dt.isoformat(),
+                                "relative_time": ts - int(start),
+                                "service": service,
+                                "p50_queuing_ms": "",
+                                "p95_queuing_ms": "",
+                                "p99_queuing_ms": "",
+                                "sample_count": "",
+                            }
+                        try:
+                            rows[key][field] = float(val_str)
+                        except ValueError:
+                            rows[key][field] = val_str
+
+            count_query = f'sum by (job, instance) (queuing_delay_microseconds_count{{api="{api}"}})'
+            try:
+                series = self._prom_query_range(prom_url, count_query, start, end, step="1s")
+                for item in series:
+                    service = self._service_label(item)
+                    for ts_str, val_str in item.get("values", []):
+                        ts = int(float(ts_str))
+                        key = (ts, service)
+                        if key not in rows:
+                            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                            rows[key] = {
+                                "timestamp": dt.isoformat(),
+                                "relative_time": ts - int(start),
+                                "service": service,
+                                "p50_queuing_ms": "",
+                                "p95_queuing_ms": "",
+                                "p99_queuing_ms": "",
+                                "sample_count": "",
+                            }
+                        try:
+                            rows[key]["sample_count"] = int(float(val_str))
+                        except ValueError:
+                            rows[key]["sample_count"] = val_str
+            except Exception as e:
+                logging.warning(f"Failed queuing count query {count_query}: {e}")
+
+            if not rows:
+                logging.warning(f"No queuing timeseries data for api={api}")
+                continue
+
+            out_path = output_dir / f"realtime-queuing-{api}.csv"
+            with out_path.open("w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for (_, _), row in sorted(rows.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+                    writer.writerow(row)
+            logging.info(f"Wrote queuing timeseries to {out_path}")
+
+    def _run_rwg_parse(self, cmd_parse: List[str]) -> None:
+        env = os.environ.copy()
+        venv_bin = str((Path("rwg") / ".venv" / "bin").resolve())
+        env["PATH"] = f"{venv_bin}:{env.get('PATH', '')}"
+        subprocess.run(cmd_parse, capture_output=True, check=True, env=env)
 
     def _generate_reports(self, unit: RunUnit, output_dir: Path, index: Dict[str, Any], metric_files: List[str]):
         """Runs `rwg parse` to generate overall.json and realtime.csv."""
         version = "1"
-        # Determine version more robustly if needed, but this matches legacy.
 
         for api in unit.apis:
             rwg_output = output_dir / f"out-{api}.csv"
             if not rwg_output.exists():
                 index["reports"][api] = {"status": "missing_csv", "file": str(rwg_output)}
                 continue
-            
-            # Overall Report
+
             overall_json = output_dir / f"overall-{api}.json"
             slo = str(self.config.slos.get(api, 100))
-            
-            # 1. Overall Report
-            cmd_overall = [
-                self.config.rwg_binary_path, "parse",
-                "--rwg_output", str(rwg_output),
-                "--overall_output", str(overall_json),
-                "--slo", slo,
-                "--version", version,
-                "--warmup", str(unit.warmup),
-                "--cooldown", str(unit.cooldown),
-            ]
-
-            # 2. Realtime Report
-            freq = unit.collector_freq if unit.collector_freq > 0 else 100 # Default 100ms
+            freq = unit.collector_freq if unit.collector_freq > 0 else 100
             realtime_csv = output_dir / f"realtime-{api}.csv"
-            cmd_realtime = [
+            common = [
                 self.config.rwg_binary_path, "parse",
                 "--rwg_output", str(rwg_output),
-                "--realtime_output", str(realtime_csv), 
-                "--freq", str(freq),
                 "--slo", slo,
                 "--version", version,
                 "--warmup", str(unit.warmup),
@@ -336,18 +469,17 @@ class Collector:
             ]
 
             try:
-                # Use venv for python execution
-                env = os.environ.copy()
-                venv_bin = str((Path("rwg") / ".venv" / "bin").resolve())
-                env["PATH"] = f"{venv_bin}:{env.get('PATH', '')}"
-                
-                # Execute Overall
-                subprocess.run(cmd_overall, capture_output=True, check=True, env=env)
+                self._run_rwg_parse(common + [
+                    "--overall_output", str(overall_json),
+                    "--realtime_output", "",
+                    "--freq", "0",
+                ])
+                self._run_rwg_parse(common + [
+                    "--overall_output", "",
+                    "--realtime_output", str(realtime_csv),
+                    "--freq", str(freq),
+                ])
                 metric_files.append(str(overall_json))
-                
-                # Execute Realtime
-                subprocess.run(cmd_realtime, capture_output=True, check=True, env=env)
-                
                 index["reports"][api] = {"status": "success", "file": str(overall_json)}
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode('utf-8') if e.stderr else 'No stderr'
