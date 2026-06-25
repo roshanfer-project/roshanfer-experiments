@@ -12,11 +12,11 @@
                     "phases": [
                         {
                             "rate": 300,
-                            "duration_sec": 5
+                            "duration_sec": 2
                         },
                         {
                             "rate": 600,
-                            "duration_sec": 15
+                            "duration_sec": 18
                         }
                     ]
                 },
@@ -24,11 +24,11 @@
                     "phases": [
                         {
                             "rate": 400,
-                            "duration_sec": 10
+                            "duration_sec": 2
                         },
                         {
                             "rate": 800,
-                            "duration_sec": 10
+                            "duration_sec": 18
                         }
                     ]
                 }
@@ -197,11 +197,11 @@
                     "phases": [
                         {
                             "rate": 300,
-                            "duration_sec": 5
+                            "duration_sec": 2
                         },
                         {
                             "rate": 600,
-                            "duration_sec": 15
+                            "duration_sec": 18
                         }
                     ]
                 },
@@ -209,11 +209,11 @@
                     "phases": [
                         {
                             "rate": 400,
-                            "duration_sec": 10
+                            "duration_sec": 2
                         },
                         {
                             "rate": 800,
-                            "duration_sec": 10
+                            "duration_sec": 18
                         }
                     ]
                 }
