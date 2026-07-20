@@ -31,6 +31,34 @@ def _warmup_cooldown(ctx: Dict) -> Tuple[int, int]:
     return warmup, cooldown
 
 
+def _slo_cdf_probs(latencies_ms: np.ndarray, slo_ms: float) -> Tuple[float, float]:
+    v = latencies_ms[np.isfinite(latencies_ms)]
+    if v.size == 0 or slo_ms <= 0:
+        return float('nan'), float('nan')
+    p_within = float(np.searchsorted(np.sort(v), slo_ms, side='right') / v.size)
+    return p_within, 1.0 - p_within
+
+
+def _annotate_slo_violation(ax, latencies_ms: np.ndarray, slo_ms: float, style) -> None:
+    p_within, p_exceed = _slo_cdf_probs(latencies_ms, slo_ms)
+    if not np.isfinite(p_exceed) or p_exceed <= 0:
+        return
+
+    x_mark = float(slo_ms) * 1.06
+    cap = x_mark * 0.04
+    lw = style.line_width
+    color = SLO_LINE_COLOR
+    z = 5
+
+    ax.plot([x_mark, x_mark], [p_within, 1.0], color=color, linewidth=lw, zorder=z)
+    ax.plot([x_mark - cap, x_mark + cap], [p_within, p_within], color=color, linewidth=lw, zorder=z)
+    ax.plot([x_mark - cap, x_mark + cap], [1.0, 1.0], color=color, linewidth=lw, zorder=z)
+    ax.text(
+        x_mark * 1.12, (p_within + 1.0) / 2.0, f'{p_exceed:.1%}',
+        ha='left', va='center', fontsize=style.font_size, zorder=z,
+    )
+
+
 def _latency_log_xlim(latencies_list: List[np.ndarray], slo_ms: float) -> Tuple[float, float]:
     vals: List[float] = []
     if slo_ms > 0:
@@ -54,6 +82,7 @@ def _plot_single_api_cdf(api_name: str, latencies_ms: np.ndarray, slo_ms: float,
         x=float(slo_ms), color=SLO_LINE_COLOR, linestyle='--', label='SLO',
         linewidth=style.line_width, zorder=4,
     )
+    _annotate_slo_violation(ax, latencies_ms, slo_ms, style)
     x_lo, x_hi = _latency_log_xlim([latencies_ms], slo_ms)
     grid.configure_ax(
         ax, xlabel='E2E latency (ms)', ylabel='CDF', grid=True, log_x=True,
@@ -82,6 +111,7 @@ def _plot_multi_api_cdf(api_latencies: Dict[str, np.ndarray], slos: Optional[Dic
             x=float(slo_ms), color=SLO_LINE_COLOR, linestyle='--', label='SLO',
             linewidth=style.line_width, zorder=4,
         )
+        _annotate_slo_violation(ax, latencies_ms, slo_ms, style)
         display_api = api_name.replace('_all', '') if api_name.endswith('_all') else api_name
         grid.configure_ax(
             ax,
