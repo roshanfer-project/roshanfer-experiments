@@ -1,0 +1,17 @@
+{
+    "output_base_dir": "./exp_runs",
+    "experiment_index": "chain4-lb",
+    "num_generators": 1,
+    "raw_artifact_subdir": "raw",
+    "metrics_subdir": "metrics",
+    "rwg_binary_path": "./rwg/rwg",
+    "bench": "tests/chain4-lb",
+    "hosts_file": "configs/tests/chain4-lb/hosts.txt",
+    "ssh_binary": "ssh",
+    "git_root": "..",
+    "slos": {
+        "f1": "50"
+    },
+    "metrics": {},
+    "post_deploy_wait_sec": 1
+}
