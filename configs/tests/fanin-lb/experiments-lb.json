@@ -258,6 +258,38 @@
             "system": "rajomon",
             "repeat": 1,
             "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 900,
+                "end": 900,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "plain",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 900,
+                "end": 900,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "plain-lb",
+            "repeat": 1,
+            "collector_freq": 200
         }
     ]
 }
