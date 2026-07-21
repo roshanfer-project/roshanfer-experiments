@@ -155,7 +155,7 @@ def _make_run_unit(
 
 def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
-    script = exp.script or ("run.sh" if exp.system in ("sidecar", "sidecar-lb", "envoy") else "run-plain.sh")
+    script = exp.script or ("run.sh" if exp.system in ("sidecar", "sidecar-lb", "envoy", "plain-lb") else "run-plain.sh")
 
     if exp.load_mode == "phases":
         api_phases = resolve_phases_mode(exp)
