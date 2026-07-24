@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import traceback
 import os
+
+from exec.models import SYSTEM_DISPLAY_LABELS, resolve_plot_label
 import numpy as np
 import math
 from matplotlib.ticker import LogLocator
@@ -313,14 +315,11 @@ def generate_resource_waste_bar_merged(
     
     for exp_name in exp_names:
         exp_cfg = include_experiments[exp_name]
-        label = exp_cfg.get('label', exp_name)
-        
         # Find experiment definition
         if exp_name not in experiment_configs:
             raise Exception(f"Experiment '{exp_name}' not found in experiment configs")
         exp_def = experiment_configs[exp_name]
-        
-        # Get APIs and benchmark type from experiment config
+        label = resolve_plot_label(exp_cfg, exp_name, exp_def)
         apis = exp_def.get('apis', [])
         bench = exp_def.get('bench', bench_default)
         
@@ -369,7 +368,12 @@ def generate_resource_waste_bar_merged(
                         _, _, prom_data = loaded_data[first_valid_api]
                         
                         # Check condition: Prom data exists OR it is Roshanfer (which can use overall data)
-                        is_roshanfer_exp = (label == 'Roshanfer' or 'sidecar' in exp_name)
+                        is_roshanfer_exp = (
+                            label == 'Roshanfer'
+                            or label in SYSTEM_DISPLAY_LABELS.values()
+                            or 'sidecar' in exp_name
+                            or 'approx' in exp_name
+                        )
                         
                         if (prom_data and prom_data.metrics) or is_roshanfer_exp:
                             waste_data = _calculate_waste_from_prometheus(prom_data, loaded_data, apis, bench, is_roshanfer=is_roshanfer_exp)
@@ -764,11 +768,11 @@ def generate_max_queue_merged(
     all_apis = set()
     for exp_name in exp_names:
         exp_cfg = include_experiments[exp_name]
-        label = exp_cfg.get('label', exp_name)
         # Find experiment definition
         if exp_name not in experiment_configs:
             raise Exception(f"Experiment '{exp_name}' not found in experiment configs")
         exp_def = experiment_configs[exp_name]
+        label = resolve_plot_label(exp_cfg, exp_name, exp_def)
         # Scan roots
         repeat_metric_files = [] 
         repeat_prom_data = [] # Store prom data for repeats
@@ -1199,12 +1203,11 @@ def generate_latency_goodput_vs_load_merged(
     all_apis = set()
     
     for exp_name, exp_config in include_experiments.items():
-        label = exp_config.get('label', exp_name)
-        
         if exp_name not in experiment_configs:
             raise Exception(f"Experiment '{exp_name}' not found in experiment configs")
         
         exp_def = experiment_configs[exp_name]
+        label = resolve_plot_label(exp_config, exp_name, exp_def)
         apis = exp_def.get('apis', [])
         all_apis.update(apis)
         
@@ -1704,7 +1707,7 @@ def generate_latency_and_rate_vs_time_merged(
     all_found_apis = set()
     
     for exp_name, cfg in include_experiments.items():
-        label = cfg.get('label', exp_name)
+        label = resolve_plot_label(cfg, exp_name, experiment_configs.get(exp_name))
         target_unit = cfg.get('unit')
         target_repeat = cfg.get('repeat')
         
@@ -1890,6 +1893,22 @@ def generate_latency_and_rate_vs_time_merged(
     return produced
 
 
+# Log y-axis cannot show 0%; clip for plotting only.
+_SLO_LOG_FLOOR = 0.1
+
+
+def _slo_for_log(y) -> np.ndarray:
+    return np.maximum(np.asarray(y, dtype=float), _SLO_LOG_FLOOR)
+
+
+def _slo_log_ylim(y_values) -> tuple[float, float]:
+    ymax = float(np.max(y_values)) if y_values is not None and len(y_values) else _SLO_LOG_FLOOR
+    top = max(10.0, math.ceil(ymax / 10.0) * 10.0)
+    if ymax > top - 1e-9:
+        top += 10.0
+    return (_SLO_LOG_FLOOR, top)
+
+
 def generate_latency_vs_throughput_merged(
     figure_name: str,
     figure_config: dict,
@@ -1954,14 +1973,13 @@ def generate_latency_vs_throughput_merged(
     color_idx_map = {} # label -> color_idx
 
     for exp_idx, (exp_name, exp_cfg) in enumerate(include_experiments.items()):
-        label = exp_cfg.get('label', exp_name)
-        color_idx_map[label] = exp_idx
-        
         if exp_name not in experiment_configs:
             print(f"Warning: Experiment '{exp_name}' not found in configs")
             continue
             
         exp_def = experiment_configs[exp_name]
+        label = resolve_plot_label(exp_cfg, exp_name, exp_def)
+        color_idx_map[label] = exp_idx
         exp_apis = exp_def.get('apis', [])
         
         # 1. Find all units for this experiment
@@ -2069,6 +2087,7 @@ def generate_latency_vs_throughput_merged(
 
             # Store aggregated data to be plotted later
             plot_data[api][label] = {
+                'loads': [p['load_value'] for p in exp_points],
                 'tps': [p['tp'] for p in exp_points],
                 'tp_ci': [p['tp_ci'] for p in exp_points],
                 'goodputs': [p['gp'] for p in exp_points],
@@ -2089,25 +2108,37 @@ def generate_latency_vs_throughput_merged(
 
         all_slo = []
         for label, data in plot_data[api].items():
+            all_slo.extend(data['slo_pct'])
+        ylim = _slo_log_ylim(all_slo)
+
+        for label, data in plot_data[api].items():
             color_idx = color_idx_map.get(label, 0)
 
-            slo_vals = data['slo_pct']
+            slo_vals = np.asarray(data['slo_pct'], dtype=float)
             slo_cis = data['slo_pct_ci']
             slo_errs = (
-                [float(c) if c is not None else 0.0 for c in slo_cis]
+                np.asarray([float(c) if c is not None else 0.0 for c in slo_cis], dtype=float)
                 if len(slo_cis) == len(slo_vals)
                 else None
             )
+            y_plot = _slo_for_log(slo_vals)
+            yerr = None
+            if slo_errs is not None:
+                y_lo = _slo_for_log(slo_vals - slo_errs)
+                y_hi = _slo_for_log(slo_vals + slo_errs)
+                yerr = [
+                    np.maximum(y_plot - y_lo, 0.0),
+                    np.maximum(y_hi - y_plot, 0.0),
+                ]
             plot_line(
-                ax, np.asarray(data['tps'], dtype=float) / 1000.0, slo_vals,
-                yerr=slo_errs,
+                ax, np.asarray(data['tps'], dtype=float) / 1000.0, y_plot,
+                yerr=yerr,
                 label=label,
                 style=style,
                 color_idx=color_idx,
                 style_idx=color_idx,
                 show_markers=True,
             )
-            all_slo.extend(slo_vals)
 
         tp_concat = []
         for _, data in plot_data[api].items():
@@ -2125,9 +2156,9 @@ def generate_latency_vs_throughput_merged(
             show_yticklabels=True,
             x_data=x_throughput,
             x_type='float',
-            x_step=1.0,
-            y_data=np.array(all_slo, dtype=float) if all_slo else None,
-            y_type='float',
+            log_y=True,
+            ylim=ylim,
+            auto_ticks=True,
         )
 
     grid.add_shared_legend(position="top")
@@ -2135,87 +2166,90 @@ def generate_latency_vs_throughput_merged(
     grid.save(line_path)
     produced.append(line_path)
 
-    # 4. Generate Latency vs Throughput Bar Plot (Goodput at Max Rate)
-    # This plot visualizes the peak goodput for each included experiment/API as a grouped bar chart
-    
-    print(f"Generating merged latency-vs-throughput bar plot...")
-    
-    # Create grid (1x1) using user-specified width
-    bar_style = ACM_QUARTER
-    bar_grid = SubplotGrid(bar_style, layout="1x1")
-    ax_bar = bar_grid.get_ax(0, 0)
-    
-    # Prepare data for plot_grouped_bars
-    # Grouping: Experiments (X-axis)
-    # Bars: APIs (Colors/Legend)
-    
-    # We need to preserve the order from include_experiments
-    sorted_exp_items = []
-    for exp_idx, (exp_name, exp_cfg) in enumerate(include_experiments.items()):
-        if exp_name in experiment_configs:
-            sorted_exp_items.append((exp_name, exp_cfg))
-    
-    x_positions = list(range(len(sorted_exp_items)))
-    exp_labels = [item[1].get('label', item[0]) for item in sorted_exp_items]
-    
-    bar_groups = []
-    max_goodput = 0
-    
-    for api in all_apis:
-        heights = []
-        errors = []
-        
-        has_data = False
-        for exp_name, exp_cfg in sorted_exp_items:
-            label = exp_cfg.get('label', exp_name)
-            
-            # Get data for this API and Experiment
-            if label in plot_data[api]:
-                d = plot_data[api][label]
-                if d['goodputs']:
-                    # Last point = highest offered load (exp_points sorted by load_value)
-                    heights.append(d['goodputs'][-1])
-                    errors.append(d['goodput_ci'][-1] if 'goodput_ci' in d else 0.0)
-                    has_data = True
-                else:
-                    heights.append(0.0)
-                    errors.append(0.0)
-            else:
-                heights.append(0.0)
-                errors.append(0.0)
-        
-        # Add API to groups if it has any data (or maybe just add anyway for consistency)
-        if has_data:
-            bar_groups.append((api, heights, errors))
-        if max(heights) > max_goodput:
-            max_goodput = max(heights)
-            
-    if bar_groups:
+    # Grouped bars: SLO violation (%) at each offered load, one bar per system
+    print(f"Generating merged latency-vs-throughput SLO bar plot...")
+
+    # Preserve system order from include_experiments
+    system_labels = []
+    for exp_name, exp_cfg in include_experiments.items():
+        if exp_name not in experiment_configs:
+            continue
+        system_labels.append(resolve_plot_label(exp_cfg, exp_name, experiment_configs[exp_name]))
+
+    bar_style = ACM_COMPACT_HALF
+    bar_grid = SubplotGrid(bar_style, layout=f"1x{n_apis}")
+    any_bar = False
+
+    for api_idx, api in enumerate(all_apis):
+        ax_bar = bar_grid.get_ax(0, api_idx)
+        if len(all_apis) > 1:
+            ax_bar.set_title(api, fontsize=bar_style.title_size)
+
+        loads = sorted({
+            int(lv)
+            for label in system_labels
+            if label in plot_data[api]
+            for lv in plot_data[api][label].get('loads', [])
+            if lv is not None
+        })
+        if not loads:
+            continue
+
+        bar_groups = []
+        api_slo_heights = []
+        for label in system_labels:
+            d = plot_data[api].get(label)
+            by_load = {}
+            if d:
+                for lv, slo, slo_ci in zip(d.get('loads', []), d['slo_pct'], d['slo_pct_ci']):
+                    if lv is None:
+                        continue
+                    by_load[int(lv)] = (float(slo), float(slo_ci) if slo_ci is not None else 0.0)
+            heights = []
+            errors = []
+            for lv in loads:
+                h, e = by_load.get(lv, (0.0, 0.0))
+                heights.append(h)
+                errors.append(e)
+            h_arr = _slo_for_log(heights)
+            e_arr = np.asarray(errors, dtype=float)
+            bar_groups.append((label, list(h_arr), list(np.maximum(e_arr, 0.0))))
+            api_slo_heights.extend(heights)
+
+        if not bar_groups:
+            continue
+
+        any_bar = True
+        x_positions = list(range(len(loads)))
         plot_grouped_bars(ax_bar, x_positions, bar_groups, style=bar_style)
-        
-        # Configure Axis
-        bar_grid.configure_ax(ax_bar,
-            xlabel="",
-            ylabel="Goodput (RPS)",
+        ylim = _slo_log_ylim(api_slo_heights)
+
+        bar_grid.configure_ax(
+            ax_bar,
+            xlabel="Throughput (KRPS)",
+            ylabel="SLO Violation (%)" if api_idx == 0 else "",
             show_xticklabels=True,
-            y_guard=0.05,
-            ylim=(0, max_goodput * 1.1),
-            y_step=100,
-            y_type='int'
+            show_xlabel=True,
+            show_ylabel=(api_idx == 0),
+            show_yticklabels=True,
+            log_y=True,
+            ylim=ylim,
+            auto_ticks=True,
         )
-        
-        # Set X-tick labels to Experiment Labels
         ax_bar.set_xticks(x_positions)
-        ax_bar.set_xticklabels(exp_labels, rotation=0 if len(exp_labels) < 4 else 30, ha='center', fontsize=bar_style.font_size - 1)
-        
-        # Legend
+        ax_bar.set_xticklabels(
+            [f"{lv / 1000.0:g}" for lv in loads],
+            rotation=0 if len(loads) < 6 else 30,
+            ha='center',
+            fontsize=bar_style.font_size - 1,
+        )
+
+    if any_bar:
         bar_grid.add_shared_legend(position="top")
-        
-        # Save
-        bar_path = output_dir / f'{figure_name}_goodput_bar.pdf'
+        bar_path = output_dir / f'{figure_name}_slo_bar.pdf'
         bar_grid.save(bar_path)
         produced.append(bar_path)
-    
+
     return produced
 
 

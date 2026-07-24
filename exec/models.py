@@ -11,6 +11,36 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime
 import re
 
+APPROX_SYSTEMS = ("approx", "approx-fcfs", "approx-edf")
+
+SYSTEM_DISPLAY_LABELS = {
+    "approx": "Approx",
+    "approx-fcfs": "Approx-FCFS",
+    "approx-edf": "Approx-EDF",
+}
+
+
+def is_approx_system(system: str) -> bool:
+    return system in APPROX_SYSTEMS
+
+
+def is_sidecar_family(system: str) -> bool:
+    """sidecar (non-LB) or any approx* LB mode."""
+    return system == "sidecar" or is_approx_system(system)
+
+
+def resolve_plot_label(exp_cfg: Dict[str, Any], exp_name: str, exp_def: Optional[Dict[str, Any]] = None) -> str:
+    if exp_cfg.get("label"):
+        return exp_cfg["label"]
+    system = ""
+    if exp_def:
+        system = str(exp_def.get("system", ""))
+    if not system:
+        system = str(exp_cfg.get("system", ""))
+    if system in SYSTEM_DISPLAY_LABELS:
+        return SYSTEM_DISPLAY_LABELS[system]
+    return exp_name
+
 
 @dataclass
 class LoadRange:

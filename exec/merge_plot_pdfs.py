@@ -38,7 +38,7 @@ def _apis_display(apis: list[str]) -> str:
 
 MERGED_STEMS = (
     "_latency_vs_throughput",
-    "_goodput_bar",
+    "_slo_bar",
     "_rate_vs_time",
     "_latency_vs_time",
     "_combined",

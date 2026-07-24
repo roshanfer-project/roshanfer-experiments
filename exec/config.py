@@ -58,7 +58,7 @@ class Config:
     plotting_enabled: bool = True
     # Build sidecar with NANO_LOG_ENABLED; collect/decompress/plot NanoLog metrics (sidecar units only).
     nanolog_debug: bool = False
-    # Deploy sidecar/sidecar-lb with deploy.sh debug (glog + debug restart behavior).
+    # Deploy sidecar/approx* with deploy.sh debug (glog + debug restart behavior).
     sidecar_deploy_debug: bool = False
 
     # --- Collector defaults (can be overridden per experiment) ---

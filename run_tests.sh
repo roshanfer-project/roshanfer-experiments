@@ -69,7 +69,7 @@ usage() {
   echo "                       --bench filters this too when set (e.g. --bench alibaba-large)."
   echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for sidecar runs, collect"
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
-  echo "  --debug              Deploy sidecar/sidecar-lb with deploy.sh debug (glog via"
+  echo "  --debug              Deploy sidecar/approx* with deploy.sh debug (glog via"
   echo "                       k8s/sidecar-debug-glog.env, debug restart behavior)."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
@@ -87,7 +87,7 @@ usage() {
   echo "  $0 --also-alibaba"
   echo "  $0 --bench alibaba-large --also-alibaba"
   echo "  $0 --bench chain-2 --comment sidecar-tuning"
-  echo "  $0 --bench chain-2 --system sidecar-lb --debug --comment sidecar-lb-test"
+  echo "  $0 --bench chain-2 --system approx --debug --comment approx-test"
   echo "  $0 --namespace newsys --bench leaf-diverse"
 }
 
