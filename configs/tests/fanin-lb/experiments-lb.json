@@ -1,6 +1,74 @@
 {
     "experiments": [
         {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 900,
+                "step": 200
+            },
+            "base_rate": 100,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "plain-lb",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 900,
+                "step": 200
+            },
+            "base_rate": 100,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 900,
+                "step": 200
+            },
+            "base_rate": 100,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx-fcfs",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 900,
+                "step": 200
+            },
+            "base_rate": 100,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx-edf",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
             "type": "latency-and-rate-vs-time",
             "load_mode": "phases",
             "apis": [
@@ -15,7 +83,7 @@
                             "duration_sec": 2
                         },
                         {
-                            "rate": 600,
+                            "rate": 400,
                             "duration_sec": 18
                         }
                     ]
@@ -27,7 +95,7 @@
                             "duration_sec": 2
                         },
                         {
-                            "rate": 800,
+                            "rate": 500,
                             "duration_sec": 18
                         }
                     ]
@@ -48,11 +116,11 @@
                 "f1": {
                     "phases": [
                         {
-                            "rate": 400,
+                            "rate": 300,
                             "duration_sec": 5
                         },
                         {
-                            "rate": 800,
+                            "rate": 400,
                             "duration_sec": 15
                         }
                     ]
@@ -60,17 +128,17 @@
                 "g1": {
                     "phases": [
                         {
-                            "rate": 300,
+                            "rate": 400,
                             "duration_sec": 10
                         },
                         {
-                            "rate": 800,
+                            "rate": 500,
                             "duration_sec": 10
                         }
                     ]
                 }
             },
-            "system": "dagor-lb",
+            "system": "approx",
             "repeat": 1,
             "collector_freq": 200
         },
@@ -89,7 +157,7 @@
                             "duration_sec": 5
                         },
                         {
-                            "rate": 600,
+                            "rate": 400,
                             "duration_sec": 15
                         }
                     ]
@@ -101,13 +169,13 @@
                             "duration_sec": 10
                         },
                         {
-                            "rate": 800,
+                            "rate": 500,
                             "duration_sec": 10
                         }
                     ]
                 }
             },
-            "system": "rajomon-lb",
+            "system": "approx-fcfs",
             "repeat": 1,
             "collector_freq": 200
         },
@@ -126,7 +194,7 @@
                             "duration_sec": 5
                         },
                         {
-                            "rate": 600,
+                            "rate": 400,
                             "duration_sec": 15
                         }
                     ]
@@ -138,148 +206,21 @@
                             "duration_sec": 10
                         },
                         {
-                            "rate": 800,
+                            "rate": 500,
                             "duration_sec": 10
                         }
                     ]
                 }
             },
-            "system": "sidecar",
-            "repeat": 1,
-            "collector_freq": 200
-        },
-        {
-            "type": "latency-and-rate-vs-time",
-            "load_mode": "phases",
-            "apis": [
-                "f1",
-                "g1"
-            ],
-            "api_loads": {
-                "f1": {
-                    "phases": [
-                        {
-                            "rate": 300,
-                            "duration_sec": 5
-                        },
-                        {
-                            "rate": 600,
-                            "duration_sec": 15
-                        }
-                    ]
-                },
-                "g1": {
-                    "phases": [
-                        {
-                            "rate": 400,
-                            "duration_sec": 10
-                        },
-                        {
-                            "rate": 800,
-                            "duration_sec": 10
-                        }
-                    ]
-                }
-            },
-            "system": "sidecar-lb",
-            "repeat": 1,
-            "collector_freq": 200
-        },
-        {
-            "type": "latency-and-rate-vs-time",
-            "load_mode": "phases",
-            "apis": [
-                "f1",
-                "g1"
-            ],
-            "api_loads": {
-                "f1": {
-                    "phases": [
-                        {
-                            "rate": 300,
-                            "duration_sec": 2
-                        },
-                        {
-                            "rate": 600,
-                            "duration_sec": 18
-                        }
-                    ]
-                },
-                "g1": {
-                    "phases": [
-                        {
-                            "rate": 400,
-                            "duration_sec": 2
-                        },
-                        {
-                            "rate": 800,
-                            "duration_sec": 18
-                        }
-                    ]
-                }
-            },
-            "system": "plain",
-            "repeat": 1,
-            "collector_freq": 200
-        },
-        {
-            "type": "latency-and-rate-vs-time",
-            "load_mode": "phases",
-            "apis": [
-                "f1",
-                "g1"
-            ],
-            "api_loads": {
-                "f1": {
-                    "phases": [
-                        {
-                            "rate": 300,
-                            "duration_sec": 5
-                        },
-                        {
-                            "rate": 600,
-                            "duration_sec": 15
-                        }
-                    ]
-                },
-                "g1": {
-                    "phases": [
-                        {
-                            "rate": 400,
-                            "duration_sec": 10
-                        },
-                        {
-                            "rate": 800,
-                            "duration_sec": 10
-                        }
-                    ]
-                }
-            },
-            "system": "rajomon",
+            "system": "approx-edf",
             "repeat": 1,
             "collector_freq": 200
         },
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 900,
-                "end": 900,
-                "step": 500
-            },
-            "base_rate": 500,
-            "duration_sec": 15,
-            "apis": [
-                "f1"
-            ],
-            "system": "plain",
-            "repeat": 1,
-            "collector_freq": 200
-        },
-        {
-            "type": "latency-and-rate-vs-time",
-            "loads": {
-                "start": 900,
-                "end": 900,
+                "start": 800,
+                "end": 800,
                 "step": 500
             },
             "base_rate": 500,
@@ -288,6 +229,54 @@
                 "f1"
             ],
             "system": "plain-lb",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 800,
+                "end": 800,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 800,
+                "end": 800,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx-fcfs",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 800,
+                "end": 800,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx-edf",
             "repeat": 1,
             "collector_freq": 200
         }

@@ -3,8 +3,8 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 2000,
-                "end": 2000,
+                "start": 1000,
+                "end": 1000,
                 "step": 1000
             },
             "base_rate": 1000,
@@ -12,7 +12,39 @@
             "apis": [
                 "f1"
             ],
-            "system": "sidecar-lb",
+            "system": "approx",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 1000,
+                "end": 1000,
+                "step": 1000
+            },
+            "base_rate": 1000,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx-fcfs",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 1000,
+                "end": 1000,
+                "step": 1000
+            },
+            "base_rate": 1000,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "approx-edf",
             "repeat": 1,
             "collector_freq": 200
         },
