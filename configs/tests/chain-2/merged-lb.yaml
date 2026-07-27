@@ -8,5 +8,7 @@ figures:
         label: Approx-FCFS
       latency-and-rate-vs-time-chain-2-approx-edf:
         label: Approx-EDF
-      latency-and-rate-vs-time-chain-2-plain-lb:
-        label: Plain-LB
+      latency-and-rate-vs-time-chain-2-p2c:
+        label: P2C
+      latency-and-rate-vs-time-chain-2-wrr:
+        label: WRR

@@ -17,6 +17,8 @@ SYSTEM_DISPLAY_LABELS = {
     "approx": "Approx",
     "approx-fcfs": "Approx-FCFS",
     "approx-edf": "Approx-EDF",
+    "p2c": "P2C",
+    "wrr": "WRR",
 }
 
 

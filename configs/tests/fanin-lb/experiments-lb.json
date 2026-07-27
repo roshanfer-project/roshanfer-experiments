@@ -12,7 +12,24 @@
             "apis": [
                 "f1"
             ],
-            "system": "plain-lb",
+            "system": "p2c",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup": 2
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 900,
+                "step": 200
+            },
+            "base_rate": 100,
+            "duration_sec": 10,
+            "apis": [
+                "f1"
+            ],
+            "system": "wrr",
             "repeat": 1,
             "collector_freq": 200,
             "warmup": 2
@@ -101,7 +118,44 @@
                     ]
                 }
             },
-            "system": "plain-lb",
+            "system": "p2c",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "load_mode": "phases",
+            "apis": [
+                "f1",
+                "g1"
+            ],
+            "api_loads": {
+                "f1": {
+                    "phases": [
+                        {
+                            "rate": 300,
+                            "duration_sec": 2
+                        },
+                        {
+                            "rate": 400,
+                            "duration_sec": 18
+                        }
+                    ]
+                },
+                "g1": {
+                    "phases": [
+                        {
+                            "rate": 400,
+                            "duration_sec": 2
+                        },
+                        {
+                            "rate": 500,
+                            "duration_sec": 18
+                        }
+                    ]
+                }
+            },
+            "system": "wrr",
             "repeat": 1,
             "collector_freq": 200
         },
@@ -228,7 +282,23 @@
             "apis": [
                 "f1"
             ],
-            "system": "plain-lb",
+            "system": "p2c",
+            "repeat": 1,
+            "collector_freq": 200
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 800,
+                "end": 800,
+                "step": 500
+            },
+            "base_rate": 500,
+            "duration_sec": 15,
+            "apis": [
+                "f1"
+            ],
+            "system": "wrr",
             "repeat": 1,
             "collector_freq": 200
         },
