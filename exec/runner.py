@@ -556,7 +556,7 @@ class Runner:
                     f"mkdir -p {remote_out_dir} && "
                     f"{phase_env}TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {cmd_base} {cmd_rate} {cmd_duration} {api} {remote_out_dir}"
                 )
-                if not (unit.system in ["plain", "plain-lb", "sidecar", "approx", "approx-fcfs", "approx-edf", "envoy"]):
+                if not (unit.system in ["plain", "p2c", "wrr", "sidecar", "approx", "approx-fcfs", "approx-edf", "envoy"]):
                     # add --ignore-errors
                     cmd_str += " --ignore-errors"
                 

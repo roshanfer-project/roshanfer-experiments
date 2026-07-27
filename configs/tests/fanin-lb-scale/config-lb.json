@@ -1,0 +1,25 @@
+{
+  "output_base_dir": "./exp_runs",
+  "experiment_index": "fanin-lb-scale",
+  "num_generators": 1,
+  "raw_artifact_subdir": "raw",
+  "metrics_subdir": "metrics",
+  "rwg_binary_path": "./rwg/rwg",
+  "bench": "tests/fanin-lb-scale",
+  "hosts_file": "configs/tests/fanin-lb-scale/hosts.txt",
+  "ssh_binary": "ssh",
+  "git_root": "..",
+  "slos": {
+    "f1": "35",
+    "g1": "20"
+  },
+  "metrics": {},
+  "post_deploy_wait_sec": 1,
+  "tuner": {
+    "tune_api": "f1",
+    "tuner_base": 500,
+    "tuner_rate": 1200,
+    "trial_duration_sec": 15,
+    "maximum_goodput": 1000
+  }
+}

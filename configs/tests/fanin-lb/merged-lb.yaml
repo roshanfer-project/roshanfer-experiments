@@ -2,8 +2,10 @@ figures:
   latency-vs-throughput-fanin-lb:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-fanin-lb-plain-lb:
-        label: Plain-LB
+      latency-vs-throughput-fanin-lb-p2c:
+        label: P2C
+      latency-vs-throughput-fanin-lb-wrr:
+        label: WRR
       latency-vs-throughput-fanin-lb-approx:
         label: Approx
       latency-vs-throughput-fanin-lb-approx-fcfs:
@@ -14,8 +16,10 @@ figures:
   latency-and-rate-vs-time-fanin-lb-2:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-fanin-lb-2-plain-lb:
-        label: Plain-LB
+      latency-and-rate-vs-time-fanin-lb-2-p2c:
+        label: P2C
+      latency-and-rate-vs-time-fanin-lb-2-wrr:
+        label: WRR
       latency-and-rate-vs-time-fanin-lb-2-approx:
         label: Approx
       latency-and-rate-vs-time-fanin-lb-2-approx-fcfs:
@@ -26,8 +30,10 @@ figures:
   latency-and-rate-vs-time-fanin-lb:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-fanin-lb-plain-lb:
-        label: Plain-LB
+      latency-and-rate-vs-time-fanin-lb-p2c:
+        label: P2C
+      latency-and-rate-vs-time-fanin-lb-wrr:
+        label: WRR
       latency-and-rate-vs-time-fanin-lb-approx:
         label: Approx
       latency-and-rate-vs-time-fanin-lb-approx-fcfs:
