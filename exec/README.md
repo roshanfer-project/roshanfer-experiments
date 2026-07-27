@@ -22,7 +22,7 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
     user@node2.cloudlab.us
     ...
     ```
-3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent.
+3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent. It clones/checks out one branch name on remotes for both `roshanfer-experments` and `benchmarks` (passed as `BRANCH` / `--branch`; default = local active branch). Both GitHub repos must publish that same branch name. If a remote checkout is on a different branch, provision wipes `~/roshanfer-experments` and re-clones.
 4.  **direnv** (for kubeconfig isolation): Install direnv and enable the repo's `.envrc`:
     ```bash
     sudo apt install direnv
@@ -45,6 +45,7 @@ python -m exec.executor \
 **Options:**
 - `--hosts-file PATH`: Override `hosts_file` from config (first `num_generators` lines are generators, rest are K8s nodes).
 - `--num-generators N`: Override `num_generators` from config.
+- `--branch NAME`: Git branch to provision on remotes for both `roshanfer-experments` and `benchmarks` (same name required). Default: local active branch of the parent repo. Passed to `provision.sh` as `BRANCH`.
 - `--only-names "exp1,exp2"`: Run specific experiments (use derived names).
 - `--only-types "type1"`: Run specific types.
 - `--name-contains "substring"`: Filter by name substring.
@@ -155,9 +156,12 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 ./run_tests.sh
 ./run_tests.sh --also-hotel-social
 ./run_tests.sh --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu
+./run_tests.sh --remote --branch lb-explore --cloudlab-manifest ~/manifest.xml --num-generators 3
 ```
 
 `--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run.
+
+`--branch NAME` selects the git branch provisioned on remotes for **both** `roshanfer-experments` and `benchmarks` (one name; both remotes must have it). Default is the local active branch. Before starting exec, `run_tests.sh` requires the local parent and `benchmarks` checkouts to be on the **same** named branch; if they differ (or are detached), it errors and does not invoke exec. If `--branch` is set, it must match that local pair.
 
 `--namespace NS` selects namespace-specific config files (`config-<ns>.json`, `experiments-<ns>.json`) instead of the default `config.json` / `experiments.json`. The namespace is stored in `exp_runs_test/<run_id>/.namespace` for plot regeneration. See [Config namespaces](#config-namespaces) below.
 
@@ -170,7 +174,7 @@ Hosts are always read from a plain-text file (one `[user@]host` per line, `#` co
 - **Local mode** — each test's `config.json` has a `hosts_file` field pointing to a static per-test file, e.g. `configs/tests/one-service/hosts.txt`. There is no auto-discovery; you edit that file to match your local setup.
 - **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` (via `exec.cloudlab_hosts`) and passes it with `--hosts-file`, overriding whatever `hosts_file` the config specifies.
 
-`benchmarks/k8s/hosts.txt` and `benchmarks/provisioning/hosts.txt` are only used as defaults when running those shell scripts *manually*; the executor always overrides them by setting the `HOSTS_FILE` env var.
+`benchmarks/k8s/hosts.txt` and `benchmarks/provisioning/hosts.txt` are only used as defaults when running those shell scripts *manually*; the executor always overrides them by setting the `HOSTS_FILE` env var (and `BRANCH` when `--branch` / local default is set).
 
 ## Tuning
 

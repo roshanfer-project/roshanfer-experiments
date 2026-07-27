@@ -408,6 +408,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     if config.sidecar_deploy_debug:
         logging.info("sidecar_deploy_debug: deploy.sh sidecar/approx* debug enabled")
 
+    if getattr(config, "branch", None):
+        logging.info("Provision branch: %s (same name for roshanfer-experments and benchmarks)", config.branch)
+
     # 2. Infrastructure Setup
     infra = InfraBuilder(Path(config.hosts_file))
     max_apis = _get_max_apis_needed(all_exps)
@@ -430,6 +433,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             Path(config.provisioning_script),
             log_path=prov_log,
             provision_host_logs_dir=prov_host_logs_dir,
+            branch=getattr(config, "branch", None),
         )
         
         if hasattr(config, "k8s_script") and config.k8s_script:
@@ -658,7 +662,26 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
     p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for sidecar and approx* units.")
     p.add_argument("--debug", action="store_true", help="Deploy sidecar/approx* with deploy.sh debug (glog via sidecar-debug-glog.env, debug restart behavior).")
+    p.add_argument(
+        "--branch",
+        help="Git branch to provision on remotes (same name for roshanfer-experments and benchmarks). Default: local active branch.",
+    )
     return p.parse_args(argv)
+
+
+def _local_git_branch(repo: Path | None = None) -> str:
+    cwd = str(repo) if repo is not None else None
+    try:
+        out = subprocess.check_output(
+            ["git", "branch", "--show-current"],
+            cwd=cwd,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return out
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+
 
 def main(argv: List[str] | None = None) -> int:
     ns = parse_args(argv or sys.argv[1:])
@@ -673,6 +696,11 @@ def main(argv: List[str] | None = None) -> int:
         config = dc_replace(config, nanolog_debug=True)
     if getattr(ns, "debug", False):
         config = dc_replace(config, sidecar_deploy_debug=True)
+    branch = getattr(ns, "branch", None) or config.branch
+    if not branch:
+        branch = _local_git_branch() or None
+    if branch:
+        config = dc_replace(config, branch=branch)
     cfg_path = Path(ns.config) if ns.config else Path("config.json")
     
     filters = {

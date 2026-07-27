@@ -75,12 +75,17 @@ usage() {
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
   echo "  --namespace NS       Use namespace-specific configs (config-<ns>.json,"
   echo "                       experiments-<ns>.json). Default namespace uses config.json."
+  echo "  --branch NAME        Branch to provision on remotes for both roshanfer-experments"
+  echo "                       and benchmarks (same name required). Default: local active"
+  echo "                       branch. Aborts if local parent and benchmarks branches differ,"
+  echo "                       or if --branch does not match that local pair (exec not started)."
   echo ""
   echo "Examples:"
   echo "  $0"
   echo "  $0 --bench multi-api"
   echo "  $0 --num-generators 2 --bench leaf-diverse"
   echo "  $0 --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu"
+  echo "  $0 --remote --branch lb-explore --cloudlab-manifest ~/manifest.xml --num-generators 3"
   echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
   echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
   echo "  $0 --also-hotel-social"
@@ -107,6 +112,7 @@ NANOLOG_DEBUG=""
 SIDECAR_DEPLOY_DEBUG=""
 RUN_COMMENT=""
 NAMESPACE="default"
+BRANCH_ARG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -187,6 +193,11 @@ while [[ $# -gt 0 ]]; do
       NAMESPACE="$2"
       shift 2
       ;;
+    --branch)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --branch"; usage; exit 1; }
+      BRANCH_ARG="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
       usage
@@ -194,6 +205,30 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Local preflight: parent and benchmarks must be on the same named branch.
+PARENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+BENCH_BRANCH="$(git -C benchmarks branch --show-current 2>/dev/null || true)"
+if [[ -z "$PARENT_BRANCH" || -z "$BENCH_BRANCH" ]]; then
+  echo "Error: local branches must be checked out by name (not detached)."
+  echo "  roshanfer-experments: '${PARENT_BRANCH:-detached/empty}'"
+  echo "  benchmarks:           '${BENCH_BRANCH:-detached/empty}'"
+  exit 1
+fi
+if [[ "$PARENT_BRANCH" != "$BENCH_BRANCH" ]]; then
+  echo "Error: local branch mismatch; both repos must use the same branch name."
+  echo "  roshanfer-experments: $PARENT_BRANCH"
+  echo "  benchmarks:           $BENCH_BRANCH"
+  echo "Align them (e.g. git checkout <branch> in both) before running. Not starting exec."
+  exit 1
+fi
+if [[ -n "$BRANCH_ARG" && "$BRANCH_ARG" != "$PARENT_BRANCH" ]]; then
+  echo "Error: --branch ($BRANCH_ARG) does not match local branch ($PARENT_BRANCH)."
+  echo "Checkout that branch locally in both repos, or omit --branch to use the local pair."
+  exit 1
+fi
+BRANCH="$PARENT_BRANCH"
+echo "Provision branch: $BRANCH (roshanfer-experments + benchmarks)"
 
 if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
   [[ -n "$CLOUDLAB_MANIFEST" ]] || { echo "--cloudlab-manifest is required for --remote / --remote-clean"; exit 1; }
@@ -275,7 +310,7 @@ if [[ -n "$REMOTE_CLEAN" ]]; then
   [[ -z "$REMOTE" ]] && { echo "Remote clean finished."; exit 0; }
 fi
 
-EXTRA_ARGS=()
+EXTRA_ARGS=(--branch "$BRANCH")
 [[ -n "$TYPE_FILTER" ]] && EXTRA_ARGS+=(--only-types "$TYPE_FILTER")
 [[ -n "$SYSTEM_FILTER" ]] && EXTRA_ARGS+=(--only-system "$SYSTEM_FILTER")
 [[ -n "$NUM_APIS_FILTER" ]] && EXTRA_ARGS+=(--only-num-apis "$NUM_APIS_FILTER")

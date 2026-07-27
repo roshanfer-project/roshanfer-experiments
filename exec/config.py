@@ -46,6 +46,8 @@ class Config:
     provisioning_script: str = "benchmarks/provisioning/provision.sh"
     k8s_script: str = "benchmarks/k8s/create.sh"
     num_generators: int = -1  # Required. Must be set > 0.
+    # Same branch name for roshanfer-experments and benchmarks on remotes.
+    branch: Optional[str] = None
 
     # --- Workload generator (RWG) ---
     rwg_binary_path: str = "./rwg/rwg"  # Path to RWG binary
