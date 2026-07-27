@@ -1,0 +1,36 @@
+figures:
+  latency-vs-throughput-fanin-lb-scale:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-fanin-lb-scale-p2c:
+        label: P2C
+      latency-vs-throughput-fanin-lb-scale-wrr:
+        label: WRR
+      latency-vs-throughput-fanin-lb-scale-approx:
+        label: Approx
+      latency-vs-throughput-fanin-lb-scale-approx-fcfs:
+        label: Approx-FCFS
+      latency-vs-throughput-fanin-lb-scale-approx-edf:
+        label: Approx-EDF
+
+  latency-vs-throughput-fanin-lb-scale-2:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-fanin-lb-scale-2-p2c:
+        label: P2C
+      latency-vs-throughput-fanin-lb-scale-2-wrr:
+        label: WRR
+      latency-vs-throughput-fanin-lb-scale-2-approx:
+        label: Approx
+      latency-vs-throughput-fanin-lb-scale-2-approx-fcfs:
+        label: Approx-FCFS
+      latency-vs-throughput-fanin-lb-scale-2-approx-edf:
+        label: Approx-EDF
+
+  latency-and-rate-vs-time-fanin-lb-scale:
+    type: latency-and-rate-vs-time
+    include:
+      latency-and-rate-vs-time-fanin-lb-scale-p2c:
+        label: f1
+      latency-and-rate-vs-time-fanin-lb-scale-p2c-1:
+        label: g1
