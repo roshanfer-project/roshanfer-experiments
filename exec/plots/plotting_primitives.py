@@ -429,6 +429,42 @@ class SubplotGrid:
 # Axis Configuration Helpers
 # ============================================================================
 
+def _target_ticks_from_space(ax, style: PlotStyle, axis: str = "x") -> int:
+    """Pick tick count from subplot size (wider/taller axes get more ticks)."""
+    fig = ax.figure
+    pos = ax.get_position()
+    if axis == "x":
+        avail_in = pos.width * fig.get_figwidth()
+        if avail_in < 0.3:
+            avail_in = style.width_inches
+    else:
+        avail_in = pos.height * fig.get_figheight()
+        if avail_in < 0.3:
+            avail_in = style.width_inches * style.aspect_ratio
+    # ~0.45" per label; slightly denser with smaller fonts
+    min_spacing = max(0.35, (style.font_size - 1) * 0.05)
+    return max(3, min(12, int(round(avail_in / min_spacing))))
+
+
+def _nice_tick_step(data_range: float, target_ticks: int) -> float:
+    """Round raw_step = range/target to a nice {1,2,5,10} * 10^k step."""
+    import math
+    if data_range <= 0:
+        return 1.0
+    raw_step = data_range / max(target_ticks, 1)
+    magnitude = 10 ** math.floor(math.log10(raw_step))
+    nice_steps = [1, 2, 5, 10]
+    best_step = nice_steps[0] * magnitude
+    best_err = abs(data_range / best_step - target_ticks)
+    for step_multiplier in nice_steps:
+        candidate_step = step_multiplier * magnitude
+        error = abs(data_range / candidate_step - target_ticks)
+        if error < best_err:
+            best_err = error
+            best_step = candidate_step
+    return best_step
+
+
 def configure_x_axis_ticks(ax, x_data=None, style: Optional[PlotStyle] = None,
                            x_step: Optional[float] = None, x_type: str = "auto",
                            x_guard: Optional[float] = None, xlim: Optional[Tuple[float, float]] = None):
@@ -466,24 +502,8 @@ def configure_x_axis_ticks(ax, x_data=None, style: Optional[PlotStyle] = None,
         # Auto-calculate step if not provided
         if x_step is None:
             x_range = final_x_max - final_x_min
-            # Use nice step sizes to get roughly 4-6 ticks
-            magnitude = 10 ** math.floor(math.log10(x_range))
-            nice_steps = [1, 2, 5, 10]
-            
-            # Find the step that gives us closest to 5 ticks
-            target_ticks = 5
-            best_step = nice_steps[0] * magnitude
-            best_tick_count = abs(x_range / best_step - target_ticks)
-            
-            for step_multiplier in nice_steps:
-                candidate_step = step_multiplier * magnitude
-                tick_count = x_range / candidate_step
-                error = abs(tick_count - target_ticks)
-                if error < best_tick_count:
-                    best_tick_count = error
-                    best_step = candidate_step
-            
-            x_step = best_step
+            target_ticks = _target_ticks_from_space(ax, style, axis="x")
+            x_step = _nice_tick_step(x_range, target_ticks)
         
         # Generate tick positions
         tick_start = math.floor(final_x_min / x_step) * x_step
@@ -544,24 +564,8 @@ def configure_y_axis_ticks(ax, y_data=None, style: Optional[PlotStyle] = None,
         # Auto-calculate step if not provided
         if y_step is None:
             y_range = final_y_max - final_y_min
-            # Use nice step sizes to get roughly 4-6 ticks
-            magnitude = 10 ** math.floor(math.log10(y_range))
-            nice_steps = [1, 2, 5, 10]
-            
-            # Find the step that gives us closest to 5 ticks
-            target_ticks = 5
-            best_step = nice_steps[0] * magnitude
-            best_tick_count = abs(y_range / best_step - target_ticks)
-            
-            for step_multiplier in nice_steps:
-                candidate_step = step_multiplier * magnitude
-                tick_count = y_range / candidate_step
-                error = abs(tick_count - target_ticks)
-                if error < best_tick_count:
-                    best_tick_count = error
-                    best_step = candidate_step
-            
-            y_step = best_step
+            target_ticks = _target_ticks_from_space(ax, style, axis="y")
+            y_step = _nice_tick_step(y_range, target_ticks)
         
         # Generate tick positions
         tick_start = math.floor(final_y_min / y_step) * y_step
