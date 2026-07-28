@@ -22,7 +22,7 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
     user@node2.cloudlab.us
     ...
     ```
-3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent. It clones/checks out one branch name on remotes for both `roshanfer-experments` and `benchmarks` (passed as `BRANCH` / `--branch`; default = local active branch). Both GitHub repos must publish that same branch name. If a remote checkout is on a different branch, provision wipes `~/roshanfer-experments` and re-clones.
+3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent. It clones/checks out one branch name on remotes for both `roshanfer-experments` and `benchmarks` (passed as `BRANCH` / `--branch`; default = local active branch). Both GitHub repos must publish that same branch name. If a remote checkout is on a different branch, provision wipes `~/roshanfer-experments` and re-clones. If already on the right branch but behind `origin/$BRANCH`, it `git pull`s both repos (and rebuilds rwg) without a full re-provision.
 4.  **direnv** (for kubeconfig isolation): Install direnv and enable the repo's `.envrc`:
     ```bash
     sudo apt install direnv
@@ -84,9 +84,11 @@ RWG runs a sequence of rate/duration **phases** per API. Legacy and sweep modes 
 
 Runtime phases per API: `[{rate: 1000, duration_sec: 2}, {rate: 1600, duration_sec: 15}]`. Warmup duration defaults to 2s (`warmup_duration_sec`).
 
+Omit `base_rate` to warm up at the same rate as the current load step (e.g. step 1600 → `[{rate: 1600, …}, {rate: 1600, …}]`). An explicit `base_rate` keeps a fixed warmup for every step.
+
 ### Explicit sweep (`load_mode: "sweep"`)
 
-Global timing: `warmup_duration_sec` (default 2), `base_rate` (warmup rate default), `duration_sec` (steady duration).
+Global timing: `warmup_duration_sec` (default 2), `base_rate` (fixed warmup; omit to match each step’s steady rate), `duration_sec` (steady duration).
 
 Per-API steady-rate sweep in `api_loads`. Sweeps are zip-aligned — all APIs must produce the same number of load steps.
 

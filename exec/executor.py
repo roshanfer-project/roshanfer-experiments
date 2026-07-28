@@ -188,7 +188,7 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
         return
 
     # Legacy: global loads / base_rate / duration_sec
-    if exp.loads is None and exp.base_rate == 0:
+    if exp.loads is None and not exp.base_rate:
         api_phases = resolve_sweep_api_phases(exp, {api: 0 for api in exp.apis}) if exp.apis else {}
         yield _make_run_unit(
             exp,

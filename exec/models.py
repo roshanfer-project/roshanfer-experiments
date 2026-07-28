@@ -102,7 +102,7 @@ class ExperimentConfig:
     load_mode: Optional[str] = None
     warmup_duration_sec: int = 2
     api_loads: Dict[str, ApiLoadSpec] = field(default_factory=dict)
-    base_rate: int = 0
+    base_rate: Optional[int] = None
     duration_sec: int = 0
     bench: str = ""
     apis: List[str] = field(default_factory=list)
@@ -134,6 +134,8 @@ class ExperimentConfig:
             for k, v in api_loads_raw.items()
             if isinstance(v, dict)
         }
+        base_rate_raw = merged.get("base_rate", merged.get("base"))
+        base_rate = int(base_rate_raw) if base_rate_raw is not None else None
         return ExperimentConfig(
             name=merged.get("name", ""),
             type=merged["type"],
@@ -142,7 +144,7 @@ class ExperimentConfig:
             load_mode=load_mode,
             warmup_duration_sec=int(merged.get("warmup_duration_sec", 2) or 2),
             api_loads=api_loads,
-            base_rate=int(merged.get("base_rate", merged.get("base", 0)) or 0),
+            base_rate=base_rate,
             duration_sec=int(merged.get("duration_sec", merged.get("duration", 0)) or 0),
             bench=str(merged.get("bench", "")),
             apis=list(merged.get("apis", [])),

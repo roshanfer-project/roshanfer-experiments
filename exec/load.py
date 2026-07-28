@@ -77,9 +77,14 @@ def resolve_sweep_api_phases(
     for api in exp.apis:
         if exp.load_mode:
             spec = exp.api_loads[api]
-            base = spec.base_rate if spec.base_rate is not None else exp.base_rate
+            if spec.base_rate is not None:
+                base = spec.base_rate
+            elif exp.base_rate is not None:
+                base = exp.base_rate
+            else:
+                base = steady_rates[api]
         else:
-            base = exp.base_rate
+            base = exp.base_rate if exp.base_rate is not None else steady_rates[api]
         out[api] = sweep_phases(
             warmup_rate=base,
             warmup_duration_sec=warmup,
@@ -95,7 +100,7 @@ def resolve_phases_mode(exp: ExperimentConfig) -> Dict[str, List[LoadPhase]]:
 
 
 def legacy_sweep_steady_rates(exp: ExperimentConfig) -> List[Dict[str, int]]:
-    if exp.loads is None and exp.base_rate == 0:
+    if exp.loads is None and not exp.base_rate:
         return [{api: 0 for api in exp.apis}] if exp.apis else [{}]
     start = exp.loads.start if exp.loads else exp.base_rate
     end = exp.loads.end + 1 if exp.loads else (exp.base_rate + 1)
