@@ -10,7 +10,7 @@
   "ssh_binary": "ssh",
   "git_root": "..",
   "slos": {
-    "Z8trRkp4mp": "600"
+    "Z8trRkp4mp": "90"
   },
   "metrics": {},
   "post_deploy_wait_sec": 1,
