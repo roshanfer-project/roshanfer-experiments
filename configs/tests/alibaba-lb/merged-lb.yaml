@@ -1,0 +1,22 @@
+figures:
+  latency-vs-throughput-alibaba-lb:
+    type: latency-vs-throughput
+    include:
+      latency-vs-throughput-alibaba-lb-p2c:
+        label: P2C
+      latency-vs-throughput-alibaba-lb-wrr:
+        label: WRR
+      latency-vs-throughput-alibaba-lb-approx:
+        label: Approx
+      latency-vs-throughput-alibaba-lb-approx-fcfs:
+        label: Approx-FCFS
+      latency-vs-throughput-alibaba-lb-approx-edf:
+        label: Approx-EDF
+
+  latency-and-rate-vs-time-alibaba-lb:
+    type: latency-and-rate-vs-time
+    include:
+      latency-and-rate-vs-time-alibaba-lb-p2c:
+        label: Z8trRkp4mp
+      latency-and-rate-vs-time-alibaba-lb-approx-edf:
+        label: Z8trRkp4mp

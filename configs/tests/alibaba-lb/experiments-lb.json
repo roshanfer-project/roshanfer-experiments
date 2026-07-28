@@ -1,0 +1,123 @@
+{
+    "experiments": [
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 2000,
+                "step": 50
+            },
+            "duration_sec": 10,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "p2c",
+            "repeat": 2,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 2000,
+                "step": 50
+            },
+            "duration_sec": 10,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "wrr",
+            "repeat": 2,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 2000,
+                "step": 50
+            },
+            "duration_sec": 10,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "approx",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 2000,
+                "step": 50
+            },
+            "duration_sec": 10,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "approx-fcfs",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        },
+        {
+            "type": "latency-vs-throughput",
+            "loads": {
+                "start": 100,
+                "end": 2000,
+                "step": 50
+            },
+            "duration_sec": 10,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "approx-edf",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 1200,
+                "end": 1200,
+                "step": 500
+            },
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "p2c",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        },
+        {
+            "type": "latency-and-rate-vs-time",
+            "loads": {
+                "start": 2000,
+                "end": 2000,
+                "step": 500
+            },
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "approx-edf",
+            "repeat": 1,
+            "collector_freq": 200,
+            "warmup_duration_sec": 10,
+            "warmup": 10
+        }
+    ]
+}
