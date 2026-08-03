@@ -4,10 +4,11 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 100,
-                "end": 2000,
+                "end": 1300,
                 "step": 50
             },
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "base_rate": 1200,
             "apis": [
                 "Z8trRkp4mp"
             ],
@@ -21,10 +22,11 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 100,
-                "end": 2000,
+                "end": 1300,
                 "step": 50
             },
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "base_rate": 1200,
             "apis": [
                 "Z8trRkp4mp"
             ],
@@ -38,10 +40,11 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 100,
-                "end": 2000,
+                "end": 1300,
                 "step": 50
             },
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "base_rate": 1200,
             "apis": [
                 "Z8trRkp4mp"
             ],
@@ -55,10 +58,11 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 100,
-                "end": 2000,
+                "end": 1300,
                 "step": 50
             },
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "base_rate": 1200,
             "apis": [
                 "Z8trRkp4mp"
             ],
@@ -72,10 +76,11 @@
             "type": "latency-vs-throughput",
             "loads": {
                 "start": 100,
-                "end": 2000,
+                "end": 1300,
                 "step": 50
             },
-            "duration_sec": 10,
+            "duration_sec": 15,
+            "base_rate": 1200,
             "apis": [
                 "Z8trRkp4mp"
             ],
@@ -88,10 +93,11 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 1200,
-                "end": 1200,
+                "start": 1300,
+                "end": 1300,
                 "step": 500
             },
+            "base_rate": 1200,
             "duration_sec": 15,
             "apis": [
                 "Z8trRkp4mp"
@@ -105,10 +111,11 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 2000,
-                "end": 2000,
+                "start": 1300,
+                "end": 1300,
                 "step": 500
             },
+            "base_rate": 1200,
             "duration_sec": 15,
             "apis": [
                 "Z8trRkp4mp"
