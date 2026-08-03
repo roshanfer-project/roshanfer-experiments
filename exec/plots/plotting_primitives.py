@@ -89,8 +89,11 @@ class PlotStyle:
         (0, (2, 2)),
         (0, (12, 3, 2, 3)),
     ])
-    # Silhouettes differ at legend size; one entry per color index
-    markers: List[str] = field(default_factory=lambda: ['o', 's', '^', 'v', 'D', 'p', 'P', '*'])
+    # Distinct silhouettes; longer than colors so markers stay unique when series wrap colors
+    markers: List[str] = field(default_factory=lambda: [
+        'o', 's', '^', 'v', 'D', 'p', 'P', '*',
+        'X', 'd', 'h', 'H', '<', '>', '8', '+',
+    ])
     
     @property
     def width_inches(self) -> float:
@@ -372,7 +375,7 @@ class SubplotGrid:
         
         Args:
             position: "top", "bottom", or "top-left"
-            ncol: Number of legend columns (auto = single row, or ceil(n/2) if two_rows)
+            ncol: Number of legend columns (auto = width-fit, or ceil(n/2) if two_rows)
             handles: Legend handles (auto-collected from axes if None)
             labels: Legend labels (auto-collected from axes if None)
             two_rows: Split legend into two rows (sets ncol = ceil(n/2))
@@ -393,7 +396,16 @@ class SubplotGrid:
             return
         
         if ncol is None:
-            ncol = math.ceil(len(labels) / 2) if two_rows else len(labels)
+            if two_rows:
+                ncol = math.ceil(len(labels) / 2)
+            else:
+                # Shared legend spans the full figure (not a single subplot).
+                # ~0.5 em per char + handle/padding in inches.
+                max_chars = max((len(str(lb)) for lb in labels), default=1)
+                fs = self.style.legend_size
+                entry_in = (fs * (0.5 * max_chars + 1.5 + 0.4 + 0.8)) / 72.0
+                max_cols = max(1, int(self.fig.get_figwidth() / entry_in))
+                ncol = min(len(labels), max_cols)
         
         loc_map = {
             "top": "outside upper center",

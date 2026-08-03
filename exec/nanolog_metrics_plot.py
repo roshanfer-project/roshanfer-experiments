@@ -157,10 +157,9 @@ def generate_nanolog_pdf(log_files: List[Path], output_pdf: Path, resolution: fl
 
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
     with PdfPages(output_pdf) as pdf:
-        # Tight subplot gaps (0.5 hspace blows up vertical whitespace vs defaults ~0.04).
-        style = pp.PlotStyle(width_points=240, hspace=0.06, h_pad=0.02, wspace=0.06, w_pad=0.02)
+        style = pp.ACM_COMPACT_FULL
         sorted_keys = sorted(metrics_data.keys())
-        rows, cols = 3, 2
+        rows, cols = 2, 2
         plots_per_page = rows * cols
 
         for i in range(0, len(sorted_keys), plots_per_page):

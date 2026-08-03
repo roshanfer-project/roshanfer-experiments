@@ -19,7 +19,8 @@ except ImportError:
 INFRA_POD_SUBSTRINGS = ("prometheus", "pushgateway")
 APP_CONTAINER = "app"
 SIDECAR_CONTAINERS = frozenset({"sidecar", "envoy"})
-_DEPLOYMENT_POD_RE = re.compile(r"^(.+)-[a-z0-9]{8,10}-[a-z0-9]{5}$")
+# deployment-rsHash-podHash; rs hash length varies (often 6–10)
+_DEPLOYMENT_POD_RE = re.compile(r"^(.+)-[a-z0-9]{5,10}-[a-z0-9]{5}$")
 
 
 def _is_infra_pod(pod: str) -> bool:
@@ -64,30 +65,20 @@ def _split_app_sidecar(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return app_df, sidecar_df
 
 
-def _aggregate_app_by_microservice(app_df: pd.DataFrame) -> pd.DataFrame:
-    if app_df.empty:
-        return app_df
-    df = app_df.copy()
-    df["microservice"] = df["pod"].map(_microservice_from_pod)
+def _aggregate_by_microservice(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = df.copy()
+    out["microservice"] = out["pod"].map(_microservice_from_pod)
     return (
-        df.groupby(["microservice", "relative_time_s"], as_index=False)
+        out.groupby(["microservice", "relative_time_s"], as_index=False)
         .agg(normalized_pct=("normalized_pct", "mean"))
     )
 
 
-def _plot_pods(ax, pod_df: pd.DataFrame, pods: List[str], pod_colors: Dict[str, int], style) -> None:
-    for pod in pods:
-        grp = pod_df[pod_df["pod"] == pod].sort_values("relative_time_s")
-        if grp.empty:
-            continue
-        plot_line(
-            ax,
-            grp["relative_time_s"].values,
-            grp["normalized_pct"].values,
-            label=None,
-            style=style,
-            color_idx=pod_colors[pod],
-        )
+def _markevery(n: int, target: int = 10) -> int:
+    """Subsample markers so dense series stay readable."""
+    return max(1, n // target)
 
 
 def _plot_microservices(
@@ -95,19 +86,23 @@ def _plot_microservices(
     ms_df: pd.DataFrame,
     microservices: List[str],
     style,
+    color_map: Dict[str, int],
 ) -> Tuple[List, List]:
     handles, labels = [], []
-    for idx, ms in enumerate(microservices):
+    for ms in microservices:
         grp = ms_df[ms_df["microservice"] == ms].sort_values("relative_time_s")
         if grp.empty:
             continue
+        x = grp["relative_time_s"].values
         plot_line(
             ax,
-            grp["relative_time_s"].values,
+            x,
             grp["normalized_pct"].values,
             label=ms,
             style=style,
-            color_idx=idx,
+            color_idx=color_map[ms],
+            show_markers=True,
+            markevery=_markevery(len(x)),
         )
         handles.append(ax.lines[-1])
         labels.append(ms)
@@ -133,12 +128,16 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     if app_df.empty and sidecar_df.empty:
         return []
 
-    all_pods = sorted(set(app_df["pod"].unique())
-                      | set(sidecar_df["pod"].unique()))
-    pod_colors = {pod: idx for idx, pod in enumerate(all_pods)}
-    ms_df = _aggregate_app_by_microservice(app_df)
-    microservices = sorted(
-        ms_df["microservice"].unique()) if not ms_df.empty else []
+    app_ms_df = _aggregate_by_microservice(app_df)
+    sidecar_ms_df = _aggregate_by_microservice(sidecar_df)
+    app_ms = sorted(app_ms_df["microservice"].unique()) if not app_ms_df.empty else []
+    sidecar_ms = (
+        sorted(sidecar_ms_df["microservice"].unique())
+        if not sidecar_ms_df.empty else []
+    )
+    # Sidecar-only names (e.g. ingress) have no App curve but still need a legend entry.
+    all_ms = sorted(set(app_ms) | set(sidecar_ms))
+    color_map = {ms: idx for idx, ms in enumerate(all_ms)}
     ylim = _y_limits(df)
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -147,7 +146,7 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
 
     ax_app = grid.get_ax(0, 0)
     legend_handles, legend_labels = _plot_microservices(
-        ax_app, ms_df, microservices, style)
+        ax_app, app_ms_df, app_ms, style, color_map)
     grid.configure_ax(
         ax_app,
         title="Apps",
@@ -165,7 +164,12 @@ def generate_repeat_plots(ctx: Dict) -> List[Path]:
     )
 
     ax_sidecar = grid.get_ax(0, 1)
-    _plot_pods(ax_sidecar, sidecar_df, all_pods, pod_colors, style)
+    sc_handles, sc_labels = _plot_microservices(
+        ax_sidecar, sidecar_ms_df, sidecar_ms, style, color_map)
+    for h, lab in zip(sc_handles, sc_labels):
+        if lab not in legend_labels:
+            legend_handles.append(h)
+            legend_labels.append(lab)
     grid.configure_ax(
         ax_sidecar,
         title="Sidecars",

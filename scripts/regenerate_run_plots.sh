@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate plot_runner + merged_plot_runner + merge_plot_pdfs for one exp_runs_test run.
+# Also regenerates nanolog debug PDFs when *.nanolog.log files are present.
 # Suites: configs/tests/<name>/ plus hotel, social, alibaba-large (same layout as run_tests.sh).
 # Usage: ./scripts/regenerate_run_plots.sh [--namespace NS] <run_id>
 set -euo pipefail
@@ -89,6 +90,19 @@ done
 if [[ "$any" -eq 0 ]]; then
   echo "No suite dirs under $RUN_ROOT matched configs for namespace '$NAMESPACE'" >&2
   exit 1
+fi
+
+# Nanolog debug PDFs: unit/raw/service_logs/<stem>.nanolog.log -> unit/nanolog/metrics-<stem>.pdf
+mapfile -t NANOLOGS < <(find "$RUN_ROOT" -type f -name '*.nanolog.log' | sort)
+if ((${#NANOLOGS[@]})); then
+  echo "[$RUN_ID] regenerating ${#NANOLOGS[@]} nanolog plot(s)"
+  for log in "${NANOLOGS[@]}"; do
+    stem="$(basename "$log" .nanolog.log)"
+    unit_dir="$(cd "$(dirname "$log")/../.." && pwd)"
+    out_pdf="$unit_dir/nanolog/metrics-${stem}.pdf"
+    mkdir -p "$(dirname "$out_pdf")"
+    "$PYTHON" -m exec.nanolog_metrics_plot --files "$log" --output "$out_pdf"
+  done
 fi
 
 mkdir -p "$RUN_ROOT/plots"
