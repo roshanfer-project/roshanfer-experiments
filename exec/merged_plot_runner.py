@@ -1893,20 +1893,7 @@ def generate_latency_and_rate_vs_time_merged(
     return produced
 
 
-# Log y-axis cannot show 0%; clip for plotting only.
-_SLO_LOG_FLOOR = 0.1
-
-
-def _slo_for_log(y) -> np.ndarray:
-    return np.maximum(np.asarray(y, dtype=float), _SLO_LOG_FLOOR)
-
-
-def _slo_log_ylim(y_values) -> tuple[float, float]:
-    ymax = float(np.max(y_values)) if y_values is not None and len(y_values) else _SLO_LOG_FLOOR
-    top = max(10.0, math.ceil(ymax / 10.0) * 10.0)
-    if ymax > top - 1e-9:
-        top += 10.0
-    return (_SLO_LOG_FLOOR, top)
+_SLO_YLIM = (0.0, 10.0)
 
 
 def generate_latency_vs_throughput_merged(
@@ -2106,32 +2093,19 @@ def generate_latency_vs_throughput_merged(
         if len(all_apis) > 1:
             ax.set_title(api, fontsize=style.title_size)
 
-        all_slo = []
-        for label, data in plot_data[api].items():
-            all_slo.extend(data['slo_pct'])
-        ylim = _slo_log_ylim(all_slo)
-
         for label, data in plot_data[api].items():
             color_idx = color_idx_map.get(label, 0)
 
             slo_vals = np.asarray(data['slo_pct'], dtype=float)
             slo_cis = data['slo_pct_ci']
-            slo_errs = (
-                np.asarray([float(c) if c is not None else 0.0 for c in slo_cis], dtype=float)
-                if len(slo_cis) == len(slo_vals)
-                else None
-            )
-            y_plot = _slo_for_log(slo_vals)
             yerr = None
-            if slo_errs is not None:
-                y_lo = _slo_for_log(slo_vals - slo_errs)
-                y_hi = _slo_for_log(slo_vals + slo_errs)
-                yerr = [
-                    np.maximum(y_plot - y_lo, 0.0),
-                    np.maximum(y_hi - y_plot, 0.0),
-                ]
+            if len(slo_cis) == len(slo_vals):
+                slo_errs = np.asarray(
+                    [float(c) if c is not None else 0.0 for c in slo_cis], dtype=float
+                )
+                yerr = slo_errs
             plot_line(
-                ax, np.asarray(data['tps'], dtype=float) / 1000.0, y_plot,
+                ax, np.asarray(data['tps'], dtype=float) / 1000.0, slo_vals,
                 yerr=yerr,
                 label=label,
                 style=style,
@@ -2156,8 +2130,10 @@ def generate_latency_vs_throughput_merged(
             show_yticklabels=True,
             x_data=x_throughput,
             x_type='float',
-            log_y=True,
-            ylim=ylim,
+            log_y=False,
+            ylim=_SLO_YLIM,
+            y_step=1,
+            y_type="int",
             auto_ticks=True,
         )
 
@@ -2196,7 +2172,6 @@ def generate_latency_vs_throughput_merged(
             continue
 
         bar_groups = []
-        api_slo_heights = []
         for label in system_labels:
             d = plot_data[api].get(label)
             by_load = {}
@@ -2211,10 +2186,8 @@ def generate_latency_vs_throughput_merged(
                 h, e = by_load.get(lv, (0.0, 0.0))
                 heights.append(h)
                 errors.append(e)
-            h_arr = _slo_for_log(heights)
             e_arr = np.asarray(errors, dtype=float)
-            bar_groups.append((label, list(h_arr), list(np.maximum(e_arr, 0.0))))
-            api_slo_heights.extend(heights)
+            bar_groups.append((label, heights, list(np.maximum(e_arr, 0.0))))
 
         if not bar_groups:
             continue
@@ -2222,7 +2195,6 @@ def generate_latency_vs_throughput_merged(
         any_bar = True
         x_positions = list(range(len(loads)))
         plot_grouped_bars(ax_bar, x_positions, bar_groups, style=bar_style)
-        ylim = _slo_log_ylim(api_slo_heights)
 
         bar_grid.configure_ax(
             ax_bar,
@@ -2232,8 +2204,10 @@ def generate_latency_vs_throughput_merged(
             show_xlabel=True,
             show_ylabel=(api_idx == 0),
             show_yticklabels=True,
-            log_y=True,
-            ylim=ylim,
+            log_y=False,
+            ylim=_SLO_YLIM,
+            y_step=1,
+            y_type="int",
             auto_ticks=True,
         )
         ax_bar.set_xticks(x_positions)
