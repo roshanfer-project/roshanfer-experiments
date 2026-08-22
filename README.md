@@ -71,6 +71,8 @@ Each folder below is an artifact component. Comments say what it is and how it r
 ```text
 roshanfer-experiments/
 ├── README.md                      this document
+├── LICENSE                        MIT (original Roshanfer code)
+├── THIRD_PARTY.md                 DeathStarBench, NanoLog, and other third-party licenses
 ├── run_tests.sh                   batch entry: configs/tests/*, plus hotel/social/alibaba when asked
 ├── requirements.txt               Python packages for exec/ and plotting
 ├── .envrc                         direnv: KUBECONFIG → benchmarks/k8s/kubeconfig
@@ -397,6 +399,8 @@ The paper figures were selected from the full bench outputs above, not from a se
 
 ## License
 
-License files are not yet in the tree. We plan to add a license that permits comparison and extension (MIT or CC-BY), as required for Available.
+Original code in this repository, and in the `rwg`, `benchmarks` (except as noted below), and `benchmarks/sidecar` submodules, is under the [MIT License](LICENSE). That license allows comparison and extension, as required for the Available badge.
+
+Third-party components keep their own licenses; see [THIRD_PARTY.md](THIRD_PARTY.md). `benchmarks/hotel/` and `benchmarks/social/` are derived from [DeathStarBench](https://github.com/delimitrou/DeathStarBench) (Apache License 2.0).
 
 `exec/README.md` describes tuners, git worktrees, and additional plot flags.
