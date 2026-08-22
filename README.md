@@ -250,9 +250,22 @@ flowchart LR
 
 1. Open the parameter set above and instantiate it so the hardware type and node count match the paper.
 2. Wait until all nodes are ready, then download the experiment manifest XML.
-3. Clone this repository on the control machine (same commands as in the tutorial, including submodules, direnv, and the Python virtualenv).
+3. On the control machine:
 
 ```bash
+git clone --recurse-submodules -b artifact-evaluation <this-repo-url>
+cd roshanfer-experiments
+git submodule update --init --recursive
+
+sudo apt install direnv
+echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+source ~/.bashrc
+direnv allow
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
 python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt --ssh-user YOUR_CLOUDLAB_USER
 ```
 
@@ -272,7 +285,9 @@ With `--num-generators 3`, the first three hosts are generators and the remainin
 
 ## How to run the paper experiments
 
-`./run_tests.sh` with no extra flags runs only `configs/tests/*` (synthetic graphs). The paper figures use hotel, social, and alibaba:
+The following commands assume `manifest.xml` is in the repository root and the virtualenv from the previous section is active.
+
+All paper benches in one invocation:
 
 ```bash
 ./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
@@ -280,39 +295,170 @@ With `--num-generators 3`, the first three hosts are generators and the remainin
   --also-hotel-social --also-alibaba
 ```
 
-One bench at a time:
+Or the three paper benches separately:
 
 ```bash
 ./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
   --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
   --bench hotel --also-hotel-social
+```
 
+```bash
 ./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
   --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
   --bench social --also-hotel-social
+```
 
+```bash
 ./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
   --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
   --bench alibaba-large --also-alibaba
+```
+
+Dynamic-graph benches used for Figure 12:
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench dynamic-large
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench fan-out-dynamic-0-9
 ```
 
 Plots are produced by `exec.plot_runner` and `exec.merged_plot_runner` using each bench’s `merged.yaml` (labels Roshanfer, Rajomon, Dagor, Plain). Each invocation writes a new `exp_runs_test/<timestamp>/` directory.
 
 ## Figures and commands
 
-| Paper figure | Bench | Type | Systems | Flags |
-| --- | --- | --- | --- | --- |
-| Fig. 7 | `hotel` (`search-hotel`), `social` (`compose-post`) | `latency-and-goodput-vs-load` | sidecar, rajomon, dagor | `--bench hotel --also-hotel-social` and `--bench social --also-hotel-social` |
-| Fig. 8 | `hotel` | `latency-and-rate-vs-time` | sidecar, rajomon, dagor | same hotel command |
-| Fig. 9 | `hotel` / `social` | `resource-waste` | sidecar, rajomon, dagor | same |
-| Fig. 10 | `hotel` / `social` | `max-queue` | sidecar, rajomon, dagor | same |
-| Fig. 11 | `social` (three APIs) | `latency-and-goodput-vs-load` | sidecar, rajomon, dagor | `--bench social --also-hotel-social` |
-| Fig. 12 | dynamic-graph tests | `latency-and-goodput-vs-load` | sidecar, rajomon, dagor | `--bench dynamic-large` or `fan-out-dynamic-0-9` |
-| Fig. 13 | `alibaba-large` | `latency-and-goodput-vs-load` | sidecar, rajomon, dagor | `--bench alibaba-large --also-alibaba` |
-| Fig. 14 | `hotel` | `latency-vs-throughput` | plain, sidecar | `--bench hotel --also-hotel-social` |
-| Figs. 1–2 (motivation) | `hotel` | `latency-and-rate-vs-time`, `max-queue-motivation`, `resource-waste` | rajomon | `--bench hotel --also-hotel-social` |
+Each figure lists the full command(s). Shared flags are repeated so a command can be copied on its own. `--type` and `--system` restrict `experiments.json` to the runs that figure uses.
 
-> **Author TODO.** Confirm this table against the paper. Figure 15 (overcommitment / WRR) is not listed as a `--bench` name yet.
+**Figure 7** (`latency-and-goodput-vs-load`; hotel `search-hotel` and social `compose-post`; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type latency-and-goodput-vs-load --system sidecar,rajomon,dagor
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench social --also-hotel-social \
+  --type latency-and-goodput-vs-load --system sidecar,rajomon,dagor
+```
+
+**Figure 8** (`latency-and-rate-vs-time`; hotel; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type latency-and-rate-vs-time --system sidecar,rajomon,dagor
+```
+
+**Figure 9** (`resource-waste`; hotel and social; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type resource-waste --system sidecar,rajomon,dagor
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench social --also-hotel-social \
+  --type resource-waste --system sidecar,rajomon,dagor
+```
+
+**Figure 10** (`max-queue`; hotel and social; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type max-queue --system sidecar,rajomon,dagor
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench social --also-hotel-social \
+  --type max-queue --system sidecar,rajomon,dagor
+```
+
+**Figure 11** (`latency-and-goodput-vs-load`; social, three APIs; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench social --also-hotel-social \
+  --type latency-and-goodput-vs-load --system sidecar,rajomon,dagor --num-apis 3
+```
+
+**Figure 12** (`latency-and-goodput-vs-load`; dynamic-graph tests; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench dynamic-large \
+  --type latency-and-goodput-vs-load --system sidecar,rajomon,dagor
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench fan-out-dynamic-0-9 \
+  --type latency-and-goodput-vs-load --system sidecar,rajomon,dagor
+```
+
+**Figure 13** (`latency-and-goodput-vs-load`; alibaba-large; sidecar, rajomon, dagor):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench alibaba-large --also-alibaba \
+  --type latency-and-goodput-vs-load --system sidecar,rajomon,dagor
+```
+
+**Figure 14** (`latency-vs-throughput`; hotel; plain, sidecar):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type latency-vs-throughput --system plain,sidecar
+```
+
+**Figures 1–2** (motivation; hotel; rajomon):
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type latency-and-rate-vs-time --system rajomon
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type max-queue-motivation --system rajomon
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench hotel --also-hotel-social \
+  --type resource-waste --system rajomon
+```
+
+> **Author TODO.** Confirm these commands against the paper. Figure 15 (overcommitment / WRR) does not yet have a command.
 
 ## Expected warnings and errors
 
