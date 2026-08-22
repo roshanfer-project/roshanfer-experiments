@@ -66,16 +66,56 @@ In every hosts file, the first `num_generators` lines are generators and the rem
 
 ## Repository layout
 
-| Path | Role |
-| --- | --- |
-| `run_tests.sh` | Batch entry point. Runs suites under `configs/tests/*`, and optionally hotel, social, or alibaba. |
-| `exec/` | Orchestrator: provision, deploy, generate, collect, and plot. |
-| `configs/` | Per-benchmark `config.json`, `experiments.json`, and optional `merged.yaml`. |
-| `benchmarks/` | Submodule. Service graphs, DeathStarBench wrappers, K3s/Cilium scripts, provisioning. |
-| `rwg/` | Submodule. Go open-loop HTTP/gRPC generator. |
-| `benchmarks/sidecar/` | Nested submodule. Roshanfer C++ sidecar. |
+Each folder below is an artifact component. Comments say what it is and how it relates to the paper.
 
-A **benchmark** is a pair: a tree under `benchmarks/` that builds and deploys the service graph, and a tree under `configs/` that describes which experiments to run.
+```text
+roshanfer-experiments/
+├── README.md                      this document
+├── run_tests.sh                   batch entry: configs/tests/*, plus hotel/social/alibaba when asked
+├── requirements.txt               Python packages for exec/ and plotting
+├── .envrc                         direnv: KUBECONFIG → benchmarks/k8s/kubeconfig
+├── init_env.sh                    older env helper (creates env/, pip install is commented out)
+├── compare_sidecar_branch.sh      author helper: run the same bench on two sidecar git refs
+│
+├── exec/                          orchestrator for the evaluation (§6)
+│   ├── executor.py                provision, deploy, generate, collect
+│   ├── cloudlab_hosts.py          CloudLab manifest.xml → hosts file
+│   ├── plot_runner.py             per-bench plots
+│   ├── merged_plot_runner.py      overlay plots (Roshanfer / Rajomon / Dagor / Plain)
+│   ├── rajomon_tuner.py           Rajomon parameter search before a run
+│   └── sidecar_tuner.py           sidecar tuner hook
+│
+├── configs/                       what to run (config.json, experiments.json, merged.yaml)
+│   ├── hotel/                     Hotel Reservation experiments (Figs. 7–11, 14)
+│   ├── social/                    Social Network experiments (Figs. 7, 9–11)
+│   ├── alibaba-large/             Alibaba / DGG 30-MS (Fig. 13)
+│   └── tests/                     synthetic graphs
+│       ├── one-service/           tutorial example
+│       ├── dynamic-large/         Fig. 12
+│       ├── fan-out-dynamic-0-9/   Fig. 12
+│       └── …                      other synthetic graphs (chain, fan-out, multi-api, …)
+│
+├── benchmarks/                    git submodule: service graphs and cluster scripts
+│   ├── hotel/                     DeathStarBench Hotel Reservation
+│   ├── social/                    DeathStarBench Social Network
+│   ├── alibaba-large/             generated 30-MS graph
+│   ├── tests/                     generated synthetic graphs (pairs with configs/tests/)
+│   ├── callgraph-framework/       generates those graphs from callgraph.json
+│   ├── k8s/                       K3s + Cilium create/delete (config.env versions)
+│   ├── provisioning/              host bootstrap (Go, sysctls)
+│   └── sidecar/                   nested submodule: Roshanfer C++ sidecar (§3–§5)
+│       ├── src/                   Agent, Ingress, credit queues, RPC mapping
+│       ├── include/               public headers for the same
+│       └── Dockerfile             ubuntu:noble image used in the paper
+│
+├── rwg/                           git submodule: open-loop HTTP/gRPC generator (§6.1)
+│
+├── scripts/                       extra helpers (queue-size notes, plot regen); not the paper entry
+└── tests/                         small standalone runs, separate from configs/tests/
+    └── one-api-vs-time/
+```
+
+A **benchmark** is a pair: a tree under `benchmarks/` that builds and deploys the service graph, and a tree under `configs/` that describes which experiments to run. `run_tests.sh` and `exec/` sit above both.
 
 ## Build and run `one-service`
 
