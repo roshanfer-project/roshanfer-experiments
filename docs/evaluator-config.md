@@ -1,307 +1,260 @@
 # Evaluator Configuration Design
 
-**Context**: EuroSys 2027 artifact evaluation for Roshanfer (#1195). This artifact currently contains author-specific credentials, paths, and hostnames that prevent evaluators from running experiments as-is.
+**Paper**: Roshanfer, EuroSys 2027 #1195  
+**Author**: Farzad Mohammadi (`farzad1132`)  
+**Rescan**: after `566e5a4` (`remove unused fields in configs`) on `artifact-evaluation`  
+**Goal**: evaluators edit one file; scripts read it. No experiment-logic change in this pass.
 
-**Goal**: Centralize all evaluator-customizable settings into a single configuration file that evaluators edit once. Scripts and orchestrators read this file transparently.
-
----
-
-## Complete Inventory of Author-Specific Values
-
-The following table lists every occurrence of author-specific values found in the artifact:
-
-| Category | File(s) | Current Value | Purpose | Who Sets |
-|----------|---------|---------------|---------|----------|
-| **SSH Username** | `benchmarks/k8s/config.env` | `SSH_USER=fm224` | SSH user for K8s cluster setup | Evaluator |
-| **SSH Username** | All `configs/tests/*/hosts.txt` (17 files) | `fm224@octopus3.doc.res.ic.ac.uk` | Imperial College test host for local experiments | Stay-as-author |
-| **SSH Username** | All `configs/tests/*/hosts.txt` (17 files) | `farzad@localhost` | Local SSH user for test experiments | Evaluator (if running locally) |
-| **SSH Username** | `configs/social/hosts.txt` | `farzad11@clnode*.clemson.cloudlab.us` (6 hosts) | CloudLab SSH user for social benchmark | Evaluator |
-| **SSH Username** | `configs/hotel/hosts.txt` | `farzad11@clnode*.clemson.cloudlab.us` (6 hosts) | CloudLab SSH user for hotel benchmark | Evaluator |
-| **SSH Username** | `configs/alibaba-large/hosts.txt` | `farzad11@c220g2-*.wisc.cloudlab.us` (6 hosts) | CloudLab SSH user for alibaba benchmark | Evaluator |
-| **SSH Username** | `run_tests.sh` (line 79, 226) | `farzad11` (example), `ubuntu` (default) | Example CloudLab SSH user in documentation/code | Evaluator |
-| **Remote Path** | `exec/env-setter.py` | `remote_microservice_user = "farzad"` | SSH user for remote microservice host | Stay-as-author (unused) |
-| **Remote Path** | `exec/env-setter.py` | `remote_microservice_host = "192.168.1.100"` | Control plane IP for metrics | Evaluator |
-| **Remote Path** | `exec/env-setter.py` | `remote_microservice_path = "/home/farzad/files/ppm/bench/{bench}/exec"` | Remote benchmark execution path | Stay-as-author (unused) |
-| **Remote Path** | `configs/social/config.social.json` | `remote_microservice_user: "farzad"` | SSH user for social benchmark remote host | Stay-as-author (unused) |
-| **Remote Path** | `configs/social/config.social.json` | `remote_microservice_host: "192.168.1.100"` | Control plane IP | Evaluator |
-| **Remote Path** | `configs/social/config.social.json` | `remote_microservice_path: "/home/farzad/files/benchmarks/social/exec"` | Remote path for social benchmark | Stay-as-author (unused) |
-| **Remote Path** | `configs/hotel/config.hotel.json` | `remote_microservice_user: "farzad"` | SSH user for hotel benchmark remote host | Stay-as-author (unused) |
-| **Remote Path** | `configs/hotel/config.hotel.json` | `remote_microservice_host: "192.168.1.100"` | Control plane IP | Evaluator |
-| **Remote Path** | `configs/hotel/config.hotel.json` | `remote_microservice_path: "/home/farzad/files/benchmarks/hotel/exec"` | Remote path for hotel benchmark | Stay-as-author (unused) |
-| **Hardcoded Path** | `benchmarks/hotel/exec/utilization_plot.py` (shebang) | `#!/home/farzad/files/venv/bin/python3` | Python interpreter path | Stay-as-author (should use `#!/usr/bin/env python3`) |
-| **Hardcoded Path** | `benchmarks/hotel/exec/metrics.py` (shebang) | `#!/home/farzad/files/venv/bin/python3` | Python interpreter path | Stay-as-author (should use `#!/usr/bin/env python3`) |
-| **Hardcoded Path** | `benchmarks/hotel/exec/utilization_plot.py` (line 12) | `sys.path.append('/home/farzad/files/ppm/experiments')` | Python path for imports | Stay-as-author (needs refactoring) |
-| **Docker Registry** | All benchmark `build.sh` files (40+ files) | `REGISTRY=${REGISTRY:-farzad1132}` | Docker Hub username for container images | Evaluator |
-| **Docker Registry** | All benchmark `deploy.sh` files (19 files) | `REGISTRY=${REGISTRY:-farzad1132}` | Docker Hub username for deployment | Evaluator |
-| **Docker Registry** | All benchmark `docker-bake.hcl` files (17+ files) | `default = "farzad1132"` | Default registry in Docker bake configs | Evaluator |
-| **Docker Registry** | `benchmarks/k8s/create.sh` | `REGISTRY="${REGISTRY:-farzad1132}"` | Docker registry for K8s setup | Evaluator |
-| **Docker Registry** | `benchmarks/k8s/cpu-stats-exporter/build.sh` | `REGISTRY="${DOCKER_REGISTRY:-farzad1132}"` | Registry for CPU stats exporter | Evaluator |
-| **Docker Registry** | `benchmarks/k8s/cpu-stats-daemonset.yaml` | `image: farzad1132/cpu-stats-exporter:latest` | Hardcoded image reference | Evaluator (via templating) |
-| **Docker Registry** | `benchmarks/callgraph-framework/gen/k8s_gen.go` | `default = "farzad1132"` | Template generator default registry | Evaluator |
-| **Docker Registry** | `benchmarks/callgraph-framework/gen/generator.go` | `"farzad1132"` | Hardcoded in code generator | Evaluator |
-| **GitHub SSH URL** | `.gitmodules` | `git@github.com:farzad1132/rwg.git` | SSH URL for rwg submodule | Stay-as-author (needs HTTPS conversion) |
-| **GitHub SSH URL** | `.gitmodules` | `git@github.com:farzad1132/benchmarks.git` | SSH URL for benchmarks submodule | Stay-as-author (needs HTTPS conversion) |
-| **GitHub SSH URL** | `benchmarks/.gitmodules` | `git@github.com:farzad1132/roshanfer-sidecar.git` | SSH URL for sidecar nested submodule | Stay-as-author (needs HTTPS conversion) |
-| **GitHub SSH URL** | `benchmarks/provisioning/provision.sh` | `git@github.com:farzad1132/roshanfer-experments.git` (typo) | Clone URL for provisioning (typo in repo name) | Stay-as-author (fix typo to `roshanfer-experiments`) |
-| **GitHub SSH URL** | `benchmarks/k8s/update_repo.sh` | `cd ~/roshanfer-experments` | Path with typo | Stay-as-author (fix typo) |
-| **GitHub SSH URL** | `exec/runner.py` | `remote_repo_path = "~/roshanfer-experments"` | Remote repo path with typo | Stay-as-author (fix typo) |
-| **GitHub SSH URL** | `exec/README.md` | `cd ~/files/roshanfer-experments` | Documentation path with typo | Stay-as-author (fix typo) |
-| **Module Path** | `rwg/go.mod`, `rwg/**/*.go`, `rwg/**/*.proto` | `github.com/farzad1132/rwg` | Go module path | Stay-as-author (correct for private repo) |
-| **CloudLab Hosts** | `configs/social/hosts.txt` | `clnode{248,233,241,230,238,222}.clemson.cloudlab.us` | Author's allocated CloudLab nodes | Evaluator (via manifest) |
-| **CloudLab Hosts** | `configs/hotel/hosts.txt` | Same as social | Author's allocated CloudLab nodes | Evaluator (via manifest) |
-| **CloudLab Hosts** | `configs/alibaba-large/hosts.txt` | `c220g2-01080{1,4,8,9,11,14,22,25}.wisc.cloudlab.us` | Author's allocated CloudLab nodes | Evaluator (via manifest) |
-| **Imperial Hosts** | All `configs/tests/*/hosts.txt` | `octopus3.doc.res.ic.ac.uk` | Author's Imperial College host | Stay-as-author (tests only) |
-| **IP Address** | All benchmark `run.sh`, `run-plain.sh` files (40+ files) | `TARGET_ADDR:-192.168.1.100` | Default target address for load tests | Evaluator |
-| **IP Address** | `configs/social/config.social.json` | `prometheus_url: "http://192.168.1.100:9091"` | Prometheus pushgateway URL | Evaluator |
-| **IP Address** | `configs/hotel/config.hotel.json` | `prometheus_url: "http://192.168.1.100:9091"` | Prometheus pushgateway URL | Evaluator |
-| **IP Address** | `benchmarks/hotel/k6/script.js` | `http://192.168.1.100:3000` | Hardcoded test endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/k6/http-test.js` | `http://192.168.1.100:3000` | Hardcoded test endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/k6/grpc-test.js` | `192.168.1.100:3000` | Hardcoded gRPC endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/k6/ov-grpc.js` | `192.168.1.100:3000` | Hardcoded gRPC endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/k6/ov-grpc-2-api.js` | `192.168.1.100:3000` | Hardcoded gRPC endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/k6/run.sh` | `K6_OTEL_GRPC_EXPORTER_ENDPOINT="192.168.1.100:4317"` | OTEL endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/k6/run-2-api.sh` | `K6_OTEL_GRPC_EXPORTER_ENDPOINT="192.168.1.100:4317"` | OTEL endpoint | Evaluator (via env var) |
-| **IP Address** | `benchmarks/hotel/wrk2/scripts/mixed.lua` | `http://192.168.1.100:2000` | Hardcoded test endpoint | Evaluator (requires script templating) |
-| **IP Address** | `rwg/testgrpcclient/main.go` | `192.168.1.100:3000` | Test client endpoint | Evaluator (test code only) |
-| **IP Address** | `benchmarks/callgraph-framework/gen/k8s_gen.go` | `TARGET_ADDR:-192.168.1.100` | Template default address | Evaluator |
-| **SSH Key Paths** | `benchmarks/provisioning/provision.sh` (lines 88-95) | `~/.ssh/id_ed25519`, `~/.ssh/id_rsa` | Local SSH keys to copy to remote nodes | Evaluator (automatic from ~/.ssh) |
-| **Kubeconfig** | `.envrc`, `benchmarks/k8s/create.sh` | `$PWD/benchmarks/k8s/kubeconfig` | Per-clone kubeconfig path (direnv managed) | Stay-as-author (correct design) |
-
-**Notes:**
-- **Typo**: `roshanfer-experments` should be `roshanfer-experiments` (not fixed by evaluator config; requires code fix)
-- **Unused fields**: `remote_microservice_user`, `remote_microservice_path` appear unused in current orchestration
-- **Stay-as-author**: Test configs referencing `octopus3.doc.res.ic.ac.uk` and `farzad@localhost` are for local development; evaluators won't run these
-- **SSH keys**: `provision.sh` automatically detects keys in `~/.ssh`; evaluators only need to ensure keys exist
+This note is a design + inventory, not a full caller migration.
 
 ---
 
-## Proposed Central Evaluator Config
+## What changed since the first inventory
 
-**File**: `evaluator.env`  
-**Location**: Repository root (same level as `run_tests.sh`)  
-**Format**: Shell-sourceable `.env` file (compatible with existing infrastructure)
+`566e5a4` stripped unused keys from per-bench JSON and from `exec/config.py`. Those keys are **gone**; do not put them back into a central config.
 
-### Why `.env` format?
-1. **Existing mechanism**: Scripts already use `source` for configs (e.g., `benchmarks/k8s/config.env`)
-2. **Shell-native**: No new dependencies (Python, YAML parsers)
-3. **direnv compatible**: Can be loaded automatically via `.envrc` if needed
-4. **Simple**: Key=value format is familiar and easy to edit
+| Removed from configs / `Config` | Why it no longer belongs in `evaluator.env` |
+|---|---|
+| `prometheus_url` | Executor no longer reads it |
+| `remote_microservice_host` / `_user` / `_path` | Removed from `Config`. Only leftover: `exec/env-setter.py` (orphaned; see below) |
+| `rwg_binary_path` in JSON | Dataclass default `./rwg/rwg` is enough |
+| `output_base_dir`, `ssh_binary`, `git_root`, `docker_compose_binary` | Not evaluator identity; caller/CLI concern |
+| `experiment_defaults`, `expansion`, `metrics`, `report`, `notes` | Unused |
 
-### Full Example `evaluator.env`
+Also already fixed on `artifact-evaluation` (do not treat as open typos):
+
+- `benchmarks/provisioning/provision.sh` clones `farzad1132/roshanfer-experiments` (correct spelling)
+- `exec/runner.py` default remote path is `~/roshanfer-experiments`
+- `benchmarks/k8s/update_repo.sh` uses `~/roshanfer-experiments`
+
+`configs/tests/leaf-diverse/` was replaced by `leaf-1-2`, `leaf-1-10`, `leaf-1-2-p-2-1`.
+
+`benchmarks/sidecar` still fails to clone here (`roshanfer-sidecar` not found over this environment’s GitHub token). The sidecar tree was searched on GitHub instead.
+
+---
+
+## Live `Config` fields (do not centralize these)
+
+After the cleanup, `exec/config.py` only keeps fields the executor actually reads. Per-bench JSON now looks like:
+
+```json
+{
+  "experiment_index": "one-service",
+  "num_generators": 1,
+  "bench": "tests/one-service",
+  "hosts_file": "configs/tests/one-service/hosts.txt",
+  "slos": { "f1": "20" }
+}
+```
+
+Optional JSON: `post_deploy_wait_sec`, `tuner`.  
+Campaign output dir is `--output-base-dir` / dataclass default, not evaluator identity.
+
+**Leave these in the per-bench JSON.** They are experiment parameters, not “who is running this.”
+
+---
+
+## Complete inventory (current tree)
+
+Grouped. “Who sets” is **evaluator** (must change to run as themselves) vs **stay-as-author** (author/code fix, or not on the AE path).
+
+### A. SSH users and hosts (evaluator)
+
+| File(s) | Current value | Used for | Who sets |
+|---|---|---|---|
+| `benchmarks/k8s/config.env` | `SSH_USER=fm224` | Default SSH user when a hosts line has no `user@`. Sourced by `k8s/create.sh`, `k8s/delete.sh`, `provisioning/provision.sh`, and `run_tests.sh --remote-clean` | Evaluator |
+| `run_tests.sh` usage example | `--cloudlab-ssh-user farzad11` | Docs only; real path is `--cloudlab-ssh-user` | Evaluator (via flag or central file) |
+| `run_tests.sh` / `provision.sh` fallback | `ubuntu` | Generic CloudLab image user when `SSH_USER` unset and the hosts line has no user | Keep as fallback (not author-specific) |
+| 18× `configs/tests/*/hosts.txt` | `farzad@localhost` | Local-mode generator line. Tutorial README already says “put `user@localhost` twice” | Evaluator for the one-machine tutorial |
+| 18× `configs/tests/*/hosts.txt` | `fm224@octopus3.doc.res.ic.ac.uk` | Author Imperial host as the second (deploy) line | Stay-as-author for AE paper runs (`--remote` overrides). Evaluator must replace if they use local mode |
+| `configs/hotel/hosts.txt`, `configs/social/hosts.txt` | `farzad11@clnode{248,233,241,230,238,222}.clemson.cloudlab.us` | Author Clemson allocation | Evaluator if they run **without** `--remote`; `--remote` overrides via manifest |
+| `configs/alibaba-large/hosts.txt` | `farzad11@c220g2-0108{01,25,04,22,14,11}.wisc.cloudlab.us` | Author Wisconsin allocation | Same as hotel/social |
+
+Test `hosts.txt` dirs: `chain-2`, `chain-2-bimodal`, `dynamic-large`, `fan-out`, `fan-out-3`, `fan-out-4`, `fan-out-dynamic-0-9`, `fan-out-fan-in`, `fan-out-fan-in-heavy`, `ingress-stress`, `intermediate-diverse`, `multi-api`, `one-service`, `pfanout-2`, `pfanout-4`, `leaf-1-2`, `leaf-1-10`, `leaf-1-2-p-2-1`.
+
+Paper path: `run_tests.sh --remote --cloudlab-manifest …` writes `exp_runs_test/<run>/cloudlab_hosts.txt` and passes `--hosts-file`, so hotel/social/alibaba/test `hosts.txt` are **not** used in `--remote` mode.
+
+### B. Docker registry (evaluator)
+
+| File(s) | Current value | Used for | Who sets |
+|---|---|---|---|
+| Every bench `build.sh` / `deploy.sh` (21 benches × 2) | `REGISTRY=${REGISTRY:-farzad1132}` | Image name prefix | Evaluator (`REGISTRY` already overrides) |
+| 19× `docker-bake.hcl` | `default = "farzad1132"` | bake default if `REGISTRY` unset | Evaluator |
+| `benchmarks/k8s/create.sh` | `REGISTRY="${REGISTRY:-farzad1132}"` | cpu-stats image | Evaluator |
+| `benchmarks/k8s/cpu-stats-exporter/build.sh` | `DOCKER_REGISTRY:-farzad1132` | Build/push exporter | Evaluator |
+| `benchmarks/k8s/cpu-stats-daemonset.yaml` | `image: farzad1132/cpu-stats-exporter:latest` | Manifest literal; `create.sh` already `sed`s it | Evaluator via `REGISTRY` |
+| `benchmarks/callgraph-framework/gen/k8s_gen.go` | bake/script default `farzad1132` | Regenerating test benches | Stay-as-author unless regenerating graphs |
+| `benchmarks/callgraph-framework/gen/generator.go` | `"farzad1132"` hardcoded | Same | Stay-as-author |
+
+Benches with `REGISTRY`: `alibaba-large`, `hotel`, `social`, and all 18 `benchmarks/tests/*` listed above.
+
+### C. Git remotes / clone URLs (stay-as-author)
+
+| File(s) | Current value | Used for | Who sets |
+|---|---|---|---|
+| `.gitmodules` | `git@github.com:farzad1132/rwg.git`, `…/benchmarks.git` | Submodule clone | Stay-as-author: switch to HTTPS if evaluators have HTTPS access |
+| `benchmarks/.gitmodules` | `git@github.com:farzad1132/roshanfer-sidecar.git` | Nested sidecar | Same |
+| `benchmarks/provisioning/provision.sh` | `git@github.com:farzad1132/roshanfer-experiments.git` | Clone onto CloudLab nodes | Stay-as-author: HTTPS or “repo already present”. URL spelling is already correct |
+| sidecar `.gitmodules` (`farzad1132/roshanfer-sidecar`, searched on GitHub) | `git@github.com:farzad1132/rwg.git`; `https://github.com/farzad1132/NanoLog.git` | Nested test/rwg + NanoLog fork | Stay-as-author |
+
+`github.com/farzad1132/rwg` in `rwg/go.mod` and generated protobufs is the Go module path. Leave it. It is not an evaluator setting.
+
+### D. Hardcoded home paths (stay-as-author / leftover)
+
+| File(s) | Current value | Used for | Who sets |
+|---|---|---|---|
+| `benchmarks/hotel/exec/utilization_plot.py` shebang | `#!/home/farzad/files/venv/bin/python3` | Leftover hotel util script; not on `run_tests.sh` path | Stay-as-author: `#!/usr/bin/env python3` |
+| `benchmarks/hotel/exec/metrics.py` shebang | same | Same | Stay-as-author |
+| `benchmarks/hotel/exec/utilization_plot.py` | `sys.path.append('/home/farzad/files/ppm/experiments')` | Same leftover | Stay-as-author |
+| `exec/env-setter.py` | sets `remote_microservice_user="farzad"`, host `192.168.1.100`, path `/home/farzad/files/ppm/bench/...` | **Orphan**. Nothing imports it. Those attributes are no longer on `Config` | Stay-as-author: delete or ignore. Do **not** revive in `evaluator.env` |
+| `exec/README.md` | `cd ~/files/roshanfer-experiments` | Author machine in a worktree example | Stay-as-author (docs) |
+
+### E. `192.168.1.100` (mostly leftover / fallback)
+
+Orchestrated runs already set `TARGET_ADDR` in `exec/runner.py` to a `nodeN` alias from the hosts file (or the deploy host’s first DNS label). Evaluators on the `run_tests.sh` path do **not** need a control-plane IP in JSON anymore (`prometheus_url` is gone).
+
+| File(s) | Current value | Used for | Who sets |
+|---|---|---|---|
+| All `benchmarks/**/run.sh` and `run-plain.sh` | `TARGET_ADDR:-192.168.1.100` | Fallback only if `TARGET_ADDR` unset (manual script, not executor) | Optional evaluator fallback |
+| `benchmarks/callgraph-framework/gen/k8s_gen.go` | same default in generated wrappers | Regenerating benches | Stay-as-author |
+| `benchmarks/hotel/k6/*.js`, `hotel/k6/run*.sh` | hardcoded `192.168.1.100` | Old k6 drivers; **not** referenced by `exec/` or `configs/` | Stay-as-author leftover |
+| `benchmarks/hotel/wrk2/scripts/mixed.lua` | `http://192.168.1.100:2000` | Old wrk2; not on AE path | Stay-as-author leftover |
+| `rwg/testgrpcclient/main.go` | `192.168.1.100:3000` | rwg unit test client | Stay-as-author (tests) |
+
+### F. SSH keys, kubeconfig, direnv (already generic)
+
+| File(s) | Current value | Used for | Who sets |
+|---|---|---|---|
+| `benchmarks/provisioning/provision.sh` | copies `~/.ssh/id_ed25519` or `id_rsa` if present | Node-to-GitHub / node-to-node | Evaluator’s own keys; do not put key material in the central file |
+| `.envrc` | `KUBECONFIG=$PWD/benchmarks/k8s/kubeconfig` | Per-clone kubeconfig | Stay-as-author (correct) |
+| `run_tests.sh` | refuses to run unless direnv set that `KUBECONFIG` | Isolation | Stay-as-author (correct) |
+
+No author emails appear in tracked source (commit metadata only).
+
+---
+
+## Proposed central file
+
+**Name**: `evaluator.env` at repo root  
+**Template**: `evaluator.env.example` (committed)  
+**Gitignore**: `evaluator.env` (already listed)
+
+**Format**: POSIX `source`-able assignments. This is the mechanism the repo already uses (`benchmarks/k8s/config.env`, `init_env.sh`, `.envrc`). Do not add a second Python/YAML config loader.
+
+### Keys
+
+| Key | Required? | Meaning |
+|---|---|---|
+| `EVALUATOR_SSH_USER` | Yes | CloudLab / node SSH user. Feeds `SSH_USER`, `--cloudlab-ssh-user` default |
+| `EVALUATOR_CLOUDLAB_MANIFEST` | Yes for `--remote` | Path to portal `manifest.xml` |
+| `EVALUATOR_DOCKER_REGISTRY` | Yes if building/pushing | Docker Hub user or `registry/user` prefix. Already matches existing `REGISTRY` |
+| `EVALUATOR_LOCAL_USER` | Yes for one-machine tutorial | Local SSH user for `user@localhost` hosts lines |
+| `EVALUATOR_TARGET_ADDR` | No | Fallback only when `TARGET_ADDR` is unset (manual `run.sh`) |
+| `EVALUATOR_REMOTE_REPO_PATH` | No | Override `~/roshanfer-experiments` on generator nodes |
+
+Do **not** add keys for deleted fields (`prometheus_url`, `remote_microservice_*`, SLOs, `num_generators`, `bench`). `num_generators` stays a CLI flag (`--num-generators`) plus per-bench JSON.
+
+### Full example (`evaluator.env.example`)
+
+See the committed `evaluator.env.example` at repo root. Contents:
 
 ```bash
-# Roshanfer Artifact Evaluator Configuration
-# EuroSys 2027 Artifact Evaluation
-#
-# Instructions:
-# 1. Copy this file to the repository root (same directory as run_tests.sh)
-# 2. Edit the values below to match your CloudLab/local setup
-# 3. Source this file before running experiments: source evaluator.env
-# 4. Or add to .envrc for automatic loading: source_env evaluator.env
+# Copy: cp evaluator.env.example evaluator.env
+# Then edit. Do not commit evaluator.env.
 
-# =============================================================================
-# CloudLab Configuration
-# =============================================================================
-
-# Your CloudLab username (used for SSH and parsing manifests)
-EVALUATOR_CLOUDLAB_USER="your_cloudlab_username"
-
-# CloudLab manifest path (download from CloudLab portal after instantiation)
-# This is passed to --cloudlab-manifest when using --remote mode
+EVALUATOR_SSH_USER="your_cloudlab_username"
 EVALUATOR_CLOUDLAB_MANIFEST="$HOME/cloudlab-manifest.xml"
-
-# =============================================================================
-# Docker Registry Configuration
-# =============================================================================
-
-# Docker Hub username or registry prefix for container images
-# If using DockerHub: set to your DockerHub username (e.g., "myuser")
-# If using private registry: set to registry URL prefix (e.g., "myregistry.io/myuser")
-# Note: You must have push access to this registry
 EVALUATOR_DOCKER_REGISTRY="your_dockerhub_username"
+EVALUATOR_LOCAL_USER="$(whoami)"
 
-# =============================================================================
-# Control Node Configuration
-# =============================================================================
-
-# The "control" machine IP/hostname where Prometheus, OTEL, and ingress run
-# In CloudLab mode: typically the first generator node's IP
-# In local mode: typically 192.168.1.100 or your local machine
-# This is used for:
-# - Prometheus pushgateway (port 9091)
-# - OTEL collector (port 4317)
-# - K6/wrk2 target endpoints (ports 2000, 3000)
-EVALUATOR_CONTROL_IP="192.168.1.100"
-
-# =============================================================================
-# SSH Configuration (Optional)
-# =============================================================================
-
-# SSH user for Kubernetes cluster setup (K3s installation)
-# Default: "ubuntu" (common CloudLab image default)
-# Override if your CloudLab profile uses a different user
-EVALUATOR_SSH_USER="${EVALUATOR_CLOUDLAB_USER:-ubuntu}"
-
-# SSH key path (optional, auto-detected from ~/.ssh/id_ed25519 or id_rsa)
-# EVALUATOR_SSH_KEY="$HOME/.ssh/id_cloudlab"
-
-# =============================================================================
-# Advanced (usually no changes needed)
-# =============================================================================
-
-# Number of generator nodes (for --remote mode; overridden by --num-generators flag)
-# EVALUATOR_NUM_GENERATORS=3
-
-# Image tag for Docker builds (default: "ae" for artifact evaluation)
-# EVALUATOR_IMAGE_TAG="ae"
+# Optional. Executor already sets TARGET_ADDR=nodeN.
+# EVALUATOR_TARGET_ADDR="node0"
+# EVALUATOR_REMOTE_REPO_PATH="~/roshanfer-experiments"
 ```
 
 ---
 
-## How Existing Code Will Consume It
+## How existing code should consume it (one mechanism)
 
-### 1. **Root-level orchestration** (`run_tests.sh`)
-
-**Current state**: Accepts `--cloudlab-ssh-user` and `--cloudlab-manifest` flags
-
-**Proposed change**: Source `evaluator.env` at script start (if exists), use as defaults for flags
+1. **direnv** (already required by `run_tests.sh`):
 
 ```bash
-# Near top of run_tests.sh (after shebang and before argument parsing)
-if [ -f "$SCRIPT_DIR/evaluator.env" ]; then
-    source "$SCRIPT_DIR/evaluator.env"
-    CLOUDLAB_SSH_USER="${CLOUDLAB_SSH_USER:-$EVALUATOR_SSH_USER}"
-    CLOUDLAB_MANIFEST="${CLOUDLAB_MANIFEST:-$EVALUATOR_CLOUDLAB_MANIFEST}"
-fi
-```
-
-Evaluators can still override via CLI flags (e.g., `--cloudlab-ssh-user override_user`).
-
-### 2. **Docker build/deploy scripts** (40+ files)
-
-**Current state**: `REGISTRY=${REGISTRY:-farzad1132}`
-
-**Proposed change**: Fall back to `EVALUATOR_DOCKER_REGISTRY` if `REGISTRY` unset
-
-```bash
-# In each build.sh and deploy.sh
-REGISTRY=${REGISTRY:-${EVALUATOR_DOCKER_REGISTRY:-farzad1132}}
-```
-
-Evaluators can set `REGISTRY` directly or rely on `evaluator.env`.
-
-### 3. **Kubernetes config** (`benchmarks/k8s/config.env`)
-
-**Current state**: `SSH_USER=fm224` (hardcoded)
-
-**Proposed change**: Replace with:
-
-```bash
-SSH_USER=${SSH_USER:-${EVALUATOR_SSH_USER:-ubuntu}}
-```
-
-### 4. **Config JSONs** (`configs/{social,hotel}/config.*.json`)
-
-**Current state**: Hardcoded `"remote_microservice_host": "192.168.1.100"`, `"prometheus_url": "http://192.168.1.100:9091"`
-
-**Proposed change**: Templating or runtime substitution via Python `exec/config.py`:
-
-```python
-# In exec/config.py, after loading JSON
-if "EVALUATOR_CONTROL_IP" in os.environ:
-    control_ip = os.environ["EVALUATOR_CONTROL_IP"]
-    config.remote_microservice_host = control_ip
-    config.prometheus_url = f"http://{control_ip}:9091"
-```
-
-Alternatively, use `envsubst` before loading JSON (requires pre-processing step).
-
-### 5. **Load test scripts** (k6, wrk2, run.sh)
-
-**Current state**: `TARGET_ADDR:-192.168.1.100` in shell scripts; hardcoded IPs in `.js`/`.lua` files
-
-**Proposed change**:
-- Shell scripts: `address="${TARGET_ADDR:-${EVALUATOR_CONTROL_IP:-192.168.1.100}}"`
-- K6 scripts: Replace hardcoded IPs with `__ENV.EVALUATOR_CONTROL_IP` (K6 reads env vars as `__ENV.*`)
-  ```javascript
-  const targetIP = __ENV.EVALUATOR_CONTROL_IP || '192.168.1.100';
-  const res = http.get(`http://${targetIP}:3000/hotels?...`);
-  ```
-- Lua scripts: Use shell wrapper to template before running (e.g., `sed` or `envsubst`)
-
-### 6. **Provisioning** (`benchmarks/provisioning/provision.sh`)
-
-**Current state**: Hardcoded repo URL `git@github.com:farzad1132/roshanfer-experments.git`
-
-**No change**: This is author's repository; evaluators clone via HTTPS already. The typo fix is separate.
-
-### 7. **direnv integration** (`.envrc`)
-
-**Current state**: Only sets `KUBECONFIG`
-
-**Proposed addition**:
-
-```bash
+# .envrc
 export KUBECONFIG="$PWD/benchmarks/k8s/kubeconfig"
-
-# Load evaluator config if present
-if [ -f "$PWD/evaluator.env" ]; then
-    source_env evaluator.env
-fi
+[ -f "$PWD/evaluator.env" ] && source_env evaluator.env
 ```
 
----
+2. **`run_tests.sh`** (after `cd` to repo root, before flag defaults finish):
 
-## What Must NOT Go in `evaluator.env`
+```bash
+[ -f ./evaluator.env ] && source ./evaluator.env
+CLOUDLAB_SSH_USER="${CLOUDLAB_SSH_USER:-${EVALUATOR_SSH_USER:-}}"
+CLOUDLAB_MANIFEST="${CLOUDLAB_MANIFEST:-${EVALUATOR_CLOUDLAB_MANIFEST:-}}"
+export REGISTRY="${REGISTRY:-${EVALUATOR_DOCKER_REGISTRY:-}}"
+export SSH_USER="${SSH_USER:-${EVALUATOR_SSH_USER:-ubuntu}}"
+```
 
-**Secrets and credentials that evaluators manage separately:**
+CLI flags still win (`--cloudlab-ssh-user`, `--cloudlab-manifest`).
 
-1. **SSH private keys**: Stored in `~/.ssh/`, referenced by path only (if needed)
-2. **CloudLab passwords**: Not used (SSH key-based auth via CloudLab portal)
-3. **Docker Hub login tokens**: Managed via `docker login` (outside repo)
-4. **GitHub personal access tokens**: Not needed (public read access to private repos granted by author to AEC chairs)
-5. **Kubeconfig contents**: Generated per-clone by `benchmarks/k8s/create.sh` (stays in `benchmarks/k8s/kubeconfig`)
+3. **`benchmarks/k8s/config.env`**: replace the hardcoded user with
 
-**Rationale**: These are either auto-detected (SSH keys), managed by external tools (Docker login), or dynamically generated (kubeconfig).
+```bash
+SSH_USER="${SSH_USER:-${EVALUATOR_SSH_USER:-ubuntu}}"
+```
 
----
+`provision.sh` already does `SSH_USER=${SSH_USER:-ubuntu}` after sourcing this file.
 
-## Migration Steps (Not Implemented in This PR)
+4. **Build/deploy**: they already honor `REGISTRY`. Sourcing `evaluator.env` (via direnv or `run_tests.sh`) is enough. Optional later: change the default from `farzad1132` to `"${EVALUATOR_DOCKER_REGISTRY:?set evaluator.env}"` so a missing registry fails closed.
 
-This PR provides the **design and inventory only**. Full migration requires:
+5. **Local tutorial hosts**: either document “overwrite the two lines in `configs/tests/one-service/hosts.txt`” (README already does), or have `run_tests.sh` in local mode synthesize
 
-1. **Create template `evaluator.env.example`** (checked into repo)
-2. **Update `run_tests.sh`**: Source `evaluator.env` and use as defaults
-3. **Update all `build.sh` / `deploy.sh`**: Add `EVALUATOR_DOCKER_REGISTRY` fallback
-4. **Update `benchmarks/k8s/config.env`**: Add `EVALUATOR_SSH_USER` fallback
-5. **Update Python configs**: Add runtime substitution for `EVALUATOR_CONTROL_IP`
-6. **Template K6 scripts**: Replace hardcoded IPs with `__ENV.EVALUATOR_CONTROL_IP`
-7. **Template Lua scripts**: Add shell wrapper with `envsubst`
-8. **Update `.envrc`**: Auto-load `evaluator.env`
-9. **Fix typo**: Rename `roshanfer-experments` → `roshanfer-experiments` everywhere
-10. **Fix shebangs**: Change `/home/farzad/files/venv/bin/python3` → `#!/usr/bin/env python3`
-11. **Convert SSH URLs to HTTPS**: Update `.gitmodules` (pending author decision on public/private access)
-12. **Update README.md**: Document `evaluator.env` setup in "Getting Started" and "Reproducing Evaluation" sections
-13. **Test with clean CloudLab allocation**: Verify evaluator can run with only `evaluator.env` customization
+```text
+${EVALUATOR_LOCAL_USER}@localhost
+${EVALUATOR_LOCAL_USER}@localhost
+```
 
----
+when `evaluator.env` is present. Do not invent a second hosts-file format.
 
-## Open Questions for Author
+6. **`TARGET_ADDR`**: leave the executor as-is. Optional one-line fallback in wrappers:
 
-1. **Submodule access**: Should `.gitmodules` use HTTPS URLs for evaluator access, or will AEC chairs grant SSH key access?
-2. **Remote microservice fields**: Are `remote_microservice_user` / `remote_microservice_path` used? Can we remove them?
-3. **Test configs**: Should `configs/tests/*/hosts.txt` be templated, or documented as "author-only, not for evaluators"?
-4. **Hardcoded hotel paths**: Is `sys.path.append('/home/farzad/...')` in `hotel/exec/*.py` safe to remove, or does it need refactoring?
-5. **Wrk2 Lua templating**: Prefer shell wrapper or pre-generate multiple `.lua` files per deployment?
+```bash
+address="${TARGET_ADDR:-${EVALUATOR_TARGET_ADDR:-node0}}"
+```
+
+Do not wire Prometheus/k6/Lua templating for the AE path; those drivers are leftover.
 
 ---
 
-## Summary
+## What must not go in `evaluator.env`
 
-- **72+ occurrences** of author-specific values across 100+ files
-- **Centralized solution**: Single `evaluator.env` file (shell-sourceable)
-- **Minimal code changes**: Fallback checks (`${VAR:-${EVALUATOR_VAR:-default}}`) preserve existing behavior
-- **Evaluator experience**: Edit one file, source it, run experiments
-- **Secrets**: Stay out of repo (SSH keys, Docker tokens, CloudLab passwords)
+- SSH private keys or `authorized_keys` blobs
+- CloudLab account passwords
+- Docker Hub tokens (`docker login` stays outside the repo)
+- GitHub PATs
+- Generated kubeconfig
+- Experiment knobs: SLOs, loads, `bench`, `tuner`, `num_generators`
+- Deleted fields: `prometheus_url`, `remote_microservice_*`
 
-This design prioritizes **simplicity** (reuse existing shell sourcing) and **backward compatibility** (CLI flags override config file).
+---
+
+## Suggested later work (not this PR)
+
+1. Source `evaluator.env` from `.envrc` and `run_tests.sh`
+2. `SSH_USER=${EVALUATOR_SSH_USER:-ubuntu}` in `k8s/config.env`
+3. Export `REGISTRY` from `evaluator.env`; optionally fail if unset
+4. HTTPS `.gitmodules` (experiments, benchmarks, sidecar, sidecar’s `test/rwg`) if AEC has HTTPS access
+5. `provision.sh`: clone HTTPS or skip clone when the repo is already on the node
+6. Replace `farzad@localhost` / `fm224@octopus3` in test `hosts.txt` with placeholders
+7. Delete or quarantine leftovers: `exec/env-setter.py`, hotel `k6/` / `wrk2/` / `exec/*.py` shebangs
+8. Drop `farzad11` from `run_tests.sh --help`
+
+Do not force-push. Do not migrate every caller in this pass.
+
+---
+
+## Open questions
+
+1. HTTPS vs SSH for private submodules (including sidecar + NanoLog fork)?
+2. Should local-mode `hosts.txt` be generated from `EVALUATOR_LOCAL_USER`, or only documented?
+3. Confirm `exec/env-setter.py` can be deleted.
+4. Confirm hotel `k6/` and `wrk2/` are out of the AE critical path (nothing in `exec/` or `configs/` calls them).
