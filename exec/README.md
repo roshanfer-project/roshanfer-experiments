@@ -119,15 +119,18 @@ Standalone: `python -m exec.rajomon_tuner --config ... --system rajomon --bench 
 
 ## Config (`config.json`)
 
-Ensure your config includes:
+Per-bench keys the executor reads:
 ```json
 {
-  "hosts_file": "hosts.txt",
-  "provisioning_script": "benchmarks/provisioning/provision.sh",
   "experiment_index": "001",
-  "output_base_dir": "experiment_runs"
+  "num_generators": 1,
+  "bench": "tests/one-service",
+  "hosts_file": "hosts.txt",
+  "slos": { "f1": "20" }
 }
 ```
+
+Output layout is a caller concern: `run_tests.sh` passes `--output-base-dir`; a standalone executor run uses that flag or the dataclass default (`./experiment_runs`). Optional JSON keys: `post_deploy_wait_sec`, `tuner`.
 
 ## Generating Merged Plots
 

@@ -1,18 +1,11 @@
 {
-  "output_base_dir": "./exp_runs",
   "experiment_index": "leaf-1-10",
   "num_generators": 2,
-  "raw_artifact_subdir": "raw",
-  "metrics_subdir": "metrics",
-  "rwg_binary_path": "./rwg/rwg",
   "bench": "tests/leaf-1-10",
   "hosts_file": "configs/tests/leaf-1-10/hosts.txt",
-  "ssh_binary": "ssh",
-  "git_root": "..",
   "slos": {
     "f1": "1000",
     "f2": "1000"
   },
-  "metrics": {},
   "post_deploy_wait_sec": 1
 }

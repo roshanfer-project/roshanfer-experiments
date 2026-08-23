@@ -175,7 +175,7 @@ direnv allow
 
 | File | Purpose |
 | --- | --- |
-| `config.json` | Bench name (`bench: tests/one-service`), SLOs, `num_generators`, paths to `rwg` and hosts. |
+| `config.json` | Bench name (`bench: tests/one-service`), SLOs, `num_generators`, hosts. |
 | `experiments.json` | List of runs: `type`, `system`, `loads`, `duration_sec`, `apis`, `repeat`. |
 | `merged.yaml` | How to overlay systems on one figure (Plain vs Roshanfer). |
 | `hosts.txt` | Local-mode hosts. With `--remote`, hosts come from a CloudLab manifest instead. |
@@ -187,10 +187,11 @@ Relevant fields in `config.json`:
   "bench": "tests/one-service",
   "num_generators": 1,
   "slos": { "f1": "20" },
-  "rwg_binary_path": "./rwg/rwg",
   "hosts_file": "configs/tests/one-service/hosts.txt"
 }
 ```
+
+Also used: `experiment_index`. Optional: `post_deploy_wait_sec`, `tuner`.
 
 Copy those two lines into `configs/tests/one-service/hosts.txt`.
 
