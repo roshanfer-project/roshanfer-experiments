@@ -458,7 +458,7 @@ class Runner:
                     if host_part in ("localhost", "127.0.0.1"):
                         remote_repo_path = str(Path.cwd().resolve())
                     else:
-                        remote_repo_path = "~/roshanfer-experments"
+                        remote_repo_path = "~/roshanfer-experiments"
                 remote_rwg_path = f"{remote_repo_path}/rwg/rwg"
                 
                 # ...

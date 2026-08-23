@@ -168,7 +168,7 @@ To work on two clusters simultaneously (e.g., dev and test), use git worktrees. 
 
 ```bash
 # Create a worktree for dev on a new branch
-cd ~/files/roshanfer-experments
+cd ~/files/roshanfer-experiments
 git worktree add ../local-experiments dev
 
 # Allow direnv in the new worktree
