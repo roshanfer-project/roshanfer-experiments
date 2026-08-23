@@ -1905,7 +1905,7 @@ def generate_latency_vs_throughput_merged(
     global_config: str = None
 ) -> list:
     """
-    Generate merged SLO violation vs throughput figure.
+    Generate merged SLO violation, P50, and P99 latency vs throughput figures.
     Plots lines for multiple experiments on the same axes.
     """
     # Import new RWG data loading and plotting
@@ -1913,20 +1913,22 @@ def generate_latency_vs_throughput_merged(
         from exec.plots.data_loader import load_repeat_data
         from exec.plots.aggregation import aggregate_overall_metric
         from exec.plots.plotting_primitives import (
-            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line, plot_grouped_bars
+            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line, plot_grouped_bars,
+            _nice_tick_step,
         )
     except ImportError:
         try:
             from plots.data_loader import load_repeat_data  # type: ignore
             from plots.aggregation import aggregate_overall_metric  # type: ignore
             from plots.plotting_primitives import (  # type: ignore
-                SubplotGrid, ACM_COMPACT_HALF, plot_line, ACM_QUARTER
+                SubplotGrid, ACM_COMPACT_HALF, plot_line, ACM_QUARTER, _nice_tick_step
             )
         except ImportError:
             from data_loader import load_repeat_data  # type: ignore
             from aggregation import aggregate_overall_metric  # type: ignore
             from plotting_primitives import (  # type: ignore
-                SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_grouped_bars, ACM_QUARTER
+                SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_grouped_bars, ACM_QUARTER,
+                _nice_tick_step,
             )
 
     include_experiments = figure_config.get('include', {})
@@ -1956,6 +1958,7 @@ def generate_latency_vs_throughput_merged(
 
     # Data structure: data[api][exp_label] = {'tps': [], 'slo_pct': [], 'goodputs': [], ...}
     plot_data = {api: {} for api in all_apis}
+    api_slo_ms = {}
 
     color_idx_map = {} # label -> color_idx
 
@@ -2011,6 +2014,8 @@ def generate_latency_vs_throughput_merged(
                 repeat_throughputs: List[float] = []
                 repeat_slo_pcts: List[float] = []
                 repeat_goodputs: List[float] = []
+                repeat_p50s: List[float] = []
+                repeat_p99s: List[float] = []
 
                 for artifact_dir in artifact_dirs:
                     repeat_data = load_repeat_data(artifact_dir)
@@ -2025,6 +2030,13 @@ def generate_latency_vs_throughput_merged(
                             pct = (float(overall.num_slo_violations) / float(overall.num_throughput)) * 100.0
                             repeat_slo_pcts.append(pct)
                             repeat_goodputs.append(float(overall.goodput))
+                            repeat_p50s.append(float(overall.p50_latency))
+                            repeat_p99s.append(float(overall.p99_latency))
+                            if api not in api_slo_ms:
+                                try:
+                                    api_slo_ms[api] = float(overall.slo_ms)
+                                except (TypeError, ValueError, AttributeError):
+                                    pass
                         elif os.environ.get('PLOT_DEBUG') == '1':
                             print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
                     elif os.environ.get('PLOT_DEBUG') == '1':
@@ -2034,6 +2046,8 @@ def generate_latency_vs_throughput_merged(
                     tp_mean, _, tp_ci = aggregate_overall_metric(repeat_throughputs)
                     gp_mean, _, gp_ci = aggregate_overall_metric(repeat_goodputs)
                     slo_mean, _, slo_ci = aggregate_overall_metric(repeat_slo_pcts)
+                    p50_mean, _, p50_ci = aggregate_overall_metric(repeat_p50s)
+                    p99_mean, _, p99_ci = aggregate_overall_metric(repeat_p99s)
 
                     if tp_mean is not None and slo_mean is not None:
                         exp_points.append({
@@ -2043,6 +2057,10 @@ def generate_latency_vs_throughput_merged(
                             'gp_ci': gp_ci if gp_ci is not None else 0.0,
                             'slo_pct': slo_mean,
                             'slo_pct_ci': slo_ci if slo_ci is not None else 0.0,
+                            'p50': p50_mean if p50_mean is not None else 0.0,
+                            'p50_ci': p50_ci if p50_ci is not None else 0.0,
+                            'p99': p99_mean if p99_mean is not None else 0.0,
+                            'p99_ci': p99_ci if p99_ci is not None else 0.0,
                             'load_value': unit_load_value.get(unit_name),
                         })
                         if os.environ.get('PLOT_DEBUG') == '1':
@@ -2050,6 +2068,8 @@ def generate_latency_vs_throughput_merged(
                             print(f"    Repeats: {len(repeat_throughputs)}")
                             print(f"    Throughput: {tp_mean:.2f}")
                             print(f"    SLO Violation %: {slo_mean:.2f} ± {slo_ci if slo_ci else 0:.2f}")
+                            print(f"    P50 Latency: {p50_mean:.2f} ± {p50_ci if p50_ci else 0:.2f}")
+                            print(f"    P99 Latency: {p99_mean:.2f} ± {p99_ci if p99_ci else 0:.2f}")
 
 
             # Order by offered load (matches latency_vs_throughput_experiment), not by achieved tp
@@ -2081,6 +2101,10 @@ def generate_latency_vs_throughput_merged(
                 'goodput_ci': [p['gp_ci'] for p in exp_points],
                 'slo_pct': [p['slo_pct'] for p in exp_points],
                 'slo_pct_ci': [p['slo_pct_ci'] for p in exp_points],
+                'p50': [p['p50'] for p in exp_points],
+                'p50_ci': [p['p50_ci'] for p in exp_points],
+                'p99': [p['p99'] for p in exp_points],
+                'p99_ci': [p['p99_ci'] for p in exp_points],
             }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2141,6 +2165,137 @@ def generate_latency_vs_throughput_merged(
     line_path = output_dir / pdf_name
     grid.save(line_path)
     produced.append(line_path)
+
+    try:
+        from exec.plots.plugins.latency_rate_vs_time_repeat import (
+            SLO_LINE_COLOR, _lookup_slo,
+        )
+    except ImportError:
+        from plots.plugins.latency_rate_vs_time_repeat import (  # type: ignore
+            SLO_LINE_COLOR, _lookup_slo,
+        )
+
+    slos_numeric: dict = {}
+    if global_config:
+        try:
+            with open(global_config) as f:
+                global_configs = json.load(f)
+            for k, v in (global_configs.get('slos', {}) or {}).items():
+                try:
+                    slos_numeric[str(k)] = float(v)
+                except (TypeError, ValueError):
+                    pass
+        except Exception:
+            pass
+
+    def emit_pct_vs_throughput(metric_key: str, ci_key: str, ylabel: str, stem: str):
+        pct_grid = SubplotGrid(style, layout=f"1x{n_apis}")
+        slo_inplot = []
+
+        for api_idx, api in enumerate(all_apis):
+            ax = pct_grid.get_ax(0, api_idx)
+
+            if len(all_apis) > 1:
+                ax.set_title(api, fontsize=style.title_size)
+
+            for label, data in plot_data[api].items():
+                color_idx = color_idx_map.get(label, 0)
+
+                y_vals = np.asarray(data[metric_key], dtype=float)
+                y_cis = data[ci_key]
+                yerr = None
+                if len(y_cis) == len(y_vals):
+                    y_errs = np.asarray(
+                        [float(c) if c is not None else 0.0 for c in y_cis], dtype=float
+                    )
+                    yerr = y_errs
+                plot_line(
+                    ax, np.asarray(data['tps'], dtype=float) / 1000.0, y_vals,
+                    yerr=yerr,
+                    label=label,
+                    style=style,
+                    color_idx=color_idx,
+                    style_idx=color_idx,
+                    show_markers=True,
+                )
+
+            slo_val = api_slo_ms.get(api)
+            if slo_val is None:
+                slo_val = _lookup_slo(slos_numeric if slos_numeric else None, api)
+            if slo_val is not None:
+                slo_line = ax.axhline(
+                    y=float(slo_val),
+                    color=SLO_LINE_COLOR,
+                    linestyle='--',
+                    linewidth=style.line_width,
+                    zorder=5,
+                )
+                slo_inplot.append((ax, slo_line, float(slo_val)))
+
+            tp_concat = []
+            y_concat = []
+            for _, data in plot_data[api].items():
+                tp_concat.extend(float(x) / 1000.0 for x in data['tps'])
+                y_concat.extend(float(x) for x in data[metric_key])
+            if slo_val is not None:
+                y_concat.append(float(slo_val))
+            x_throughput = np.array(tp_concat, dtype=float) if tp_concat else None
+            y_arr = np.array(y_concat, dtype=float) if y_concat else None
+
+            pct_ylim = None
+            pct_ystep = None
+            if y_arr is not None and y_arr.size:
+                y_min = float(np.min(y_arr))
+                y_max = float(np.max(y_arr))
+                pct_ystep = _nice_tick_step(max(y_max - y_min, 1e-6), 5)
+                y_lo = math.floor(y_min / pct_ystep) * pct_ystep
+                if y_lo >= y_min - 1e-9:
+                    y_lo -= pct_ystep
+                y_lo = max(0.0, y_lo)
+                y_hi = math.ceil(y_max / pct_ystep) * pct_ystep
+                if y_hi <= y_max + 1e-9:
+                    y_hi += pct_ystep
+                pct_ylim = (y_lo, y_hi)
+
+            pct_grid.configure_ax(
+                ax,
+                ylabel=ylabel if api_idx == 0 else "",
+                xlabel="Throughput (KRPS)",
+                grid=True,
+                show_xticklabels=True,
+                show_xlabel=True,
+                show_ylabel=(api_idx == 0),
+                show_yticklabels=True,
+                x_data=x_throughput,
+                y_data=y_arr,
+                x_type='float',
+                log_y=False,
+                ylim=pct_ylim,
+                y_step=pct_ystep,
+                y_type="float",
+                auto_ticks=True,
+            )
+
+        pct_grid.add_shared_legend(position="top")
+        for ax, slo_line, slo_val in slo_inplot:
+            ax.legend(
+                [slo_line],
+                [f"SLO ({slo_val:g} ms)"],
+                loc='upper right',
+                frameon=False,
+                fontsize=style.legend_size,
+                handlelength=1.5,
+                handletextpad=0.4,
+                borderaxespad=0.3,
+            )
+        pct_path = output_dir / f'{figure_name}_{stem}.pdf'
+        pct_grid.save(pct_path)
+        produced.append(pct_path)
+
+    print(f"Generating merged P50 vs throughput plot...")
+    emit_pct_vs_throughput('p50', 'p50_ci', "P50 Latency (ms)", 'p50_vs_throughput')
+    print(f"Generating merged P99 vs throughput plot...")
+    emit_pct_vs_throughput('p99', 'p99_ci', "P99 Latency (ms)", 'p99_vs_throughput')
 
     # Grouped bars: SLO violation (%) at each offered load, one bar per system
     print(f"Generating merged latency-vs-throughput SLO bar plot...")
