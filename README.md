@@ -76,7 +76,7 @@ roshanfer-experiments/
 ├── run_tests.sh                   batch entry: configs/tests/*, plus hotel/social/alibaba when asked
 ├── requirements.txt               Python packages for exec/ and plotting
 ├── .envrc                         direnv: KUBECONFIG → benchmarks/k8s/kubeconfig
-├── init_env.sh                    older env helper (creates env/, pip install is commented out)
+├── init_env.sh                    pre-setup: creates .venv, installs requirements.txt; sourced by run_tests.sh
 ├── compare_sidecar_branch.sh      author helper: run the same bench on two sidecar git refs
 │
 ├── exec/                          orchestrator for the evaluation (§6)
@@ -152,7 +152,7 @@ The required submodules are `benchmarks`, `rwg`, and `benchmarks/sidecar`.
 
 ### 3. Python environment and direnv
 
-`run_tests.sh` prefers `.venv/bin/python` when it exists, otherwise `python`. It exits unless direnv has set `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`.
+`run_tests.sh` sources `init_env.sh` before any experiment, which creates `.venv` if needed, installs `requirements.txt`, and activates the venv. It exits unless direnv has set `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`.
 
 ```bash
 sudo apt install direnv
@@ -161,12 +161,8 @@ source ~/.bashrc
 cd /path/to/roshanfer-experiments
 direnv allow
 
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+./init_env.sh   # optional; run_tests.sh does this automatically
 ```
-
-`init_env.sh` currently creates a directory named `env` and leaves `pip install` commented out. Please use the commands above until that script is updated.
 
 ### 4. What a benchmark directory contains
 
@@ -294,9 +290,7 @@ echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
 source ~/.bashrc
 direnv allow
 
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+source ./init_env.sh   # optional; run_tests.sh does this automatically
 
 python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt --ssh-user YOUR_CLOUDLAB_USER
 ```

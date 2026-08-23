@@ -182,8 +182,9 @@ if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
   [[ -n "$REMOTE_NUM_GENERATORS" ]] || { echo "--num-generators is required for --remote / --remote-clean"; exit 1; }
 fi
 
+# shellcheck source=/dev/null
+source ./init_env.sh
 PYTHON=python
-[[ -x .venv/bin/python ]] && PYTHON=.venv/bin/python
 
 TESTS_ROOT="configs/tests"
 OUTPUT_BASE="./exp_runs_test"
