@@ -30,6 +30,8 @@ Artifact-evaluation work is on the `artifact-evaluation` branch.
 > - Hotel Reservation sweep:
 > - Social Network sweep:
 > - Alibaba / DGG 30-MS sweep:
+> - Dynamic-graph sweep (`dynamic-large`, `fan-out-dynamic-0-9`):
+> - Figure 15 leaf benches (`leaf-1-2`, `leaf-1-10`, `leaf-1-2-p-2-1`):
 > - Disk space for a full campaign:
 
 ---
@@ -95,6 +97,9 @@ roshanfer-experiments/
 │       ├── one-service/           tutorial example
 │       ├── dynamic-large/         Fig. 12
 │       ├── fan-out-dynamic-0-9/   Fig. 12
+│       ├── leaf-1-2/              Fig. 15, first subfigure
+│       ├── leaf-1-10/             Fig. 15, second subfigure
+│       ├── leaf-1-2-p-2-1/        Fig. 15, third subfigure
 │       └── …                      other synthetic graphs (chain, fan-out, multi-api, …)
 │
 ├── benchmarks/                    git submodule: service graphs and cluster scripts
@@ -219,8 +224,9 @@ These names appear in `experiments.json` and in `run_tests.sh --type`. They desc
 | `latency-and-rate-vs-time` | Time series after a load step (200 ms windows) |
 | `max-queue` / `max-queue-motivation` | Per-service queue depth |
 | `resource-waste` | Fraction of completed work that is later dropped or misses its SLO |
+| `throughput-vs-overcommitment` | Throughput as the overcommitment factor varies (Fig. 15) |
 
-Fields that usually matter: `system`, `apis`, `loads.start` / `end` / `step`, `duration_sec`, `warmup`, `repeat`, and `slos` in `config.json`.
+Fields that usually matter: `system`, `apis`, `loads.start` / `end` / `step`, `duration_sec`, `warmup`, `repeat`, and `slos` in `config.json`. For `throughput-vs-overcommitment`, the overcommitment values are in `overcommitments`.
 
 ### 6. Run the example
 
@@ -306,6 +312,7 @@ With `--num-generators 3`, the first three hosts are generators and the remainin
 | Open-loop generator | `rwg/` | §6.1 |
 | Hotel Reservation and Social Network | `configs/hotel/`, `configs/social/`, plus `benchmarks/` | Figures 7–11, 14 |
 | Alibaba / DGG 30-MS and dynamic graphs | `configs/alibaba-large/`, `configs/tests/dynamic-large/`, `fan-out-dynamic-*` | Figures 12–13 |
+| Overcommitment (Fig. 15) | `configs/tests/leaf-1-2/`, `leaf-1-10/`, `leaf-1-2-p-2-1/` | Figure 15 |
 | Rajomon and Dagor baselines | `system: rajomon` / `dagor` in `experiments.json` | §6 |
 | TLA+ model | **Author TODO.** Add the specification link. | §5 (Request Bound, Deadlock Freedom, Work Conservation) |
 
@@ -353,9 +360,31 @@ The following commands assume `manifest.xml` is in the repository root and the v
   --bench fan-out-dynamic-0-9
 ```
 
-Each invocation writes a new `exp_runs_test/<timestamp>/` directory. Plots are under `exp_runs_test/<timestamp>/plots/<bench>/`. Overlay plots use each bench’s `merged.yaml` (labels Roshanfer, Rajomon, Dagor, Plain).
+**Figure 15**
 
-Hotel, social, and alibaba in one invocation (this does not include the dynamic-graph benches):
+These three benches set `num_generators` to 2 in `config.json`. Use `--num-generators 2` (the first two manifest hosts are generators).
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 2 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench leaf-1-2
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 2 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench leaf-1-10
+```
+
+```bash
+./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
+  --num-generators 2 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+  --bench leaf-1-2-p-2-1
+```
+
+Each invocation writes a new `exp_runs_test/<timestamp>/` directory. Plots are under `exp_runs_test/<timestamp>/plots/<bench>/`. Overlay plots use each bench’s `merged.yaml` (labels Roshanfer, Rajomon, Dagor, Plain) when that file is present. The Fig. 15 leaf benches do not include `merged.yaml`.
+
+Hotel, social, and alibaba in one invocation (this does not include the dynamic-graph or Fig. 15 leaf benches):
 
 ```bash
 ./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
@@ -378,8 +407,11 @@ The paper figures were selected from the full bench outputs above, not from a se
 | Fig. 12 | Dynamic graphs (`dynamic-large` and `fan-out-dynamic-0-9`) | `latency-and-goodput-vs-load` |
 | Fig. 13 | Alibaba / DGG 30-MS | `latency-and-goodput-vs-load` |
 | Fig. 14 | Hotel | `latency-vs-throughput` (plain, sidecar) |
+| Fig. 15 (first subfigure) | `leaf-1-2` | `throughput-vs-overcommitment` |
+| Fig. 15 (second subfigure) | `leaf-1-10` | `throughput-vs-overcommitment` |
+| Fig. 15 (third subfigure) | `leaf-1-2-p-2-1` | `throughput-vs-overcommitment` |
 
-> **Author TODO.** Confirm this mapping against the paper. Figure 15 (overcommitment / WRR) is not listed yet.
+> **Author TODO.** Confirm this mapping against the paper.
 
 ## Expected warnings and errors
 
