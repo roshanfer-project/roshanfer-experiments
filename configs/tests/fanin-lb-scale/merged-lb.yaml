@@ -5,11 +5,11 @@ figures:
       latency-vs-throughput-fanin-lb-scale-p2c:
         label: P2C
       latency-vs-throughput-fanin-lb-scale-wrr:
-        label: WRR
+        label: RR
       latency-vs-throughput-fanin-lb-scale-approx:
         label: Approx
-      latency-vs-throughput-fanin-lb-scale-approx-fcfs:
-        label: Approx-FCFS
+#      latency-vs-throughput-fanin-lb-scale-approx-fcfs:
+#        label: Approx-FCFS
       latency-vs-throughput-fanin-lb-scale-approx-edf:
         label: Approx-EDF
 

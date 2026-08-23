@@ -5,11 +5,11 @@ figures:
       latency-vs-throughput-alibaba-lb-p2c:
         label: P2C
       latency-vs-throughput-alibaba-lb-wrr:
-        label: WRR
+        label: RR
       latency-vs-throughput-alibaba-lb-approx:
         label: Approx
-      latency-vs-throughput-alibaba-lb-approx-fcfs:
-        label: Approx-FCFS
+#      latency-vs-throughput-alibaba-lb-approx-fcfs:
+#        label: Approx-FCFS
       latency-vs-throughput-alibaba-lb-approx-edf:
         label: Approx-EDF
 
