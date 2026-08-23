@@ -2,7 +2,7 @@
   "experiment_index": "hotel",
   "num_generators": 3,
   "bench": "hotel",
-  "hosts_file": "configs/hotel/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "search-hotel": 28,
     "reserve-hotel": 25

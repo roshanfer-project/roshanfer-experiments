@@ -2,7 +2,7 @@
   "experiment_index": "fan-out-fan-in-heavy",
   "num_generators": 1,
   "bench": "tests/fan-out-fan-in-heavy",
-  "hosts_file": "configs/tests/fan-out-fan-in-heavy/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "100"
   },

@@ -2,7 +2,7 @@
   "experiment_index": "social",
   "num_generators": 3,
   "bench": "social",
-  "hosts_file": "configs/social/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "compose-post": 40,
     "read-home-timeline": 30,

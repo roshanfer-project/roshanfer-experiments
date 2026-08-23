@@ -2,7 +2,7 @@
   "experiment_index": "ingress-stress",
   "num_generators": 1,
   "bench": "tests/ingress-stress",
-  "hosts_file": "configs/tests/ingress-stress/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "50"
   },

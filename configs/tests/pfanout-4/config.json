@@ -2,7 +2,7 @@
   "experiment_index": "pfanout-4",
   "num_generators": 1,
   "bench": "tests/pfanout-4",
-  "hosts_file": "configs/tests/pfanout-4/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "40"
   },

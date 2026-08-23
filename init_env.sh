@@ -2,6 +2,12 @@
 # Pre-setup for experiments. Sourced by run_tests.sh; also runnable as ./init_env.sh
 
 _ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$_ROOT"
+export REPO_ROOT
+
+# shellcheck source=/dev/null
+source "$_ROOT/scripts/config_env.sh"
+apply_git_protocol
 
 if [[ ! -x "$_ROOT/.venv/bin/python" ]]; then
     python3 -m venv "$_ROOT/.venv" || { echo "error: could not create $_ROOT/.venv"; exit 1; }

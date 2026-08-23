@@ -77,8 +77,10 @@ roshanfer-experiments/
 ├── THIRD_PARTY.md                 DeathStarBench, NanoLog, and other third-party licenses
 ├── run_tests.sh                   batch entry: configs/tests/*, plus hotel/social/alibaba when asked
 ├── requirements.txt               Python packages for exec/ and plotting
-├── .envrc                         direnv: KUBECONFIG → benchmarks/k8s/kubeconfig
-├── init_env.sh                    pre-setup: creates .venv, installs requirements.txt; sourced by run_tests.sh
+├── .envrc                         direnv: KUBECONFIG + config.env
+├── init_env.sh                    venv + loads config.env; sourced by run_tests.sh
+├── config.env.example             copy to config.env (gitignored)
+├── hosts.txt.example              copy to hosts.txt for local mode (gitignored)
 ├── compare_sidecar_branch.sh      author helper: run the same bench on two sidecar git refs
 │
 ├── exec/                          orchestrator for the evaluation (§6)
@@ -155,7 +157,20 @@ git submodule update --init --recursive
 
 The required submodules are `benchmarks`, `rwg`, and `benchmarks/sidecar`.
 
-### 3. Python environment and direnv
+### 3. Configure once
+
+Copy the example env file and, for a local run, the hosts file. `run_tests.sh` re-reads `config.env` on every start (direnv also loads it for the interactive shell).
+
+```bash
+cp config.env.example config.env
+# Local tutorial: allow local mode and list machines
+# In config.env: REQUIRE_REMOTE=0
+cp hosts.txt.example hosts.txt   # edit to user@host; first lines are generators
+```
+
+Every hosts line must be `user@host`. One `hosts.txt` is shared by every bench, by `create.sh` / `delete.sh` (they skip the first `NUM_GENERATORS` lines), and by `provision.sh` (all lines).
+
+### 4. Python environment and direnv
 
 `run_tests.sh` sources `init_env.sh` before any experiment, which creates `.venv` if needed, installs `requirements.txt`, and activates the venv. It exits unless direnv has set `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`.
 
@@ -169,16 +184,15 @@ direnv allow
 ./init_env.sh   # optional; run_tests.sh does this automatically
 ```
 
-### 4. What a benchmark directory contains
+### 5. What a benchmark directory contains
 
 `configs/tests/one-service/` is the smallest example:
 
 | File | Purpose |
 | --- | --- |
-| `config.json` | Bench name (`bench: tests/one-service`), SLOs, `num_generators`, hosts. |
+| `config.json` | Bench name (`bench: tests/one-service`), SLOs, `num_generators`. Local hosts are repo-root `hosts.txt`. |
 | `experiments.json` | List of runs: `type`, `system`, `loads`, `duration_sec`, `apis`, `repeat`. |
 | `merged.yaml` | How to overlay systems on one figure (Plain vs Roshanfer). |
-| `hosts.txt` | Local-mode hosts. With `--remote`, hosts come from a CloudLab manifest instead. |
 
 Relevant fields in `config.json`:
 
@@ -187,13 +201,13 @@ Relevant fields in `config.json`:
   "bench": "tests/one-service",
   "num_generators": 1,
   "slos": { "f1": "20" },
-  "hosts_file": "configs/tests/one-service/hosts.txt"
+  "hosts_file": "hosts.txt"
 }
 ```
 
 Also used: `experiment_index`. Optional: `post_deploy_wait_sec`, `tuner`.
 
-Copy those two lines into `configs/tests/one-service/hosts.txt`.
+Copy `hosts.txt.example` to `hosts.txt` and set `user@host` lines (see Configure once).
 
 A small sidecar latency sweep in `experiments.json` looks like this:
 
@@ -214,7 +228,7 @@ A small sidecar latency sweep in `experiments.json` looks like this:
 
 To add another example, copy the directory, edit `config.json` and `experiments.json`, and run `--bench my-example`. A new service graph belongs under `benchmarks/`; point `bench` at it.
 
-### 5. Experiment types
+### 6. Experiment types
 
 These names appear in `experiments.json` and in `run_tests.sh --type`. They describe *what* a run measures. They are reused later for paper figures, but the tutorial only needs to show that each type is a different measurement.
 
@@ -229,7 +243,7 @@ These names appear in `experiments.json` and in `run_tests.sh --type`. They desc
 
 Fields that usually matter: `system`, `apis`, `loads.start` / `end` / `step`, `duration_sec`, `warmup`, `repeat`, and `slos` in `config.json`. For `throughput-vs-overcommitment`, the overcommitment values are in `overcommitments`.
 
-### 6. Run the example
+### 7. Run the example
 
 ```bash
 ./run_tests.sh \
@@ -238,9 +252,9 @@ Fields that usually matter: `system`, `apis`, `loads.start` / `end` / `step`, `d
   --comment tutorial
 ```
 
-This uses `configs/tests/one-service/hosts.txt` (local mode, no CloudLab manifest). The script writes `exp_runs_test/<run_id>/one-service/` and plots under `exp_runs_test/<run_id>/plots/one-service/`. A later invocation creates a new timestamped directory.
+This uses repo-root `hosts.txt` (local mode, no CloudLab manifest). Requires `REQUIRE_REMOTE=0` in `config.env`. The script writes `exp_runs_test/<run_id>/one-service/` and plots under `exp_runs_test/<run_id>/plots/one-service/`. A later invocation creates a new timestamped directory.
 
-### 7. Inspect output
+### 8. Inspect output
 
 ```bash
 ls exp_runs_test/*/one-service/exp-one-service/
@@ -299,7 +313,9 @@ direnv allow
 
 source ./init_env.sh   # optional; run_tests.sh does this automatically
 
-python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt --ssh-user YOUR_CLOUDLAB_USER
+cp config.env.example config.env
+# Set CLOUDLAB_SSH_USER and CLOUDLAB_MANIFEST=./manifest.xml
+# Leave REQUIRE_REMOTE=1
 ```
 
 With `--num-generators 3`, the first three hosts are generators and the remaining 22 are workload nodes.
@@ -321,65 +337,57 @@ With `--num-generators 3`, the first three hosts are generators and the remainin
 
 The paper results come from a full run of each benchmark below. Each command executes every experiment in that bench’s `experiments.json`. After the runs finish, the paper figures are taken from those outputs (see the next section).
 
-The following commands assume `manifest.xml` is in the repository root and the virtualenv from the previous section is active.
+The following commands assume `config.env` has `CLOUDLAB_SSH_USER` and `CLOUDLAB_MANIFEST` (typically `./manifest.xml`) and the virtualenv from the previous section is active. Flags still override those values.
 
 **Hotel Reservation**
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench hotel --also-hotel-social
 ```
 
 **Social Network**
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench social --also-hotel-social
 ```
 
 **Alibaba / DGG 30-MS**
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench alibaba-large --also-alibaba
 ```
 
 **Dynamic graphs**
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench dynamic-large
 ```
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench fan-out-dynamic-0-9
 ```
 
 **Figure 15**
 
-These three benches set `num_generators` to 2 in `config.json`. Use `--num-generators 2` (the first two manifest hosts are generators).
+These three benches set `num_generators` to 2 in `config.json`. Override with `--num-generators 3` (the first three manifest hosts are generators).
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 2 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench leaf-1-2
 ```
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 2 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench leaf-1-10
 ```
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 2 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --bench leaf-1-2-p-2-1
 ```
 
@@ -388,8 +396,7 @@ Each invocation writes a new `exp_runs_test/<timestamp>/` directory. Plots are u
 Hotel, social, and alibaba in one invocation (this does not include the dynamic-graph or Fig. 15 leaf benches):
 
 ```bash
-./run_tests.sh --remote --cloudlab-manifest ./manifest.xml \
-  --num-generators 3 --cloudlab-ssh-user YOUR_CLOUDLAB_USER \
+./run_tests.sh --remote --num-generators 3 \
   --also-hotel-social --also-alibaba
 ```
 

@@ -354,7 +354,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         )
         
         if hasattr(config, "k8s_script") and config.k8s_script:
-            infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
+            infra.setup_k8s(Path(config.k8s_script), effective_num_gens, log_path=k8s_log)
             k8s_ran = True
 
         _write_infra_partition(run_root, config, generators, deployment, filters)
@@ -394,17 +394,21 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         # A. Build & Deploy (Moved before Tuning so images exist)
         try:
             # Build Step
-            path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
-            tag_base = f"{config.experiment_index}-{path_hash}"
-            tag = _safe_name(tag_base)
+            image_tag = (os.environ.get("IMAGE_TAG") or "").strip()
+            if image_tag:
+                tag = _safe_name(image_tag)
+            else:
+                path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
+                tag = _safe_name(f"{config.experiment_index}-{path_hash}")
             logging.info(f"Tag: {tag}")
-            
-            # Status file in the run directory (separate marker when NanoLog binary required)
+
             _bsuf = "_nanolog" if config.nanolog_debug else ""
             build_status_file = run_root / f"build_success_{tag}{_bsuf}"
-            
-            # Check build
-            if not build_status_file.exists():
+            skip_build = os.environ.get("SKIP_BUILD", "0").strip().lower() in ("1", "true", "yes")
+
+            if skip_build:
+                logging.info("SKIP_BUILD set; skipping build.sh (deploy will pull %s)", tag)
+            elif not build_status_file.exists():
                 build_log = logs_dir / f"build_{system}_{_timestamp()}.log"
                 runner.build_system(bench, system, tag, build_status_file, log_path=build_log)
             else:

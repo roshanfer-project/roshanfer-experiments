@@ -2,7 +2,7 @@
   "experiment_index": "chain-2-bimodal",
   "num_generators": 1,
   "bench": "tests/chain-2-bimodal",
-  "hosts_file": "configs/tests/chain-2-bimodal/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "25"
   },

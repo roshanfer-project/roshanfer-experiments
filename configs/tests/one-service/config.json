@@ -2,7 +2,7 @@
   "experiment_index": "one-service",
   "num_generators": 1,
   "bench": "tests/one-service",
-  "hosts_file": "configs/tests/one-service/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "20"
   },

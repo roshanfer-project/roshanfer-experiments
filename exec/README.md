@@ -16,7 +16,7 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
 ## Prerequisites
 
 1.  **Submodules**: From repo root, run `git submodule update --init benchmarks rwg` (or clone with `--recurse-submodules`). Provisioning/K8s scripts live under `benchmarks/`.
-2.  **Hosts File**: Create `hosts.txt` with a list of SSH-accessible hosts (one per line).
+2.  **Hosts File**: Create repo-root `hosts.txt` (from `hosts.txt.example`) with `user@host` lines.
     ```text
     user@node1.cloudlab.us
     user@node2.cloudlab.us
@@ -73,21 +73,21 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 ```bash
 ./run_tests.sh
 ./run_tests.sh --also-hotel-social
-./run_tests.sh --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu
+./run_tests.sh --remote --num-generators 3
 ```
 
-`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run.
+`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run. `CLOUDLAB_MANIFEST` and `CLOUDLAB_SSH_USER` come from `config.env` unless you pass `--cloudlab-manifest` / `--cloudlab-ssh-user`. `CLOUDLAB_SSH_USER` is required.
 
-`--remote-clean` (with the same `--cloudlab-manifest` and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` using **deployment** hosts only (all lines after the first `num_generators`). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
+`--remote-clean` (with the same manifest and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` (that script skips the first `NUM_GENERATORS` lines). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
 
 ### Local vs Remote Host Resolution
 
-Hosts are always read from a plain-text file (one `[user@]host` per line, `#` comments ignored) via `InfraBuilder`. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes. The two modes differ only in *which* file is used:
+Hosts are always read from a plain-text file (one `user@host` per line, `#` comments ignored) via `InfraBuilder`. A line without `@` is an error. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes.
 
-- **Local mode** — each test's `config.json` has a `hosts_file` field pointing to a static per-test file, e.g. `configs/tests/one-service/hosts.txt`. There is no auto-discovery; you edit that file to match your local setup.
-- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` (via `exec.cloudlab_hosts`) and passes it with `--hosts-file`, overriding whatever `hosts_file` the config specifies.
+- **Local mode** — repo-root `hosts.txt` (copy `hosts.txt.example`). `REQUIRE_REMOTE=0` in `config.env`. `create.sh` / `delete.sh` read the same file and skip the first `NUM_GENERATORS` lines; `provision.sh` uses every line.
+- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` and passes it with `--hosts-file`. Root `hosts.txt` is not read.
 
-`benchmarks/k8s/hosts.txt` and `benchmarks/provisioning/hosts.txt` are only used as defaults when running those shell scripts *manually*; the executor always overrides them by setting the `HOSTS_FILE` env var.
+`IMAGE_TAG` in `config.env` overrides the executor’s path-hash image tag. `SKIP_BUILD=1` skips `build.sh`.
 
 ## Tuning
 

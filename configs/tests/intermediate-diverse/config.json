@@ -2,7 +2,7 @@
   "experiment_index": "intermediate-diverse",
   "num_generators": 3,
   "bench": "tests/intermediate-diverse",
-  "hosts_file": "configs/tests/intermediate-diverse/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "30",
     "f2": "40",

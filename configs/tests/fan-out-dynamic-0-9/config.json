@@ -2,7 +2,7 @@
   "experiment_index": "fan-out-dynamic-0-9",
   "num_generators": 1,
   "bench": "tests/fan-out-dynamic-0-9",
-  "hosts_file": "configs/tests/fan-out-dynamic-0-9/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "40"
   },

@@ -54,9 +54,10 @@ usage() {
   echo "  --system SYS    Run only experiments with system SYS (plain, sidecar; comma-separated)"
   echo "  --num-apis N    Run only experiments with N APIs (comma-separated, e.g. 1,3)"
   echo "  --shared-generator  Allow fewer generators than APIs (assign round-robin)"
-  echo "  --remote          Use CloudLab manifest for hosts (requires --cloudlab-manifest, --num-generators)"
-  echo "  --cloudlab-manifest PATH   Experiment manifest XML from CloudLab portal"
-  echo "  --cloudlab-ssh-user USER   Default SSH user if manifest has bare hostnames"
+  echo "  --remote          Use CloudLab manifest for hosts (requires manifest, --num-generators,"
+  echo "                    and CLOUDLAB_SSH_USER from --cloudlab-ssh-user or config.env)"
+  echo "  --cloudlab-manifest PATH   Experiment manifest XML (or CLOUDLAB_MANIFEST in config.env)"
+  echo "  --cloudlab-ssh-user USER   CloudLab username (or CLOUDLAB_SSH_USER in config.env)"
   echo "  --num-generators N   Override config num_generators (local). With --remote/--remote-clean,"
   echo "                       required; passed to executor with manifest hosts."
   echo "  --remote-clean       With manifest + num-generators: rm .roshanfer_provisioned on all nodes,"
@@ -74,10 +75,10 @@ usage() {
   echo "Examples:"
   echo "  $0"
   echo "  $0 --bench multi-api"
-  echo "  $0 --num-generators 2 --bench leaf-1-2"
-  echo "  $0 --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu"
-  echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
-  echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
+  echo "  $0 --num-generators 3 --bench leaf-1-2"
+  echo "  $0 --remote --cloudlab-manifest ./manifest.xml --num-generators 3"
+  echo "  $0 --remote-clean --num-generators 3"
+  echo "  $0 --remote --remote-clean --num-generators 3   # clean then run"
   echo "  $0 --also-hotel-social"
   echo "  $0 --also-alibaba"
   echo "  $0 --bench alibaba-large --also-alibaba"
@@ -177,14 +178,30 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
-  [[ -n "$CLOUDLAB_MANIFEST" ]] || { echo "--cloudlab-manifest is required for --remote / --remote-clean"; exit 1; }
-  [[ -n "$REMOTE_NUM_GENERATORS" ]] || { echo "--num-generators is required for --remote / --remote-clean"; exit 1; }
-fi
+CLI_CLOUDLAB_MANIFEST="$CLOUDLAB_MANIFEST"
+CLI_CLOUDLAB_SSH_USER="$CLOUDLAB_SSH_USER"
 
 # shellcheck source=/dev/null
 source ./init_env.sh
 PYTHON=python
+
+[[ -n "$CLI_CLOUDLAB_MANIFEST" ]] && CLOUDLAB_MANIFEST="$CLI_CLOUDLAB_MANIFEST"
+[[ -n "$CLI_CLOUDLAB_SSH_USER" ]] && CLOUDLAB_SSH_USER="$CLI_CLOUDLAB_SSH_USER"
+
+req="${REQUIRE_REMOTE:-0}"
+req="${req,,}"
+if [[ "$req" == "1" || "$req" == "true" || "$req" == "yes" ]]; then
+  if [[ -z "$REMOTE" && -z "$REMOTE_CLEAN" ]]; then
+    echo "REQUIRE_REMOTE is set. Pass --remote or --remote-clean, or set REQUIRE_REMOTE=0 in config.env."
+    exit 1
+  fi
+fi
+
+if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
+  [[ -n "$CLOUDLAB_MANIFEST" ]] || { echo "CLOUDLAB_MANIFEST or --cloudlab-manifest is required for --remote / --remote-clean"; exit 1; }
+  [[ -n "$CLOUDLAB_SSH_USER" ]] || { echo "CLOUDLAB_SSH_USER or --cloudlab-ssh-user is required for --remote / --remote-clean"; exit 1; }
+  [[ -n "$REMOTE_NUM_GENERATORS" ]] || { echo "--num-generators is required for --remote / --remote-clean"; exit 1; }
+fi
 
 TESTS_ROOT="configs/tests"
 OUTPUT_BASE="./exp_runs_test"
@@ -212,10 +229,18 @@ if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
     HOSTS_OUT=$(mktemp)
     trap 'rm -f "$HOSTS_OUT"' EXIT
   fi
-  CL=( "$PYTHON" -m exec.cloudlab_hosts --manifest "$CLOUDLAB_MANIFEST" -o "$HOSTS_OUT" )
-  [[ -n "$CLOUDLAB_SSH_USER" ]] && CL+=( --ssh-user "$CLOUDLAB_SSH_USER" )
+  CL=( "$PYTHON" -m exec.cloudlab_hosts --manifest "$CLOUDLAB_MANIFEST" -o "$HOSTS_OUT" --ssh-user "$CLOUDLAB_SSH_USER" )
   "${CL[@]}" || exit 1
   [[ -n "$REMOTE" ]] && REMOTE_ARGS=( --hosts-file "$HOSTS_OUT" --num-generators "$REMOTE_NUM_GENERATORS" )
+fi
+
+LOCAL_HOSTS_ARGS=()
+if [[ -z "$REMOTE" && -z "$REMOTE_CLEAN" ]]; then
+  if [[ ! -f hosts.txt ]]; then
+    echo "hosts.txt not found. Copy hosts.txt.example to hosts.txt and set user@host lines."
+    exit 1
+  fi
+  LOCAL_HOSTS_ARGS=( --hosts-file hosts.txt )
 fi
 
 remote_clean_hosts() {
@@ -224,30 +249,19 @@ remote_clean_hosts() {
   # shellcheck source=/dev/null
   [[ -f "$kcfg" ]] && source "$kcfg"
   local ssh_o="${SSH_OPTS:--o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null}"
-  local def_u="${SSH_USER:-ubuntu}"
   echo "Removing .roshanfer_provisioned on all manifest hosts..."
   while IFS= read -r entry; do
     local u h
-    if [[ "$entry" == *"@"* ]]; then
-      u="${entry%%@*}"
-      h="${entry#*@}"
-    else
-      u="$def_u"
-      h="$entry"
+    if [[ "$entry" != *"@"* ]]; then
+      echo "Host line must be user@host: $entry"
+      return 1
     fi
+    u="${entry%%@*}"
+    h="${entry#*@}"
     ssh $ssh_o "$u@$h" "rm -f .roshanfer_provisioned" && echo "  cleared provision marker $u@$h" || echo "  warn: could not clear $u@$h"
   done < <(grep -vE '^\s*#|^\s*$' "$hf")
-  local deploy_tmp
-  deploy_tmp=$(mktemp)
-  tail -n "+$((ng + 1))" "$hf" | grep -vE '^\s*#|^\s*$' > "$deploy_tmp" || true
-  if [[ ! -s "$deploy_tmp" ]]; then
-    rm -f "$deploy_tmp"
-    echo "No deployment hosts (need more hosts than num_generators). Skipping K8s delete."
-    return 0
-  fi
-  echo "Running benchmarks/k8s/delete.sh with deployment hosts ($(wc -l < "$deploy_tmp") nodes)..."
-  HOSTS_FILE="$deploy_tmp" "$PWD/benchmarks/k8s/delete.sh" || { rm -f "$deploy_tmp"; return 1; }
-  rm -f "$deploy_tmp"
+  echo "Running benchmarks/k8s/delete.sh (NUM_GENERATORS=$ng)..."
+  HOSTS_FILE="$hf" NUM_GENERATORS="$ng" "$PWD/benchmarks/k8s/delete.sh"
 }
 
 if [[ -n "$REMOTE_CLEAN" ]]; then
@@ -268,7 +282,7 @@ run_bench() {
   local out_dir="$OUTPUT_BASE/${RUN_DIR_ID}/${name}"
   echo "Running $name -> $out_dir"
   if ! $PYTHON -m exec.executor --experiments-file "$experiments" --config "$config" \
-      --output-base-dir "$out_dir" "${REMOTE_ARGS[@]}" "${EXTRA_ARGS[@]}"; then
+      --output-base-dir "$out_dir" "${REMOTE_ARGS[@]}" "${LOCAL_HOSTS_ARGS[@]}" "${EXTRA_ARGS[@]}"; then
     failed=$((failed + 1))
     return
   fi

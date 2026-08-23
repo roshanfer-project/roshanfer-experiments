@@ -2,7 +2,7 @@
   "experiment_index": "multi-api",
   "num_generators": 3,
   "bench": "tests/multi-api",
-  "hosts_file": "configs/tests/multi-api/hosts.txt",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "30",
     "f2": "35",
