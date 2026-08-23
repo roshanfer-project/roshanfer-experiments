@@ -5,6 +5,7 @@ Refactored for CloudLab orchestration.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import hashlib
 import json
@@ -118,6 +119,46 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
 
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
     script = exp.script or ("run.sh" if exp.system == "sidecar" else "run-plain.sh")
+
+    if exp.type == "throughput-vs-overcommitment":
+        raw_ocs = exp.params.get("overcommitments") if exp.params else None
+        if not raw_ocs:
+            raise ValueError(
+                f"Experiment '{exp.name}' type throughput-vs-overcommitment "
+                "requires a non-empty overcommitments list"
+            )
+        loads = [0] if (exp.loads is None and exp.base_rate == 0) else list(range(start, end, step))
+        for raw_oc in raw_ocs:
+            oc = float(raw_oc)
+            pct = int(round(oc * 100))
+            for load in loads:
+                params = copy.deepcopy(exp.params) if exp.params else {}
+                deploy_env = dict(params.get("deploy_env") or {})
+                deploy_env["SIDECAR_OVER_COMMIT"] = str(int(oc)) if oc == int(oc) else str(oc)
+                params["deploy_env"] = deploy_env
+                yield RunUnit(
+                    name=f"{exp.name}-oc-{pct}-rate-{load}",
+                    type=exp.type,
+                    script=script,
+                    base=exp.base_rate,
+                    rate=load,
+                    duration=exp.duration,
+                    system=exp.system,
+                    apis=exp.apis,
+                    bench=bench,
+                    collector_freq=exp.collector_freq,
+                    warmup=exp.warmup,
+                    cooldown=exp.cooldown,
+                    services=exp.services,
+                    cleanup_args=exp.cleanup_args,
+                    execution_args=exp.execution_args,
+                    metadata={"overcommitment": oc},
+                    repeats=exp.repeat,
+                    generator_hosts=generator_hosts,
+                    deployment_hosts=deployment,
+                    params=params,
+                )
+        return
 
     if exp.loads is None and exp.base_rate == 0:
         # Single run, no load sweep?

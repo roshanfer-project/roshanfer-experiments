@@ -1,17 +1,10 @@
 {
-  "output_base_dir": "./exp_runs",
   "experiment_index": "pfanout-4",
   "num_generators": 1,
-  "raw_artifact_subdir": "raw",
-  "metrics_subdir": "metrics",
-  "rwg_binary_path": "./rwg/rwg",
   "bench": "tests/pfanout-4",
   "hosts_file": "configs/tests/pfanout-4/hosts.txt",
-  "ssh_binary": "ssh",
-  "git_root": "..",
   "slos": {
     "f1": "40"
   },
-  "metrics": {},
   "post_deploy_wait_sec": 1
 }

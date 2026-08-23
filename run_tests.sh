@@ -74,7 +74,7 @@ usage() {
   echo "Examples:"
   echo "  $0"
   echo "  $0 --bench multi-api"
-  echo "  $0 --num-generators 2 --bench leaf-diverse"
+  echo "  $0 --num-generators 2 --bench leaf-1-2"
   echo "  $0 --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu"
   echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
   echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
@@ -182,8 +182,9 @@ if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
   [[ -n "$REMOTE_NUM_GENERATORS" ]] || { echo "--num-generators is required for --remote / --remote-clean"; exit 1; }
 fi
 
+# shellcheck source=/dev/null
+source ./init_env.sh
 PYTHON=python
-[[ -x .venv/bin/python ]] && PYTHON=.venv/bin/python
 
 TESTS_ROOT="configs/tests"
 OUTPUT_BASE="./exp_runs_test"

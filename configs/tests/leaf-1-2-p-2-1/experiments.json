@@ -1,0 +1,28 @@
+{
+  "experiments": [
+    {
+      "type": "throughput-vs-overcommitment",
+      "overcommitments": [
+        0,
+        0.2,
+        0.6,
+        1
+      ],
+      "loads": {
+        "start": 250,
+        "end": 250,
+        "step": 50
+      },
+      "base_rate": 50,
+      "duration_sec": 10,
+      "apis": [
+        "f1",
+        "f2"
+      ],
+      "system": "sidecar",
+      "repeat": 1,
+      "collector_freq": 200,
+      "warmup": 2
+    }
+  ]
+}
