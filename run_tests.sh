@@ -74,7 +74,7 @@ usage() {
   echo "Examples:"
   echo "  $0"
   echo "  $0 --bench multi-api"
-  echo "  $0 --num-generators 2 --bench leaf-diverse"
+  echo "  $0 --num-generators 2 --bench leaf-1-2"
   echo "  $0 --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu"
   echo "  $0 --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3 --cloudlab-ssh-user farzad11"
   echo "  $0 --remote --remote-clean --cloudlab-manifest ~/m.xml --num-generators 3   # clean then run"
