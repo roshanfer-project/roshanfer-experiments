@@ -1,17 +1,17 @@
 {
   "output_base_dir": "./exp_runs",
-  "experiment_index": "leaf-diverse",
+  "experiment_index": "leaf-1-2",
   "num_generators": 2,
   "raw_artifact_subdir": "raw",
   "metrics_subdir": "metrics",
   "rwg_binary_path": "./rwg/rwg",
-  "bench": "tests/leaf-diverse",
-  "hosts_file": "configs/tests/leaf-diverse/hosts.txt",
+  "bench": "tests/leaf-1-2",
+  "hosts_file": "configs/tests/leaf-1-2/hosts.txt",
   "ssh_binary": "ssh",
   "git_root": "..",
   "slos": {
-    "f1": "75",
-    "f2": "150"
+    "f1": "500",
+    "f2": "500"
   },
   "metrics": {},
   "post_deploy_wait_sec": 1
