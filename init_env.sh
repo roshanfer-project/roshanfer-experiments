@@ -16,4 +16,7 @@ fi
 
 # shellcheck source=/dev/null
 source "$_ROOT/.venv/bin/activate"
+
+"$_ROOT/scripts/ensure_rwg.sh" || { echo "error: failed to build local rwg"; exit 1; }
+
 unset _ROOT
