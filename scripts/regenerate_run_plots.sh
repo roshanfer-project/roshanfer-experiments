@@ -2,27 +2,33 @@
 # Regenerate plot_runner + merged_plot_runner + merge_plot_pdfs for one exp_runs_test run.
 # Also regenerates nanolog debug PDFs when *.nanolog.log files are present.
 # Suites: configs/tests/<name>/ plus hotel, social, alibaba-large (same layout as run_tests.sh).
-# Usage: ./scripts/regenerate_run_plots.sh [--namespace NS] <run_id>
+# Usage: ./scripts/regenerate_run_plots.sh [--namespace NS] [--merged-only] <run_id>
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 usage() {
-  echo "Usage: $0 [--namespace NS] <run_id>" >&2
+  echo "Usage: $0 [--namespace NS] [--merged-only] <run_id>" >&2
   echo "  run_id: folder name under exp_runs_test/ (e.g. 20260410_123116_dynamic-large)" >&2
   echo "  --namespace NS: override namespace (default: read from run dir .namespace)" >&2
+  echo "  --merged-only: skip plot_runner and nanolog; only merged_plot_runner + merge_plot_pdfs" >&2
   exit 1
 }
 
 NAMESPACE=""
 RUN_ID=""
+MERGED_ONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --namespace)
       [[ -z "${2:-}" ]] && usage
       NAMESPACE="$2"
       shift 2
+      ;;
+    --merged-only)
+      MERGED_ONLY=1
+      shift
       ;;
     -h|--help)
       usage
@@ -71,11 +77,13 @@ for dir in "$RUN_ROOT"/*/; do
   idx="$("$PYTHON" -c "import json,sys; c=json.load(open(sys.argv[1])); print(c.get(\"experiment_index\", sys.argv[2]))" "$cfg" "$name")"
   out="$RUN_ROOT/plots/$name"
   echo "[$RUN_ID] $name (namespace=$NAMESPACE, experiment_index=$idx)"
-  "$PYTHON" -m exec.plot_runner \
-    --experiment-index "$idx" \
-    --experiments-root "$RUN_ROOT/$name" \
-    --config-file "$cfg" \
-    --output-dir "$out"
+  if [[ "$MERGED_ONLY" -eq 0 ]]; then
+    "$PYTHON" -m exec.plot_runner \
+      --experiment-index "$idx" \
+      --experiments-root "$RUN_ROOT/$name" \
+      --config-file "$cfg" \
+      --output-dir "$out"
+  fi
   if [[ -n "$merged" && -f "$merged" ]]; then
     "$PYTHON" -m exec.merged_plot_runner \
       --merged-config "$merged" \
@@ -93,16 +101,18 @@ if [[ "$any" -eq 0 ]]; then
 fi
 
 # Nanolog debug PDFs: unit/raw/service_logs/<stem>.nanolog.log -> unit/nanolog/metrics-<stem>.pdf
-mapfile -t NANOLOGS < <(find "$RUN_ROOT" -type f -name '*.nanolog.log' | sort)
-if ((${#NANOLOGS[@]})); then
-  echo "[$RUN_ID] regenerating ${#NANOLOGS[@]} nanolog plot(s)"
-  for log in "${NANOLOGS[@]}"; do
-    stem="$(basename "$log" .nanolog.log)"
-    unit_dir="$(cd "$(dirname "$log")/../.." && pwd)"
-    out_pdf="$unit_dir/nanolog/metrics-${stem}.pdf"
-    mkdir -p "$(dirname "$out_pdf")"
-    "$PYTHON" -m exec.nanolog_metrics_plot --files "$log" --output "$out_pdf"
-  done
+if [[ "$MERGED_ONLY" -eq 0 ]]; then
+  mapfile -t NANOLOGS < <(find "$RUN_ROOT" -type f -name '*.nanolog.log' | sort)
+  if ((${#NANOLOGS[@]})); then
+    echo "[$RUN_ID] regenerating ${#NANOLOGS[@]} nanolog plot(s)"
+    for log in "${NANOLOGS[@]}"; do
+      stem="$(basename "$log" .nanolog.log)"
+      unit_dir="$(cd "$(dirname "$log")/../.." && pwd)"
+      out_pdf="$unit_dir/nanolog/metrics-${stem}.pdf"
+      mkdir -p "$(dirname "$out_pdf")"
+      "$PYTHON" -m exec.nanolog_metrics_plot --files "$log" --output "$out_pdf"
+    done
+  fi
 fi
 
 mkdir -p "$RUN_ROOT/plots"
