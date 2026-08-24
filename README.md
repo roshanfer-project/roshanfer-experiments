@@ -198,6 +198,22 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **What:** provision hosts, create the Kubernetes cluster, and run one time-series experiment with a single API.
 
+Running all experiments (including generation of corresponding figures) is automatied through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
+
+We can run a simple experiment with the following command:
+```bash
+./run_tests.sh --remote --num-generators 3 \
+  --bench one-service \
+  --type latency-and-rate-vs-time --num-apis 1 \
+  --comment tutorial
+```
+
+The important options here are:
+- `--bench`: this tell the script to only filter `one-service` benchmark (both `/tests` and `/config` include a directory named `one-service` that keep implementation and configurations, respectively)
+- `--type`: filter experiments type of `latency-and-rate-vs-time`
+- `num-apis`: filter experiments with 1 API
+- `--comment` append `tutorial` to the directory name of the output results.
+
 The flags `--type` and `--num-apis` select this entry in `configs/tests/one-service/experiments.json`:
 
 ```json
@@ -222,13 +238,6 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
         { "name": "f1", "avg_rt": 1, "slo": 20 }
     ]
 }
-```
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench one-service \
-  --type latency-and-rate-vs-time --num-apis 1 \
-  --comment tutorial
 ```
 
 **Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
