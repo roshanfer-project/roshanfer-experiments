@@ -1,8 +1,8 @@
 # Roshanfer artifact — EuroSys 2027
 
-This repository is the experiment harness for:
+This repository is the artifact for:
 
-**Roshanfer: Achieving Performance Resilience in Cloud Microservices.** Farzad Mohammadi et al. EuroSys 2027 (paper #1195).
+**Roshanfer: Achieving Performance Resilience in Cloud Microservices.** Farzad Mohammadi, Theo Akande, and Marios Kogias. EuroSys 2027 (paper #1195). [citation](#citation).
 
 We are submitting this artifact for the ACM / EuroSys 2027 badges **Available**, **Functional**, and **Reproduced**.
 
@@ -365,6 +365,26 @@ The paper figures were selected from the full bench outputs above, not from a se
 ## Local development
 
 > **Author TODO.** Write this section. Cover running on a single Linux machine instead of CloudLab: `REQUIRE_REMOTE=0` in `config.env`, `hosts.txt` from `hosts.txt.example` (`user@host` lines; first lines are generators), omit `--remote`, and passwordless `ssh user@localhost`.
+
+---
+
+## Citation
+Farzad Mohammadi, Theo Akande, and Marios Kogias. 2027. Roshanfer: Achieving Performance Resilience in Cloud Microservices. In *Proceedings of the 22nd European Conference on Computer Systems* (EuroSys ’27).
+
+```bibtex
+@inproceedings{mohammadi2027roshanfer,
+  title     = {Roshanfer: Achieving Performance Resilience in Cloud Microservices},
+  author    = {Mohammadi, Farzad and Akande, Theo and Kogias, Marios},
+  booktitle = {Proceedings of the 22nd European Conference on Computer Systems},
+  year      = {2027}
+}
+```
+
+## Contact
+
+Farzad Mohammadi, [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
+
+Questions and problems: please [open a GitHub issue](https://github.com/farzad1132/roshanfer-experments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk)
 
 ---
 
