@@ -299,7 +299,16 @@ flowchart LR
 
 1. Open the parameter set above and instantiate it so the hardware type and node count match the paper.
 2. Wait until all nodes are ready, then download the experiment manifest XML.
-3. On the control machine:
+3. From this repository on your laptop, SSH to the control node (`node0`), clone branch `artifact-evaluation` with `--recurse-submodules` into `~/roshanfer-experiments`, and attach tmux session `roshanfer` (created if needed):
+
+```bash
+./scripts/cloudlab_enter.sh --name NAME --project PROJECT --user USER
+# default --url wisc.cloudlab.us
+```
+
+`NAME` and `PROJECT` are **Name** and **Project** on the CloudLab experiment page. Detach with `./scripts/cloudlab_leave.sh` inside tmux (or **Ctrl-b d**); that also ends SSH. The session and clone stay on the node.
+
+4. On the control machine:
 
 ```bash
 git clone --recurse-submodules -b artifact-evaluation <this-repo-url>
@@ -318,7 +327,7 @@ cp config.env.example config.env
 # Leave REQUIRE_REMOTE=1
 ```
 
-With `--num-generators 3`, the first three hosts are generators and the remaining 22 are workload nodes.
+With `--num-generators 3`, the first three hosts are generators and the remaining 22 are workload nodes. If you used `cloudlab_enter.sh`, skip the `git clone` above (`~/roshanfer-experiments` is already on `artifact-evaluation` with submodules).
 
 ## Artifact map
 
