@@ -91,12 +91,34 @@ if ! ssh-add -l >/dev/null 2>&1; then
   ssh-add || { echo "error: add your GitHub SSH key to the agent (e.g. ssh-add ~/.ssh/id_ed25519)"; exit 1; }
 fi
 
+# provision.sh copies ~/.ssh/id_ed25519 from node0 to workers; -A does not write that file.
+# shellcheck source=/dev/null
+source "$ROOT/scripts/pick_github_ssh_key.sh"
+GH_KEY_PATH=""
+GH_KEY_PATH="$(pick_github_ssh_key)" || {
+  echo "error: no OpenSSH GitHub key on this laptop (ssh -G github.com, or ~/.ssh/id_ed25519|id_ecdsa|id_rsa + .pub)."
+  echo "PuTTY .ppk and FIDO/hardware keys cannot be copied to CloudLab workers."
+  exit 1
+}
+
+SSH_OPTS="${SSH_OPTS:--o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null}"
+# shellcheck disable=SC2086
+ssh $SSH_OPTS "$HOST" "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+# Install as id_ed25519 so provision.sh and worker git use a default name (any key type).
+# shellcheck disable=SC2086
+scp $SSH_OPTS "$GH_KEY_PATH" "$HOST:~/.ssh/id_ed25519"
+# shellcheck disable=SC2086
+scp $SSH_OPTS "${GH_KEY_PATH}.pub" "$HOST:~/.ssh/id_ed25519.pub"
+
 remote=$(cat <<EOF
 set -euo pipefail
 DEST="\$HOME/${DEST_REL}"
 SESSION=$(printf '%q' "$SESSION")
 BRANCH=$(printf '%q' "$BRANCH")
 CLONE_URL=$(printf '%q' "$CLONE_URL")
+
+chmod 600 "\$HOME/.ssh/id_ed25519"
+chmod 644 "\$HOME/.ssh/id_ed25519.pub"
 
 if ! command -v tmux >/dev/null 2>&1; then
   sudo apt-get update -qq
@@ -116,6 +138,5 @@ exec tmux attach-session -t "\$SESSION"
 EOF
 )
 
-SSH_OPTS="${SSH_OPTS:--o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null}"
 # shellcheck disable=SC2086
 exec ssh -A -o AddKeysToAgent=yes $SSH_OPTS -t "$HOST" "bash -c $(printf '%q' "$remote")"

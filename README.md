@@ -311,7 +311,7 @@ flowchart LR
 # default --url wisc.cloudlab.us
 ```
 
-`NAME` and `PROJECT` are **Name** and **Project** on the CloudLab experiment page. Detach with `./scripts/cloudlab_leave.sh` inside tmux (or **Ctrl-b d**); that also ends SSH. The session and clone stay on the node.
+`NAME` and `PROJECT` are **Name** and **Project** on the CloudLab experiment page. The script copies the OpenSSH key that `ssh` would use for GitHub (from `~/.ssh/config` `IdentityFile`, or `id_ed25519` / `id_ecdsa` / `id_rsa`) onto node0 as `~/.ssh/id_ed25519`, so `provision.sh` can copy it to workers. Agent forwarding (`ssh -A`) is not enough: workers clone using files on disk. This needs a normal OpenSSH key file (macOS, Linux, Windows OpenSSH/Git Bash). PuTTY `.ppk` and FIDO/hardware keys cannot be copied. If you SSH’d to node0 without this script, copy such a key pair to `~/.ssh/` on node0 or re-run `cloudlab_enter.sh`. Detach with `./scripts/cloudlab_leave.sh` inside tmux (or **Ctrl-b d**); that also ends SSH. The session and clone stay on the node.
 
 4. On the control machine:
 
