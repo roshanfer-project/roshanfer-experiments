@@ -13,6 +13,26 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
 4.  **Run**: Workload generators run remotely on generator nodes.
 5.  **Collect**: Logs and metrics are pulled to the local machine.
 
+## Repository layout
+
+```text
+exec/
+├── executor.py                Tune → Deploy → Run → Collect
+├── runner.py                  deploy system, run rwg, tear down
+├── collector.py               pull logs, parse RWG CSV → JSON
+├── extractor.py               RWG overall-{api}.json helper
+├── infra.py                   hosts file, provision / K8s helpers
+├── config.py / models.py      JSON config + experiment dataclasses
+├── cloudlab_hosts.py          manifest.xml → user@host lines
+├── report.py                  write run report.md
+├── rajomon_tuner.py           Bayesian tuner for rajomon
+├── sidecar_tuner.py           stub sidecar tuner
+├── plot_runner.py             per-repeat / per-experiment plots
+├── merged_plot_runner.py      YAML overlay plots across systems
+├── merge_plot_pdfs.py         combine PDFs → all_tests_plots.pdf
+└── plots/                     ACM-style matplotlib + plugins
+```
+
 ## Prerequisites
 
 1.  **Submodules**: From repo root, run `git submodule update --init benchmarks rwg` (or clone with `--recurse-submodules`). Provisioning/K8s scripts live under `benchmarks/`.

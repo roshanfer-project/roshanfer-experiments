@@ -30,20 +30,21 @@ roshanfer-experiments/
 ├── run_tests.sh                   run a benchmark
 ├── init_env.sh                    Python venv + KUBECONFIG
 ├── config.env.example             copy to config.env
+├── scripts/                       helper scripts (see README)
 ├── scripts/cloudlab_enter.sh      laptop → control node
 ├── scripts/cloudlab_leave.sh      control → laptop
 ├── scripts/cloudlab_fetch.sh      laptop ← exp_runs_test from control
 ├── scripts/fetch_manifest.sh      write manifest.xml on the control node
-├── exec/                          orchestrator: provision, deploy, generate, plot
-├── configs/                       what to run (one directory per benchmark)
+├── exec/                          orchestrator (see README)
+├── configs/                       what to run (see README)
 │   ├── tests/one-service/         tutorial
 │   ├── hotel/                     Hotel Reservation (Figs. 7–11, 14)
 │   ├── social/                    Social Network (Figs. 7, 9–11)
 │   ├── alibaba-large/             Alibaba / DGG 30-MS (Fig. 13)
 │   └── tests/                     other synthetic graphs (Figs. 12, 15)
-├── benchmarks/                    submodule: apps + K3s/provisioning
-│   └── sidecar/                   nested submodule: Roshanfer C++ sidecar
-└── rwg/                           submodule: load generator
+├── benchmarks/                    submodule: apps + K3s (see README)
+│   └── sidecar/                   nested submodule: C++ sidecar (see README)
+└── rwg/                           submodule: load generator (see README)
 ```
 
 Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `sidecar` (Roshanfer), `rajomon`, or `dagor`.
