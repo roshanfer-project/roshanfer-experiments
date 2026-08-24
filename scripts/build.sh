@@ -92,6 +92,9 @@ if [[ ${#scripts[@]} -eq 0 ]]; then
   exit 1
 fi
 
+# shellcheck source=/dev/null
+source "$_ROOT/scripts/ensure_build_deps.sh"
+
 echo "Building ${#scripts[@]} bench(es) with tag $TAG (registry ${REGISTRY})"
 for script in "${scripts[@]}"; do
   echo "=== $script $TAG ==="
