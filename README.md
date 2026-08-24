@@ -186,8 +186,9 @@ cd roshanfer-experiments
 
 ```bash
 cp config.env.example config.env
-# Set CLOUDLAB_USER to the same CloudLab username you passed to cloudlab_enter.sh.
 ```
+
+You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same `--user` you passed to `cloudlab_enter.sh`).
 
 **Expected:** `config.env` exists with `CLOUDLAB_USER` set.
 
