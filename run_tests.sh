@@ -46,9 +46,9 @@ usage() {
   echo "  --num-apis N    Run only experiments with N APIs (comma-separated, e.g. 1,3)"
   echo "  --shared-generator  Allow fewer generators than APIs (assign round-robin)"
   echo "  --remote          Use CloudLab manifest for hosts (requires manifest, --num-generators,"
-  echo "                    and CLOUDLAB_SSH_USER from --cloudlab-ssh-user or config.env)"
+  echo "                    and CLOUDLAB_USER from --cloudlab-user or config.env)"
   echo "  --cloudlab-manifest PATH   Experiment manifest XML (or CLOUDLAB_MANIFEST in config.env)"
-  echo "  --cloudlab-ssh-user USER   CloudLab username (or CLOUDLAB_SSH_USER in config.env)"
+  echo "  --cloudlab-user USER       CloudLab username (or CLOUDLAB_USER in config.env)"
   echo "  --num-generators N   Override config num_generators (local). With --remote/--remote-clean,"
   echo "                       required; passed to executor with manifest hosts."
   echo "  --remote-clean       With manifest + num-generators: rm .roshanfer_provisioned on all nodes,"
@@ -83,7 +83,7 @@ NUM_APIS_FILTER=""
 SHARED_GENERATOR=""
 REMOTE=""
 CLOUDLAB_MANIFEST=""
-CLOUDLAB_SSH_USER=""
+CLOUDLAB_USER=""
 REMOTE_NUM_GENERATORS=""
 REMOTE_CLEAN=""
 ALSO_HOTEL_SOCIAL=""
@@ -130,9 +130,9 @@ while [[ $# -gt 0 ]]; do
       CLOUDLAB_MANIFEST="$2"
       shift 2
       ;;
-    --cloudlab-ssh-user)
-      [[ -z "${2:-}" ]] && { echo "Missing value for --cloudlab-ssh-user"; usage; exit 1; }
-      CLOUDLAB_SSH_USER="$2"
+    --cloudlab-user)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --cloudlab-user"; usage; exit 1; }
+      CLOUDLAB_USER="$2"
       shift 2
       ;;
     --num-generators)
@@ -170,14 +170,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 CLI_CLOUDLAB_MANIFEST="$CLOUDLAB_MANIFEST"
-CLI_CLOUDLAB_SSH_USER="$CLOUDLAB_SSH_USER"
+CLI_CLOUDLAB_USER="$CLOUDLAB_USER"
 
 # shellcheck source=/dev/null
 source ./init_env.sh
 PYTHON=python
 
 [[ -n "$CLI_CLOUDLAB_MANIFEST" ]] && CLOUDLAB_MANIFEST="$CLI_CLOUDLAB_MANIFEST"
-[[ -n "$CLI_CLOUDLAB_SSH_USER" ]] && CLOUDLAB_SSH_USER="$CLI_CLOUDLAB_SSH_USER"
+[[ -n "$CLI_CLOUDLAB_USER" ]] && CLOUDLAB_USER="$CLI_CLOUDLAB_USER"
 
 req="${REQUIRE_REMOTE:-0}"
 req="${req,,}"
@@ -196,7 +196,7 @@ if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
     echo "If you used ./scripts/cloudlab_enter.sh and are on the control node, you can run ./scripts/fetch_manifest.sh."
     exit 1
   fi
-  [[ -n "$CLOUDLAB_SSH_USER" ]] || { echo "CLOUDLAB_SSH_USER or --cloudlab-ssh-user is required for --remote / --remote-clean"; exit 1; }
+  [[ -n "$CLOUDLAB_USER" ]] || { echo "CLOUDLAB_USER or --cloudlab-user is required for --remote / --remote-clean"; exit 1; }
   [[ -n "$REMOTE_NUM_GENERATORS" ]] || { echo "--num-generators is required for --remote / --remote-clean"; exit 1; }
 fi
 
@@ -226,7 +226,7 @@ if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
     HOSTS_OUT=$(mktemp)
     trap 'rm -f "$HOSTS_OUT"' EXIT
   fi
-  CL=( "$PYTHON" -m exec.cloudlab_hosts --manifest "$CLOUDLAB_MANIFEST" -o "$HOSTS_OUT" --ssh-user "$CLOUDLAB_SSH_USER" )
+  CL=( "$PYTHON" -m exec.cloudlab_hosts --manifest "$CLOUDLAB_MANIFEST" -o "$HOSTS_OUT" --user "$CLOUDLAB_USER" )
   "${CL[@]}" || exit 1
   [[ -n "$REMOTE" ]] && REMOTE_ARGS=( --hosts-file "$HOSTS_OUT" --num-generators "$REMOTE_NUM_GENERATORS" )
 fi

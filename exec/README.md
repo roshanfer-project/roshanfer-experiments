@@ -81,7 +81,7 @@ Then:
 python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt
 ```
 
-Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). When `CONTROL_ON_CLUSTER=1`, the first node is the control machine and is dropped; when `0`, every host is kept. If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-fetch the manifest if nodes change after swap-in.
+Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). When `CONTROL_ON_CLUSTER=1`, the first node is the control machine and is dropped; when `0`, every host is kept. If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-fetch the manifest if nodes change after swap-in.
 
 ## Batch: `run_tests.sh`
 
@@ -93,7 +93,7 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 ./run_tests.sh --remote --num-generators 3
 ```
 
-`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run. `CLOUDLAB_MANIFEST` and `CLOUDLAB_SSH_USER` come from `config.env` unless you pass `--cloudlab-manifest` / `--cloudlab-ssh-user`. `CLOUDLAB_SSH_USER` is required.
+`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run. `CLOUDLAB_MANIFEST` and `CLOUDLAB_USER` come from `config.env` unless you pass `--cloudlab-manifest` / `--cloudlab-user`. `CLOUDLAB_USER` is required.
 
 `--remote-clean` (with the same manifest and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` (that script skips the first `NUM_GENERATORS` lines). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
 
