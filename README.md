@@ -32,6 +32,7 @@ roshanfer-experiments/
 ├── config.env.example             copy to config.env
 ├── scripts/cloudlab_enter.sh      laptop → control node
 ├── scripts/cloudlab_leave.sh      control → laptop
+├── scripts/cloudlab_fetch.sh      laptop ← exp_runs_test from control
 ├── scripts/fetch_manifest.sh      write manifest.xml on the control node
 ├── exec/                          orchestrator: provision, deploy, generate, plot
 ├── configs/                       what to run (one directory per benchmark)
@@ -79,7 +80,7 @@ We have not validated other hardware types or node counts.
 
 | Role | Where | Purpose |
 | --- | --- | --- |
-| **Laptop** | your machine | Clone of this repository. Used only to enter and leave the control node. |
+| **Laptop** | your machine | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
 | **Control** | CloudLab `node0` | Clone of this repository. Runs experiments, collects logs, produces plots. |
 | **Generator** | 3 CloudLab nodes | Runs `rwg` (load generator). Not in Kubernetes. |
 | **Workload** | 22 CloudLab nodes | Kubernetes nodes. Run services and, when requested, the Roshanfer sidecar. |
@@ -94,6 +95,7 @@ flowchart LR
   end
   Laptop -->|"cloudlab_enter.sh SSH plus tmux"| Control
   Control -->|"cloudlab_leave.sh detach"| Laptop
+  Laptop -->|"cloudlab_fetch.sh rsync"| Control
   Control -->|"SSH kubeconfig"| Work
   Control -->|"SSH start rwg"| Gens
   Gens -->|"RPCs"| Work
@@ -248,6 +250,22 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 **Expected:** you are back on the laptop. Re-enter with the same `cloudlab_enter.sh` command.
 
+### 9. Download results to the laptop
+
+**Where:** laptop, from this clone (could be another terminal).
+
+**What:** rsync `exp_runs_test/` from the control node so you can open PDFs locally.
+
+```bash
+./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER
+# then open e.g. exp_runs_test/*_tutorial/plots/one-service/
+# or the merged PDF: exp_runs_test/*_tutorial/plots/all_tests_plots.pdf
+```
+
+`--list` prints remote run folder names. `--run RUN_ID` copies one run. `--plots-only` copies only `plots/` trees (skip raw metrics).
+
+**Expected:** `./exp_runs_test/` on the laptop matches the control node (or only its `plots/` dirs with `--plots-only`).
+
 ---
 
 # Part 2 — Reproducing the paper
@@ -333,6 +351,15 @@ Hotel, social, and alibaba in one invocation (not the dynamic-graph or Fig. 15 b
 ./run_tests.sh --remote --num-generators 3 \
   --also-hotel-social --also-alibaba
 ```
+
+From the laptop clone, pull those outputs the same way as in Part 1 step 9:
+
+```bash
+./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER --list
+./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER --run RUN_ID --plots-only
+```
+
+`--plots-only` is enough to inspect paper figures. Omit it to also copy metrics under `repeat_*/output/`.
 
 ## Which figures come from which run
 
