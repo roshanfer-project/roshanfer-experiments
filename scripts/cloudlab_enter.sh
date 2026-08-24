@@ -83,6 +83,14 @@ origin_to_ssh() {
 CLONE_URL="$(origin_to_ssh "$(git -C "$ROOT" remote get-url origin)")"
 HOST="${CL_USER}@node0.${NAME}.${PROJECT}-pg0.${URL}"
 
+# Forward local GitHub keys: CloudLab auth uses a key file, which -A cannot offer.
+if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
+  eval "$(ssh-agent -s)" >/dev/null
+fi
+if ! ssh-add -l >/dev/null 2>&1; then
+  ssh-add || { echo "error: add your GitHub SSH key to the agent (e.g. ssh-add ~/.ssh/id_ed25519)"; exit 1; }
+fi
+
 remote=$(cat <<EOF
 set -euo pipefail
 DEST="\$HOME/${DEST_REL}"
@@ -108,4 +116,6 @@ exec tmux attach-session -t "\$SESSION"
 EOF
 )
 
-exec ssh -A -t "$HOST" "bash -lc $(printf '%q' "$remote")"
+SSH_OPTS="${SSH_OPTS:--o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null}"
+# shellcheck disable=SC2086
+exec ssh -A -o AddKeysToAgent=yes $SSH_OPTS -t "$HOST" "bash -c $(printf '%q' "$remote")"
