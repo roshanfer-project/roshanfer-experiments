@@ -113,6 +113,9 @@ Part 2 uses this same experiment.
 | Sidecar | C++, `ubuntu:noble` |
 | Python | 3.12 |
 
+> [!NOTE]
+> You need a GitHub account with a normal OpenSSH public key added to it. PuTTY `.ppk` and FIDO/hardware keys do not work.
+
 ## Setup
 
 Each step lists **where** to run it, **what** it does, and **what to expect**.
