@@ -1,8 +1,8 @@
 #!/bin/bash
 # Fetch or require the CloudLab/GENI experiment manifest.
 #
-# The first <node> in this XML is the control machine and must not be used as a
-# generator or workload host. exec.cloudlab_hosts drops that first host.
+# When CONTROL_ON_CLUSTER=1, the first <node> is this machine and must not be a
+# generator or workload host. exec.cloudlab_hosts drops it only in that case.
 
 set -euo pipefail
 

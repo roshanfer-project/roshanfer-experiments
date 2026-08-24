@@ -51,19 +51,17 @@ Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}
 
 ## CloudLab manifest → hosts
 
-On a cluster node (`CONTROL_ON_CLUSTER=1` in `config.env`), fetch the experiment **manifest** with:
+Place the experiment **manifest XML** at `./manifest.xml` (or `CLOUDLAB_MANIFEST`) yourself. Download it from the CloudLab experiment page. `run_tests.sh` does not fetch it.
 
-```bash
-./scripts/fetch_manifest.sh
-```
+If you used `./scripts/cloudlab_enter.sh` and are on the control node, you can run `./scripts/fetch_manifest.sh` (`geni-get` → `./manifest.xml`). That helper is optional.
 
-That runs `geni-get manifest` and writes `./manifest.xml` (or `CLOUDLAB_MANIFEST`). If `CONTROL_ON_CLUSTER=0`, place the portal XML at that path yourself. Then:
+Then:
 
 ```bash
 python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt
 ```
 
-Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). The first node is the control machine and is dropped. If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-fetch the manifest if nodes change after swap-in.
+Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). When `CONTROL_ON_CLUSTER=1`, the first node is the control machine and is dropped; when `0`, every host is kept. If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-fetch the manifest if nodes change after swap-in.
 
 ## Batch: `run_tests.sh`
 
@@ -84,7 +82,7 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 Hosts are always read from a plain-text file (one `user@host` per line, `#` comments ignored) via `InfraBuilder`. A line without `@` is an error. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes.
 
 - **Local mode** — repo-root `hosts.txt` (copy `hosts.txt.example`). `REQUIRE_REMOTE=0` in `config.env`. `create.sh` / `delete.sh` read the same file and skip the first `NUM_GENERATORS` lines; `provision.sh` uses every line.
-- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` (first node / control machine dropped) and passes it with `--hosts-file`. Root `hosts.txt` is not read. If the manifest file is missing, it exits and points at `./scripts/fetch_manifest.sh`.
+- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` and passes it with `--hosts-file`. With `CONTROL_ON_CLUSTER=1`, the first node / control machine is dropped. Root `hosts.txt` is not read. If the manifest file is missing, it exits; place the XML yourself (or run `./scripts/fetch_manifest.sh` on the control node after `cloudlab_enter.sh`).
 
 `IMAGE_TAG` in `config.env` overrides the executor’s path-hash image tag. `SKIP_BUILD=1` skips `build.sh`. Populate Hub images first with `./scripts/build.sh --bench …` (tag defaults to `IMAGE_TAG`).
 

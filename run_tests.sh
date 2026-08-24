@@ -192,13 +192,8 @@ if [[ -n "$REMOTE" || -n "$REMOTE_CLEAN" ]]; then
   [[ -n "$CLOUDLAB_MANIFEST" ]] || { echo "CLOUDLAB_MANIFEST or --cloudlab-manifest is required for --remote / --remote-clean"; exit 1; }
   if [[ ! -f "$CLOUDLAB_MANIFEST" ]]; then
     echo "Manifest not found: $CLOUDLAB_MANIFEST"
-    on="${CONTROL_ON_CLUSTER:-1}"
-    on="${on,,}"
-    if [[ "$on" == "1" || "$on" == "true" || "$on" == "yes" ]]; then
-      echo "Run ./scripts/fetch_manifest.sh (CONTROL_ON_CLUSTER=1 uses geni-get)."
-    else
-      echo "CONTROL_ON_CLUSTER=0: place the experiment manifest XML at that path yourself."
-    fi
+    echo "Place the CloudLab experiment XML at that path yourself (this is not fetched automatically)."
+    echo "If you used ./scripts/cloudlab_enter.sh and are on the control node, you can run ./scripts/fetch_manifest.sh."
     exit 1
   fi
   [[ -n "$CLOUDLAB_SSH_USER" ]] || { echo "CLOUDLAB_SSH_USER or --cloudlab-ssh-user is required for --remote / --remote-clean"; exit 1; }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -111,6 +112,11 @@ def _parse_manifest_legacy_sorted(path: Path, ssh_user: Optional[str]) -> List[s
     return sorted(f"{u}@{h}" for h, u in by_host.items())
 
 
+def _control_on_cluster() -> bool:
+    v = os.environ.get("CONTROL_ON_CLUSTER", "1").strip().lower()
+    return v in ("1", "true", "yes")
+
+
 def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
     try:
         tree = ET.parse(path)
@@ -127,7 +133,7 @@ def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(
         description="CloudLab manifest -> user@host lines (stdout or -o). "
-        "Drops the first host (control machine)."
+        "When CONTROL_ON_CLUSTER=1, drops the first host (control machine)."
     )
     p.add_argument("--manifest", required=True, type=Path, help="Path to experiment manifest XML")
     p.add_argument(
@@ -143,13 +149,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         raise SystemExit(f"Not a file: {args.manifest}")
 
     lines = _parse_manifest(args.manifest, args.ssh_user)
-    # First <node> is the control machine; do not use it as generator/workload.
-    if lines:
+    # On-cluster control is the first <node>; do not use it as generator/workload.
+    if _control_on_cluster() and lines:
         lines = lines[1:]
     if len(lines) < 2:
         raise SystemExit(
-            "Need at least two hosts after dropping the control node "
-            "(one generator and one workload)."
+            "Need at least two hosts (one generator and one workload)"
+            + (" after dropping the control node." if _control_on_cluster() else ".")
         )
     text = "\n".join(lines) + "\n"
     if args.output:

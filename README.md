@@ -79,7 +79,7 @@ roshanfer-experiments/
 ├── requirements.txt               Python packages for exec/ and plotting
 ├── .envrc                         optional direnv: KUBECONFIG + config.env for the interactive shell
 ├── init_env.sh                    venv, KUBECONFIG, config.env; sourced by run_tests.sh
-├── scripts/fetch_manifest.sh      geni-get manifest when CONTROL_ON_CLUSTER=1
+├── scripts/fetch_manifest.sh      optional: geni-get → manifest.xml (on the control node after cloudlab_enter)
 ├── scripts/build.sh               push sidecar + bench images (tag + --bench); then SKIP_BUILD=1
 ├── config.env.example             copy to config.env (gitignored)
 ├── hosts.txt.example              copy to hosts.txt for local mode (gitignored)
@@ -324,13 +324,18 @@ git submodule update --init --recursive
 source ./init_env.sh   # optional; run_tests.sh does this automatically
 
 cp config.env.example config.env
-# Set CLOUDLAB_SSH_USER. Leave REQUIRE_REMOTE=1 and CONTROL_ON_CLUSTER=1
+# Set CLOUDLAB_SSH_USER. CONTROL_ON_CLUSTER=1 if this clone is on node0.
+```
+
+Put the experiment manifest at `./manifest.xml` (or `CLOUDLAB_MANIFEST` in `config.env`) yourself. Download it from the CloudLab experiment page. This step is **not automated**: `run_tests.sh --remote` does not fetch the XML and exits if the file is missing.
+
+If you used `./scripts/cloudlab_enter.sh` and are on the control node, you can obtain the same file with:
+
+```bash
 ./scripts/fetch_manifest.sh   # geni-get → ./manifest.xml
 ```
 
-If the control machine is **not** on the cluster, set `CONTROL_ON_CLUSTER=0` in `config.env` and copy the portal experiment manifest to `./manifest.xml` yourself. `run_tests.sh --remote` exits if that file is missing.
-
-The first node in the manifest is the control machine and is dropped when building the hosts list. With `--num-generators 3`, the next three hosts are generators and the remaining 22 are workload nodes.
+With `CONTROL_ON_CLUSTER=1`, the first node in the manifest is the control machine and is dropped when building the hosts list. With `--num-generators 3`, the next three hosts are generators and the remaining 22 are workload nodes. With `CONTROL_ON_CLUSTER=0` (control not on the cluster), every manifest host is a generator or workload node.
 
 ## Artifact map
 
@@ -349,7 +354,7 @@ The first node in the manifest is the control machine and is dropped when buildi
 
 The paper results come from a full run of each benchmark below. Each command executes every experiment in that bench’s `experiments.json`. After the runs finish, the paper figures are taken from those outputs (see the next section).
 
-The following commands assume `config.env` has `CLOUDLAB_SSH_USER` and `CLOUDLAB_MANIFEST` (typically `./manifest.xml`, from `./scripts/fetch_manifest.sh` or a portal download) and the virtualenv from the previous section is active. Flags still override those values.
+The following commands assume `config.env` has `CLOUDLAB_SSH_USER` and that `./manifest.xml` (or `CLOUDLAB_MANIFEST`) is already in place, and the virtualenv from the previous section is active. Flags still override those values.
 
 **Hotel Reservation**
 
