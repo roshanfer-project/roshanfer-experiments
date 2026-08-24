@@ -71,16 +71,16 @@ done
 [[ -n "$PROJECT" ]] || { echo "Missing --project"; usage; exit 1; }
 [[ -n "$CL_USER" ]] || { echo "Missing --user"; usage; exit 1; }
 
-origin_to_https() {
+origin_to_ssh() {
   local url="$1"
-  if [[ "$url" =~ ^git@([^:]+):(.+)$ ]]; then
-    printf 'https://%s/%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  if [[ "$url" =~ ^https://([^/]+)/(.+)$ ]]; then
+    printf 'git@%s:%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
   else
     printf '%s' "$url"
   fi
 }
 
-CLONE_URL="$(origin_to_https "$(git -C "$ROOT" remote get-url origin)")"
+CLONE_URL="$(origin_to_ssh "$(git -C "$ROOT" remote get-url origin)")"
 HOST="${CL_USER}@node0.${NAME}.${PROJECT}-pg0.${URL}"
 
 remote=$(cat <<EOF
@@ -108,4 +108,4 @@ exec tmux attach-session -t "\$SESSION"
 EOF
 )
 
-exec ssh -t "$HOST" "bash -lc $(printf '%q' "$remote")"
+exec ssh -A -t "$HOST" "bash -lc $(printf '%q' "$remote")"
