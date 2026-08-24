@@ -124,11 +124,18 @@ Each step lists **where** to run it, **what** it does, and **what to expect**.
 
 ### 1. Instantiate the CloudLab experiment
 
-**Where:** browser (CloudLab portal).
+**Where:** browser, [CloudLab portal](https://www.cloudlab.us/). You need a CloudLab account in a project that can instantiate.
 
-**What:** open the parameter set above and instantiate it.
+**What:** create the paper cluster from the saved parameter set. No change needed.
 
-**Expected:** all 26 nodes show Ready. Note the experiment **Name** and **Project**.
+1. Open the parameter set used in the paper: [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) (profile [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)).
+2. Instantiate. Fill only what CloudLab still asks for: your **Project** and a **Name**.
+
+The saved parameters **are the ones used for paper experiments**.
+
+**When to proceed:** wait until the experiment status is **Ready** and **all 26 nodes** list Ready. Then copy **Name** and **Project** from that page; later steps use them as `--name` and `--project`.
+
+**Expected:** experiment Ready, 26/26 nodes Ready, **Name** and **Project** noted.
 
 ### 2. Clone on the laptop
 
