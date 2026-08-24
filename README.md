@@ -79,6 +79,8 @@ roshanfer-experiments/
 ├── requirements.txt               Python packages for exec/ and plotting
 ├── .envrc                         direnv: KUBECONFIG + config.env
 ├── init_env.sh                    venv + loads config.env; sourced by run_tests.sh
+├── scripts/fetch_manifest.sh      geni-get manifest when CONTROL_ON_CLUSTER=1
+├── scripts/build.sh               push sidecar + bench images (tag + --bench); then SKIP_BUILD=1
 ├── config.env.example             copy to config.env (gitignored)
 ├── hosts.txt.example              copy to hosts.txt for local mode (gitignored)
 ├── compare_sidecar_branch.sh      author helper: run the same bench on two sidecar git refs
@@ -169,6 +171,13 @@ cp hosts.txt.example hosts.txt   # edit to user@host; first lines are generators
 ```
 
 Every hosts line must be `user@host`. One `hosts.txt` is shared by every bench, by `create.sh` / `delete.sh` (they skip the first `NUM_GENERATORS` lines), and by `provision.sh` (all lines).
+
+To push images to `REGISTRY` under `IMAGE_TAG` (then set `SKIP_BUILD=1` so `run_tests.sh` pulls instead of rebuilding):
+
+```bash
+./scripts/build.sh --bench one-service
+# or: ./scripts/build.sh --tag latest --bench one-service,hotel,social
+```
 
 ### 4. Python environment and direnv
 
@@ -298,7 +307,7 @@ flowchart LR
 ## Instantiate and clone
 
 1. Open the parameter set above and instantiate it so the hardware type and node count match the paper.
-2. Wait until all nodes are ready, then download the experiment manifest XML.
+2. Wait until all nodes are ready.
 3. On the control machine:
 
 ```bash
@@ -314,11 +323,13 @@ direnv allow
 source ./init_env.sh   # optional; run_tests.sh does this automatically
 
 cp config.env.example config.env
-# Set CLOUDLAB_SSH_USER and CLOUDLAB_MANIFEST=./manifest.xml
-# Leave REQUIRE_REMOTE=1
+# Set CLOUDLAB_SSH_USER. Leave REQUIRE_REMOTE=1 and CONTROL_ON_CLUSTER=1
+./scripts/fetch_manifest.sh   # geni-get → ./manifest.xml
 ```
 
-With `--num-generators 3`, the first three hosts are generators and the remaining 22 are workload nodes.
+If the control machine is **not** on the cluster, set `CONTROL_ON_CLUSTER=0` in `config.env` and copy the portal experiment manifest to `./manifest.xml` yourself. `run_tests.sh --remote` exits if that file is missing.
+
+The first node in the manifest is the control machine and is dropped when building the hosts list. With `--num-generators 3`, the next three hosts are generators and the remaining 22 are workload nodes.
 
 ## Artifact map
 
@@ -337,7 +348,7 @@ With `--num-generators 3`, the first three hosts are generators and the remainin
 
 The paper results come from a full run of each benchmark below. Each command executes every experiment in that bench’s `experiments.json`. After the runs finish, the paper figures are taken from those outputs (see the next section).
 
-The following commands assume `config.env` has `CLOUDLAB_SSH_USER` and `CLOUDLAB_MANIFEST` (typically `./manifest.xml`) and the virtualenv from the previous section is active. Flags still override those values.
+The following commands assume `config.env` has `CLOUDLAB_SSH_USER` and `CLOUDLAB_MANIFEST` (typically `./manifest.xml`, from `./scripts/fetch_manifest.sh` or a portal download) and the virtualenv from the previous section is active. Flags still override those values.
 
 **Hotel Reservation**
 
