@@ -4,6 +4,7 @@
 _ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$_ROOT"
 export REPO_ROOT
+export KUBECONFIG="$REPO_ROOT/benchmarks/k8s/kubeconfig"
 
 # shellcheck source=/dev/null
 source "$_ROOT/scripts/config_env.sh"

@@ -77,8 +77,8 @@ roshanfer-experiments/
 ├── THIRD_PARTY.md                 DeathStarBench, NanoLog, and other third-party licenses
 ├── run_tests.sh                   batch entry: configs/tests/*, plus hotel/social/alibaba when asked
 ├── requirements.txt               Python packages for exec/ and plotting
-├── .envrc                         direnv: KUBECONFIG + config.env
-├── init_env.sh                    venv + loads config.env; sourced by run_tests.sh
+├── .envrc                         optional direnv: KUBECONFIG + config.env for the interactive shell
+├── init_env.sh                    venv, KUBECONFIG, config.env; sourced by run_tests.sh
 ├── scripts/fetch_manifest.sh      geni-get manifest when CONTROL_ON_CLUSTER=1
 ├── scripts/build.sh               push sidecar + bench images (tag + --bench); then SKIP_BUILD=1
 ├── config.env.example             copy to config.env (gitignored)
@@ -161,7 +161,7 @@ The required submodules are `benchmarks`, `rwg`, and `benchmarks/sidecar`.
 
 ### 3. Configure once
 
-Copy the example env file and, for a local run, the hosts file. `run_tests.sh` re-reads `config.env` on every start (direnv also loads it for the interactive shell).
+Copy the example env file and, for a local run, the hosts file. `run_tests.sh` re-reads `config.env` on every start.
 
 ```bash
 cp config.env.example config.env
@@ -179,19 +179,15 @@ To push images to `REGISTRY` under `IMAGE_TAG` (then set `SKIP_BUILD=1` so `run_
 # or: ./scripts/build.sh --tag latest --bench one-service,hotel,social
 ```
 
-### 4. Python environment and direnv
+### 4. Python environment and KUBECONFIG
 
-`run_tests.sh` sources `init_env.sh` before any experiment, which creates `.venv` if needed, installs `requirements.txt`, and activates the venv. It exits unless direnv has set `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`.
+`run_tests.sh` sources `init_env.sh` before any experiment, which creates `.venv` if needed, installs `requirements.txt`, activates the venv, and sets `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`. That path is set before the file exists; `create.sh` writes the credentials later when it installs K3s.
 
 ```bash
-sudo apt install direnv
-echo 'eval "$(direnv hook bash)"' >> ~/.bashrc   # or zsh
-source ~/.bashrc
-cd /path/to/roshanfer-experiments
-direnv allow
-
 ./init_env.sh   # optional; run_tests.sh does this automatically
 ```
+
+For interactive `kubectl` in this directory, you can install direnv and allow `.envrc` (it exports the same `KUBECONFIG`). It is not required to run experiments.
 
 ### 5. What a benchmark directory contains
 
@@ -324,11 +320,6 @@ flowchart LR
 git clone --recurse-submodules -b artifact-evaluation <this-repo-url>
 cd roshanfer-experiments
 git submodule update --init --recursive
-
-sudo apt install direnv
-echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
-source ~/.bashrc
-direnv allow
 
 source ./init_env.sh   # optional; run_tests.sh does this automatically
 

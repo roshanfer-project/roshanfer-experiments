@@ -23,14 +23,7 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
     ...
     ```
 3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent.
-4.  **direnv** (for kubeconfig isolation): Install direnv and enable the repo's `.envrc`:
-    ```bash
-    sudo apt install direnv
-    echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc   # or ~/.bashrc
-    source ~/.zshrc
-    cd /path/to/this/repo && direnv allow
-    ```
-    The `.envrc` sets `KUBECONFIG` to `benchmarks/k8s/kubeconfig` so each clone/worktree targets its own cluster. `run_tests.sh` will refuse to start if direnv is not active.
+4.  **KUBECONFIG**: `init_env.sh` (sourced by `run_tests.sh`) sets `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`, so each worktree talks to its own cluster. The credentials file is written later by `benchmarks/k8s/create.sh`. Optional: install direnv and allow `.envrc` for interactive `kubectl` in this directory.
 
 ## Running Experiments
 
@@ -173,15 +166,12 @@ experiment_runs/
 
 ## Parallel Dev/Test with Git Worktrees
 
-To work on two clusters simultaneously (e.g., dev and test), use git worktrees. Each worktree is a separate checkout with its own `benchmarks/k8s/kubeconfig`, and the committed `.envrc` automatically points `KUBECONFIG` to the right one via `$PWD`.
+To work on two clusters simultaneously (e.g., dev and test), use git worktrees. Each worktree is a separate checkout with its own `benchmarks/k8s/kubeconfig`. `init_env.sh` / `run_tests.sh` point `KUBECONFIG` at that file via the worktree root.
 
 ```bash
 # Create a worktree for dev on a new branch
 cd ~/files/roshanfer-experiments
 git worktree add ../local-experiments dev
-
-# Allow direnv in the new worktree
-cd ../local-experiments && direnv allow
 ```
 
-After running `benchmarks/k8s/create.sh` in each worktree, each gets its own kubeconfig. Open two terminals — `cd` into each directory and kubectl talks to the corresponding cluster automatically.
+After running `benchmarks/k8s/create.sh` in each worktree, each gets its own kubeconfig. For interactive `kubectl`, `cd` into the worktree and either `source ./init_env.sh` or allow `.envrc` with direnv.
