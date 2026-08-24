@@ -125,8 +125,11 @@ def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="CloudLab manifest -> user@host lines (stdout or -o).")
-    p.add_argument("--manifest", required=True, type=Path, help="Path to downloaded experiment manifest XML")
+    p = argparse.ArgumentParser(
+        description="CloudLab manifest -> user@host lines (stdout or -o). "
+        "Drops the first host (control machine)."
+    )
+    p.add_argument("--manifest", required=True, type=Path, help="Path to experiment manifest XML")
     p.add_argument(
         "--ssh-user",
         default=None,
@@ -140,6 +143,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         raise SystemExit(f"Not a file: {args.manifest}")
 
     lines = _parse_manifest(args.manifest, args.ssh_user)
+    # First <node> is the control machine; do not use it as generator/workload.
+    if lines:
+        lines = lines[1:]
+    if len(lines) < 2:
+        raise SystemExit(
+            "Need at least two hosts after dropping the control node "
+            "(one generator and one workload)."
+        )
     text = "\n".join(lines) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
