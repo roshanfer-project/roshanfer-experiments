@@ -10,7 +10,15 @@ export KUBECONFIG="$REPO_ROOT/benchmarks/k8s/kubeconfig"
 source "$_ROOT/scripts/config_env.sh"
 apply_git_protocol
 
-if [[ ! -x "$_ROOT/.venv/bin/python" ]]; then
+if [[ ! -x "$_ROOT/.venv/bin/python" || ! -x "$_ROOT/.venv/bin/pip" ]]; then
+    rm -rf "$_ROOT/.venv"
+    if ! python3 -c "import ensurepip" 2>/dev/null; then
+        _pyver=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        echo "Installing python${_pyver}-venv..."
+        sudo apt-get update -qq
+        sudo apt-get install -y "python${_pyver}-venv" || { echo "error: install python${_pyver}-venv"; exit 1; }
+        unset _pyver
+    fi
     python3 -m venv "$_ROOT/.venv" || { echo "error: could not create $_ROOT/.venv"; exit 1; }
     "$_ROOT/.venv/bin/pip" install -r "$_ROOT/requirements.txt" || { echo "error: pip install failed"; exit 1; }
 fi

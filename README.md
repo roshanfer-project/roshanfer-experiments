@@ -132,7 +132,7 @@ A **benchmark** is a pair: a tree under `benchmarks/` that builds and deploys th
 
 ### 1. One machine
 
-Any Linux host with SSH to itself is sufficient. It does not need to match the paper hardware.
+Any Linux host with SSH to itself is sufficient. It does not need to match the paper hardware. Required software: **Python 3.12** (`python3`). `init_env.sh` creates `.venv` and, on Debian/Ubuntu, installs `python3.12-venv` if `ensurepip` is missing.
 
 The harness reads a hosts file and treats the first line as the generator and the second as the workload node. List the same host twice:
 
@@ -181,7 +181,7 @@ To push images to `REGISTRY` under `IMAGE_TAG` (then set `SKIP_BUILD=1` so `run_
 
 ### 4. Python environment and KUBECONFIG
 
-`run_tests.sh` sources `init_env.sh` before any experiment, which creates `.venv` if needed, installs `requirements.txt`, activates the venv, and sets `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`. That path is set before the file exists; `create.sh` writes the credentials later when it installs K3s.
+`run_tests.sh` sources `init_env.sh` before any experiment, which creates `.venv` if needed (Python 3.12; installs `python3.12-venv` on Debian/Ubuntu when `ensurepip` is missing), installs `requirements.txt`, activates the venv, and sets `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`. That path is set before the file exists; `create.sh` writes the credentials later when it installs K3s.
 
 ```bash
 ./init_env.sh   # optional; run_tests.sh does this automatically
@@ -288,7 +288,7 @@ For AEC access we will collect SSH public keys (please omit the `user@host` comm
 | Roles | 1 control, 3 generators, 22 workload |
 | Cluster | K3s and Cilium, via `benchmarks/k8s/` (`K3S_VERSION` and `CILIUM_VERSION` in `benchmarks/k8s/config.env`) |
 | Sidecar | C++, `ubuntu:noble` in the sidecar Dockerfile |
-| Python | versions pinned in `requirements.txt` |
+| Python | 3.12; packages pinned in `requirements.txt` |
 
 ```mermaid
 flowchart LR
