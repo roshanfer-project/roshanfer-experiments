@@ -242,18 +242,21 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
 
+**When to proceed:** wait until `./run_tests.sh` has exited.
+
 ### 7. Inspect output
 
 **Where:** control node.
 
-**What:** look at the run directory and plots.
+**What:** look at the run directory and plots. Check `run_summary.jsonl` for the fate of each experiment: `status` should be  `success` unless experiment failed for a reason.
 
 ```bash
+cat exp_runs_test/*_tutorial/one-service/exp-one-service/run_summary.csv
 ls exp_runs_test/*_tutorial/one-service/exp-one-service/
 ls exp_runs_test/*_tutorial/plots/one-service/
 ```
 
-**Expected:** metrics under `…/repeat_000/output/` and a time-series plot under `plots/one-service/`.
+**Expected:** `status` is `success` for both repeats, metrics under `…/repeat_000/output/`, and a time-series plot under `plots/one-service/`.
 
 ### 8. Leave the control node
 
