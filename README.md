@@ -9,7 +9,7 @@ We are submitting this artifact for the ACM / EuroSys 2027 badges **Available**,
 This README is sequential:
 
 1. **Part 1 — Cluster setup and tutorial** — instantiate the paper cluster, initialize the control node, and run a small experiment (`one-service`). That is the same environment used in Part 2.
-2. **Part 2 — Reproducing the paper** — assumes Part 1 is done. Regenerates the paper figures on that cluster.
+2. **Part 2 — Running paper experiments** — assumes Part 1 is done.
 
 Artifact-evaluation work is on the `artifact-evaluation` branch.
 
@@ -19,11 +19,13 @@ A **benchmark** is a pair: a service graph under `benchmarks/` and a config tree
 
 The work lives in three git submodules:
 
-| Submodule | Role |
-| --- | --- |
-| `benchmarks/` | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
-| `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol). |
-| `rwg/` | Open-loop HTTP/gRPC load generator. Runs on generator nodes, not in Kubernetes. |
+
+| Submodule             | Role                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
+| `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
+| `rwg/`                | Open-loop HTTP/gRPC load generator. Runs on generator nodes, not in Kubernetes.                     |
+
 
 ```text
 roshanfer-experiments/
@@ -80,12 +82,14 @@ We have not validated other hardware types or node counts.
 
 ## Roles and machines
 
-| Role | Where | Purpose |
-| --- | --- | --- |
-| **Laptop** | your machine | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
-| **Control** | CloudLab `node0` | Clone of this repository. Runs experiments, collects logs, produces plots. |
-| **Generator** | 3 CloudLab nodes | Runs `rwg` (load generator). Not in Kubernetes. |
-| **Workload** | 22 CloudLab nodes | Kubernetes nodes. Run services and, when requested, the Roshanfer sidecar. |
+
+| Role          | Where             | Purpose                                                                                                               |
+| ------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Laptop**    | your machine      | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
+| **Control**   | CloudLab `node0`  | Clone of this repository. Runs experiments, collects logs, produces plots.                                            |
+| **Generator** | 3 CloudLab nodes  | Runs `rwg` (load generator). Not in Kubernetes.                                                                       |
+| **Workload**  | 22 CloudLab nodes | Kubernetes nodes. Run services and, when requested, the Roshanfer sidecar.                                            |
+
 
 ```mermaid
 flowchart LR
@@ -103,6 +107,8 @@ flowchart LR
   Gens -->|"RPCs"| Work
 ```
 
+
+
 > [!NOTE]
 > Each cluster can only run one (benchmark, experiment) pair at a time.
 
@@ -110,15 +116,17 @@ flowchart LR
 
 Part 2 uses this same experiment.
 
-| Item | Value used in the paper |
-| --- | --- |
-| CloudLab profile | [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan) |
-| Parameter set | [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
-| Hardware | CloudLab `c220g2` |
-| Roles | 1 control, 3 generators, 22 workload |
-| Cluster | K3s and Cilium |
-| Sidecar | C++, `ubuntu:noble` |
-| Python | 3.12 |
+
+| Item             | Value used in the paper                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| CloudLab profile | [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)                                                                 |
+| Parameter set    | [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
+| Hardware         | CloudLab `c220g2`                                                                                                                              |
+| Roles            | 1 control, 3 generators, 22 workload                                                                                                           |
+| Cluster          | K3s and Cilium                                                                                                                                 |
+| Sidecar          | C++, `ubuntu:noble`                                                                                                                            |
+| Python           | 3.12                                                                                                                                           |
+
 
 > [!NOTE]
 > You need a GitHub account with a normal OpenSSH public key added to it. PuTTY `.ppk` and FIDO/hardware keys do not work.
@@ -219,6 +227,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 Running all experiments (including generation of corresponding figures) is automatied through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
 
 We can run a simple experiment with the following command:
+
 ```bash
 ./run_tests.sh --remote --num-generators 3 \
   --bench one-service \
@@ -227,6 +236,7 @@ We can run a simple experiment with the following command:
 ```
 
 The important options here are:
+
 - `--bench`: this tell the script to only filter `one-service` benchmark (both `/tests` and `/config` include a directory named `one-service` that keep implementation and configurations, respectively)
 - `--type`: filter experiments type of `latency-and-rate-vs-time`
 - `num-apis`: filter experiments with 1 API
@@ -307,119 +317,115 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 ---
 
-# Part 2 — Reproducing the paper
+# Part 2 — Running paper experiments
 
-Purpose: regenerate the evaluation in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left.
+In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the laptop clone, pull outputs the same way as in Part 1 step 10 (`./scripts/cloudlab_fetch.sh`).
 
-For AEC access we will collect SSH public keys (please omit the `user@host` comment). CloudLab account passwords are not required. Discussion should go through HotCRP.
+> [!NOTE] Tuning requirements of baselines
+> Based on the §2.3 of the paper, our baselines require tuning for any (benchmark, hardware, workload). This tuning can take 1-2 hours for every experiment in our setup. Thus, for every experiment, we also provide the option to only run Roshanfer and generate the corresponding plot.
 
-Same cluster as Part 1: [small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan) parameter set [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76), `c220g2`, 1 control + 3 generators + 22 workload.
+> [!NOTE] Execution times
+> Each experiment for any system (options are sidecar, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they fewer load levels.
 
-## Artifact map
+## Goodput vs load
 
-| Component | Location | Paper |
-| --- | --- | --- |
-| Roshanfer sidecar | `benchmarks/sidecar/` | Design and implementation (§3–§5) |
-| Experiment orchestrator | `exec/`, `run_tests.sh` | Evaluation (§6) |
-| Open-loop generator | `rwg/` | §6.1 |
-| Hotel Reservation and Social Network | `configs/hotel/`, `configs/social/` | Figures 7–11, 14 |
-| Alibaba / DGG 30-MS and dynamic graphs | `configs/alibaba-large/`, `configs/tests/dynamic-large/`, `fan-out-dynamic-*` | Figures 12–13 |
-| Overcommitment (Fig. 15) | `configs/tests/leaf-1-2/`, `leaf-1-10/`, `leaf-1-2-p-2-1/` | Figure 15 |
-| Rajomon and Dagor baselines | `system: rajomon` / `dagor` in `experiments.json` | §6 |
-| TLA+ model | **Author TODO.** Add the specification link. | §5 (Request Bound, Deadlock Freedom, Work Conservation) |
+The following command runs the Alibaba (30 microservices) benchmark to generate Figure 13.
 
-## How to run the paper experiments
+**Option A: Only Roshanfer**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench alibaba-large --also-alibaba --system sidecar --comment figure13_roshanfer
+```
+**Option B: All systems**
 
-Run these on the control node (inside tmux), **one command at a time** — wait for each to exit. Each command runs every experiment in that bench. Figures come from those outputs (next section).
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench alibaba-large --also-alibaba --comment figure13_all
+```
 
-**Hotel Reservation**
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-goodput-vs-load-alibaba-large_combined.pdf`.
+
+## Queueing Comparison
+
+The following command runs the Hotel Reservation benchmark to generate Figure 10.
+
+**Option A: Only Roshanfer**
+```bash
+./run_tests.sh --remote --num-generators 3 --type max-queue \
+  --bench hotel --also-hotel-social --system sidecar --comment figure10_roshanfer
+```
+
+**Option B: All systems**
+```bash
+./run_tests.sh --remote --num-generators 3 --type max-queue \
+  --bench hotel --also-hotel-social --comment figure10_all
+```
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/max-queue-hotel_max_queue.pdf`.
+
+## Resource waste
+
+The following command runs the Hotel Reservation benchmark to generate Figure 9.
+
+**Option A: Only Roshanfer**
+```bash
+./run_tests.sh --remote --num-generators 3 --type resource-waste \
+  --bench hotel --also-hotel-social --system sidecar --comment figure9_roshanfer
+```
+
+**Option B: All systems**
+```bash
+./run_tests.sh --remote --num-generators 3 --type resource-waste \
+  --bench hotel --also-hotel-social --comment figure9_all
+```
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/resource-waste-bar-hotel_resource_waste_bar.pdf`.
+
+## Latency and rates over time
+
+The following command runs the Hotel Reservation benchmark to generate Figure 8.
+
+**Option A: Only Roshanfer**
+```bash
+./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
+  --system sidecar --type latency-and-rate-vs-time --comment figure8_roshanfer
+```
+
+**Option B: All systems**
+```bash
+./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
+  --type latency-and-rate-vs-time --comment figure8_all
+```
+
+**Inspecting results**
+
+The plots are
+-  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_rate_vs_time.pdf`
+-  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_latency_vs_time.pdf`.
+
+## Impact of overcommitment, scheduling, and priority
+
+The following command runs the leaf synthetic benches to generate Figure 15. These experiments are sidecar-only (no baseline Option B).
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 \
-  --bench hotel --also-hotel-social
+  --bench leaf-1-2,leaf-1-10,leaf-1-2-p-2-1 \
+  --type throughput-vs-overcommitment --comment figure15
 ```
 
-**Social Network**
+**Inspecting results**
 
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench social --also-hotel-social
-```
+The plots are:
 
-**Alibaba / DGG 30-MS**
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench alibaba-large --also-alibaba
-```
-
-**Dynamic graphs**
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench dynamic-large
-```
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench fan-out-dynamic-0-9
-```
-
-**Figure 15**
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench leaf-1-2
-```
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench leaf-1-10
-```
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --bench leaf-1-2-p-2-1
-```
-
-Each invocation writes `exp_runs_test/<timestamp>/` with plots under `plots/<bench>/`.
-
-Hotel, social, and alibaba in one invocation (not the dynamic-graph or Fig. 15 benches):
-
-```bash
-./run_tests.sh --remote --num-generators 3 \
-  --also-hotel-social --also-alibaba
-```
-
-From the laptop clone, pull those outputs the same way as in Part 1 step 10:
-
-```bash
-./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER --list
-./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER --run RUN_ID --plots-only
-```
-
-`--plots-only` is enough to inspect paper figures. Omit it to also copy metrics under `repeat_*/output/`.
-
-## Which figures come from which run
-
-The paper figures were selected from the full bench outputs above, not from a separate command per figure.
-
-| Paper figure | Full run | Measurement in that output |
-| --- | --- | --- |
-| Figs. 1–2 (motivation) | Hotel | `latency-and-rate-vs-time`, `max-queue-motivation`, `resource-waste` (rajomon) |
-| Fig. 7 | Hotel and Social | `latency-and-goodput-vs-load` (hotel `search-hotel`, social `compose-post`) |
-| Fig. 8 | Hotel | `latency-and-rate-vs-time` |
-| Fig. 9 | Hotel and Social | `resource-waste` |
-| Fig. 10 | Hotel and Social | `max-queue` |
-| Fig. 11 | Social | `latency-and-goodput-vs-load` (three APIs) |
-| Fig. 12 | Dynamic graphs (`dynamic-large` and `fan-out-dynamic-0-9`) | `latency-and-goodput-vs-load` |
-| Fig. 13 | Alibaba / DGG 30-MS | `latency-and-goodput-vs-load` |
-| Fig. 14 | Hotel | `latency-vs-throughput` (plain, sidecar) |
-| Fig. 15 (first subfigure) | `leaf-1-2` | `throughput-vs-overcommitment` |
-| Fig. 15 (second subfigure) | `leaf-1-10` | `throughput-vs-overcommitment` |
-| Fig. 15 (third subfigure) | `leaf-1-2-p-2-1` | `throughput-vs-overcommitment` |
-
-> **Author TODO.** Confirm this mapping against the paper.
+- `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-sidecar/throughput_vs_overcommitment.pdf`
+- `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-sidecar/throughput_vs_overcommitment.pdf`
+- `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-sidecar/throughput_vs_overcommitment.pdf`
 
 ## Expected warnings and errors
 
@@ -438,6 +444,7 @@ The paper figures were selected from the full bench outputs above, not from a se
 ---
 
 ## Citation
+
 Farzad Mohammadi, Theo Akande, and Marios Kogias. 2027. Roshanfer: Achieving Performance Resilience in Cloud Microservices. In *Proceedings of the 22nd European Conference on Computer Systems* (EuroSys ’27).
 
 ```bibtex
