@@ -109,7 +109,7 @@ flowchart LR
 
 
 
-> [!NOTE]
+> [!IMPORTANT]
 > Each cluster can only run one (benchmark, experiment) pair at a time.
 
 ## Paper environment
@@ -128,7 +128,7 @@ Part 2 uses this same experiment.
 | Python           | 3.12                                                                                                                                           |
 
 
-> [!NOTE]
+> [!IMPORTANT]
 > You need a GitHub account with a normal OpenSSH public key added to it. PuTTY `.ppk` and FIDO/hardware keys do not work.
 
 ## Setup
@@ -321,10 +321,14 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the laptop clone, pull outputs the same way as in Part 1 step 10 (`./scripts/cloudlab_fetch.sh`).
 
-> [!NOTE] Tuning requirements of baselines
+> [!IMPORTANT]
+> **Tuning requirements of baselines**
+>
 > Based on the §2.3 of the paper, our baselines require tuning for any (benchmark, hardware, workload). This tuning can take 1-2 hours for every experiment in our setup. Thus, for every experiment, we also provide the option to only run Roshanfer and generate the corresponding plot.
 
-> [!NOTE] Execution times
+> [!IMPORTANT]
+> **Execution times**
+>
 > Each experiment for any system (options are sidecar, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they fewer load levels.
 
 ## Goodput vs load
