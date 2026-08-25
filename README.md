@@ -257,7 +257,7 @@ The flags `--type` and `--num-apis` select this entry in `configs/tests/one-serv
 
 That is a 15 s Roshanfer run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
 
-The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes manifests. You do not need to generate or build anything now; the images are already published.
+The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes artifacts. You do not need to generate or build anything now; the images are already published.
 
 ```json
 {
@@ -331,7 +331,7 @@ In this part, we run experiments to produce figures used in the paper. This part
 >
 > Each experiment for any system (options are roshanfer, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
 
-## Goodput vs load
+## Goodput vs load (real-world benchmark)
 
 The following command runs the Alibaba (30 microservices) benchmark to generate Figure 13.
 
@@ -415,7 +415,7 @@ The plots are
 
 ## Impact of overcommitment, scheduling, and priority
 
-The following command runs the leaf synthetic benches to generate Figure 15. These experiments are roshanfer-only (no baseline Option B).
+The following command runs the `leaf-*` benchmarks to generate Figure 15. These experiments are roshanfer-only.
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 \
@@ -430,6 +430,26 @@ The plots are:
 - `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
 - `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
 - `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
+
+## Dynamic call graph
+
+The following command runs the `dynamic-large` benchmark to generate Figure 12.
+
+**Option A: Only Roshanfer**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench dynamic-large --system roshanfer --comment figure12_roshanfer
+```
+**Option B: All systems**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench dynamic-large --comment figure12_all
+```
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-goodput-vs-load-dynamic-large_combined.pdf`.
 
 ## Expected warnings and errors
 
