@@ -35,6 +35,7 @@ roshanfer-experiments/
 ├── scripts/cloudlab_leave.sh      control → laptop
 ├── scripts/cloudlab_fetch.sh      laptop ← exp_runs_test from control
 ├── scripts/fetch_manifest.sh      write manifest.xml on the control node
+├── scripts/pin_k8s_kernel.sh      pin Ubuntu kernel on generator + workload hosts
 ├── exec/                          orchestrator (see README)
 ├── configs/                       what to run (see README)
 │   ├── tests/one-service/         tutorial
@@ -195,7 +196,19 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected:** `config.env` exists with `CLOUDLAB_USER` set.
 
-### 6. Run a simple experiment
+### 6. Pin the Ubuntu kernel
+
+**Where:** control node.
+
+**What:** Recent kernel version of Ubuntu 24.04 is `6.8.0-138-generic` but this kernel has a [bug](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2162843) that prevents `io_uring` (a sidecar dependency) from registering to kernel. We avoid this issue by pinning all hosts to `6.8.0-134-generic`:
+
+```bash
+./scripts/pin_k8s_kernel.sh --kernel 6.8.0-134-generic
+```
+
+**Expected:** `All checks passed: 6.8.0-134-generic`.
+
+### 7. Run a simple experiment
 
 **Where:** control node.
 
@@ -247,7 +260,7 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **When to proceed:** wait until `./run_tests.sh` has exited.
 
-### 7. Inspect output
+### 8. Inspect output
 
 **Where:** control node.
 
@@ -261,7 +274,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 **Expected:** `status` is `success` for both repeats, metrics under `…/repeat_000/output/`, and a time-series plot under `plots/one-service/`.
 
-### 8. Leave the control node
+### 9. Leave the control node
 
 **Where:** control node, inside tmux.
 
@@ -274,7 +287,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 **Expected:** you are back on the laptop. Re-enter with the same `cloudlab_enter.sh` command.
 
-### 9. Download results to the laptop
+### 10. Download results to the laptop
 
 **Where:** laptop, from this clone (could be another terminal).
 
@@ -376,7 +389,7 @@ Hotel, social, and alibaba in one invocation (not the dynamic-graph or Fig. 15 b
   --also-hotel-social --also-alibaba
 ```
 
-From the laptop clone, pull those outputs the same way as in Part 1 step 9:
+From the laptop clone, pull those outputs the same way as in Part 1 step 10:
 
 ```bash
 ./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER --list
