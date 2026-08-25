@@ -226,6 +226,8 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected:** `All checks passed: 6.8.0-134-generic`.
 
+**Expected time:** less than 10 minutes.
+
 ### 7. Run a simple experiment
 
 **Where:** control node.
@@ -277,6 +279,8 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 ```
 
 **Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
+
+**Expected time:** less than 10 minutes.
 
 **When to proceed:** wait until `./run_tests.sh` has exited.
 
@@ -470,12 +474,6 @@ The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-go
 ## Troubleshooting
 
 > **Author TODO.** Same pass. Please cover at least: direnv / `KUBECONFIG`, SSH user mismatch, uninitialized submodules, the `~/.roshanfer_provisioned` marker, `--remote-clean`, skipped plots, and Rajomon tuner duration.
-
----
-
-## Local development
-
-> **Author TODO.** Write this section. Cover running on a single Linux machine instead of CloudLab: `REQUIRE_REMOTE=0` in `config.env`, `hosts.txt` from `hosts.txt.example` (`user@host` lines; first lines are generators), omit `--remote`, and passwordless `ssh user@localhost`.
 
 ---
 
