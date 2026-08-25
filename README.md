@@ -329,7 +329,7 @@ In this part, we run experiments to produce figures used in the paper. This part
 > [!IMPORTANT]
 > **Execution times**
 >
-> Each experiment for any system (options are sidecar, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because require they fewer load levels.
+> Each experiment for any system (options are sidecar, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
 
 ## Goodput vs load
 
