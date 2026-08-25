@@ -3,6 +3,8 @@
 set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$ROOT/scripts/elapsed.sh"
 RWG_DIR="$ROOT/rwg"
 RWG_BIN="$RWG_DIR/rwg"
 INSTALL_GO="$ROOT/benchmarks/provisioning/install_go.sh"

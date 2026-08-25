@@ -273,9 +273,18 @@ remote_clean_hosts() {
   HOSTS_FILE="$hf" NUM_GENERATORS="$ng" "$PWD/benchmarks/k8s/delete.sh"
 }
 
+REMOTE_CLEAN_SEC=""
 if [[ -n "$REMOTE_CLEAN" ]]; then
+  _rc_start=$(date +%s)
   remote_clean_hosts "$HOSTS_OUT" "$REMOTE_NUM_GENERATORS" || exit 1
-  [[ -z "$REMOTE" ]] && { echo "Remote clean finished."; exit 0; }
+  REMOTE_CLEAN_SEC=$(( $(date +%s) - _rc_start ))
+  echo "remote-clean ${REMOTE_CLEAN_SEC}s"
+  if [[ -z "$REMOTE" ]]; then
+    mkdir -p "$OUTPUT_BASE/${RUN_DIR_ID}"
+    $PYTHON -m exec.timings summary --run-dir "$OUTPUT_BASE/${RUN_DIR_ID}" --remote-clean-sec "$REMOTE_CLEAN_SEC"
+    echo "Remote clean finished."
+    exit 0
+  fi
 fi
 
 EXTRA_ARGS=()
@@ -290,26 +299,37 @@ run_bench() {
   local name="$1" config="$2" experiments="$3" merged="${4:-}"
   local out_dir="$OUTPUT_BASE/${RUN_DIR_ID}/${name}"
   echo "Running $name -> $out_dir"
+  local exec_rc=0
   if ! $PYTHON -m exec.executor --experiments-file "$experiments" --config "$config" \
       --output-base-dir "$out_dir" "${REMOTE_ARGS[@]}" "${LOCAL_HOSTS_ARGS[@]}" "${EXTRA_ARGS[@]}"; then
     failed=$((failed + 1))
-    return
+    exec_rc=1
   fi
   experiment_index=$($PYTHON -c "import json; print(json.load(open('$config')).get('experiment_index','$name'))")
-  local run_summary="$out_dir/exp-${experiment_index}/run_summary.jsonl"
-  if [[ ! -f "$run_summary" ]]; then
-    echo "Skipping plots for $name (no run summary — filters may have excluded all experiments)"
-    return
+  local timings_file="$out_dir/exp-${experiment_index}/timings.json"
+  local plot_sec=0
+  if [[ $exec_rc -eq 0 ]]; then
+    local run_summary="$out_dir/exp-${experiment_index}/run_summary.jsonl"
+    if [[ ! -f "$run_summary" ]]; then
+      echo "Skipping plots for $name (no run summary — filters may have excluded all experiments)"
+    else
+      echo "Plotting $name -> $PLOTS_ROOT/$name"
+      local plot_start
+      plot_start=$(date +%s)
+      $PYTHON -m exec.plot_runner --experiment-index "$experiment_index" \
+        --experiments-root "$out_dir" --config-file "$config" --output-dir "$PLOTS_ROOT/$name" || echo "Warning: plot failed for $name"
+      if [[ -n "$merged" && -f "$merged" ]]; then
+        echo "Merged plots $name -> $PLOTS_ROOT/$name/merged"
+        $PYTHON -m exec.merged_plot_runner --merged-config "$merged" \
+          --experiments-file "$experiments" --experiments-root "$out_dir" \
+          --output-dir "$PLOTS_ROOT/$name/merged" --experiment-index "$experiment_index" \
+          --config "$config" || echo "Warning: merged plot failed for $name"
+      fi
+      plot_sec=$(( $(date +%s) - plot_start ))
+    fi
   fi
-  echo "Plotting $name -> $PLOTS_ROOT/$name"
-  $PYTHON -m exec.plot_runner --experiment-index "$experiment_index" \
-    --experiments-root "$out_dir" --config-file "$config" --output-dir "$PLOTS_ROOT/$name" || echo "Warning: plot failed for $name"
-  if [[ -n "$merged" && -f "$merged" ]]; then
-    echo "Merged plots $name -> $PLOTS_ROOT/$name/merged"
-    $PYTHON -m exec.merged_plot_runner --merged-config "$merged" \
-      --experiments-file "$experiments" --experiments-root "$out_dir" \
-      --output-dir "$PLOTS_ROOT/$name/merged" --experiment-index "$experiment_index" \
-      --config "$config" || echo "Warning: merged plot failed for $name"
+  if [[ -f "$timings_file" ]]; then
+    $PYTHON -m exec.timings apply-plot --file "$timings_file" --plot-sec "$plot_sec"
   fi
 }
 
@@ -343,10 +363,20 @@ if [[ -n "$ALSO_ALIBABA" ]]; then
   bench_filter_allows alibaba-large && run_bench "alibaba-large" "configs/alibaba-large/config.alibaba.json" "configs/alibaba-large/experiments.json" "configs/alibaba-large/merged.yaml"
 fi
 
+MERGE_PLOTS_SEC=""
 if [[ -d "$PLOTS_ROOT" ]]; then
   echo "Merging all plot PDFs -> $PLOTS_ROOT/all_tests_plots.pdf"
+  _mp_start=$(date +%s)
   $PYTHON -m exec.merge_plot_pdfs "$PLOTS_ROOT" || echo "Warning: merge_plot_pdfs failed"
+  MERGE_PLOTS_SEC=$(( $(date +%s) - _mp_start ))
 fi
+
+echo ""
+echo "=== Run timings ==="
+SUMMARY_ARGS=( --run-dir "$OUTPUT_BASE/${RUN_DIR_ID}" )
+[[ -n "$REMOTE_CLEAN_SEC" ]] && SUMMARY_ARGS+=(--remote-clean-sec "$REMOTE_CLEAN_SEC")
+[[ -n "$MERGE_PLOTS_SEC" ]] && SUMMARY_ARGS+=(--merge-plots-sec "$MERGE_PLOTS_SEC")
+$PYTHON -m exec.timings summary "${SUMMARY_ARGS[@]}" || echo "Warning: timings summary failed"
 
 if [[ $failed -gt 0 ]]; then
   echo "Failed: $failed test(s)"

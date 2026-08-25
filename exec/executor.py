@@ -26,6 +26,7 @@ from .runner import Runner
 from .collector import Collector
 from .infra import InfraBuilder
 from . import report as report_module
+from .timings import empty_timings, write_timings, log_executor_summary
 import traceback as tb
 
 def _timestamp() -> str:
@@ -325,6 +326,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     )
     logging.info(f"Execution started. Logs at {logs_dir}")
 
+    timings = empty_timings()
+    timings_path = run_root / "timings.json"
+
     if config.nanolog_debug:
         os.environ["SIDECAR_ENABLE_NANOLOG"] = "1"
         logging.info("nanolog_debug: SIDECAR_ENABLE_NANOLOG=1 for sidecar builds")
@@ -347,14 +351,18 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         prov_log = logs_dir / f"provision_{_timestamp()}.log"
         k8s_log = logs_dir / f"k8s_setup_{_timestamp()}.log"
         prov_host_logs_dir = logs_dir / "provision_hosts"
+        t0 = time.time()
         infra.provision_hosts(
             Path(config.provisioning_script),
             log_path=prov_log,
             provision_host_logs_dir=prov_host_logs_dir,
         )
+        timings["setup"]["provision_sec"] = time.time() - t0
         
         if hasattr(config, "k8s_script") and config.k8s_script:
+            t0 = time.time()
             infra.setup_k8s(Path(config.k8s_script), effective_num_gens, log_path=k8s_log)
+            timings["setup"]["k8s_sec"] = time.time() - t0
             k8s_ran = True
 
         _write_infra_partition(run_root, config, generators, deployment, filters)
@@ -362,6 +370,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
              
     except Exception as e:
         logging.error(f"Infra failure: {e}")
+        timings["total_sec"] = time.time() - start_all
+        write_timings(timings_path, timings)
+        log_executor_summary(timings)
         return 1
 
     # 3. Initialize Runner & Collector
@@ -392,6 +403,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         bench = system_exps[0].bench or getattr(config, "bench", None) or config.extra.get("bench", "")
         
         # A. Build & Deploy (Moved before Tuning so images exist)
+        t_build = time.time()
         try:
             # Build Step
             image_tag = (os.environ.get("IMAGE_TAG") or "").strip()
@@ -406,15 +418,20 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             build_status_file = run_root / f"build_success_{tag}{_bsuf}"
             skip_build = os.environ.get("SKIP_BUILD", "0").strip().lower() in ("1", "true", "yes")
 
+            t_build = time.time()
             if skip_build:
                 logging.info("SKIP_BUILD set; skipping build.sh (deploy will pull %s)", tag)
+                timings["setup"]["build"][system] = 0.0
             elif not build_status_file.exists():
                 build_log = logs_dir / f"build_{system}_{_timestamp()}.log"
                 runner.build_system(bench, system, tag, build_status_file, log_path=build_log)
+                timings["setup"]["build"][system] = time.time() - t_build
             else:
                 logging.info(f"Build for tag {tag} already successful. Skipping.")
+                timings["setup"]["build"][system] = 0.0
 
         except Exception as e:
+            timings["setup"]["build"][system] = time.time() - t_build
             logging.error(f"Skipping system {system} due to build failure: {e}")
             continue
 
@@ -424,11 +441,16 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             logging.info(f"Found existing best parameters at {best_params_file}. Skipping tuning.")
             try:
                 tuning_params = json.loads(best_params_file.read_text())
+                timings["tuning"][system] = {"sec": 0.0, "skipped": True}
             except Exception as e:
                 logging.warning(f"Failed to read best params from {best_params_file}: {e}. Proceeding with tuning.")
+                t_tune = time.time()
                 tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
+                timings["tuning"][system] = {"sec": time.time() - t_tune, "skipped": False}
         else:
+            t_tune = time.time()
             tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
+            timings["tuning"][system] = {"sec": time.time() - t_tune, "skipped": False}
         # Extract 'parameters' key if present, otherwise assume the whole dict is properties
         deploy_params = tuning_params.get("parameters", tuning_params)
         
@@ -443,6 +465,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         try:
             for exp in system_exps:
                 logging.info(f"  Running Experiment: {exp.name}")
+                t_exp = time.time()
                 exp_dir = run_root / _safe_name(exp.name)
                 exp_dir.mkdir(parents=True, exist_ok=True)
                 
@@ -520,11 +543,25 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             except Exception as te:
                                 logging.warning(f"Teardown failed for repeat {r}: {te}")
 
+                tune_sec = float((timings["tuning"].get(system) or {}).get("sec") or 0)
+                run_sec = time.time() - t_exp
+                timings["experiments"].append({
+                    "name": exp.name,
+                    "system": system,
+                    "run_sec": run_sec,
+                    "tune_sec": tune_sec,
+                    "plot_sec": 0.0,
+                    "e2e_sec": run_sec + tune_sec,
+                })
+
         except Exception as e:
             logging.error(f"System {system} loop aborted (Unexpected top-level error): {e}", exc_info=True)
 
     # 5. Report
     # report_module.generate_report(...) # Optional
+    timings["total_sec"] = time.time() - start_all
+    write_timings(timings_path, timings)
+    log_executor_summary(timings)
     logging.info(f"Execution finished. Results in {run_root}")
     return 0
 

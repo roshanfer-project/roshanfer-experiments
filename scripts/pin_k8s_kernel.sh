@@ -6,6 +6,8 @@ _ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$_ROOT"
 REPO_ROOT="$_ROOT"
 export REPO_ROOT
+# shellcheck source=/dev/null
+source "$_ROOT/scripts/elapsed.sh"
 
 KVER="6.8.0-134-generic"
 CHECK_ONLY=0
@@ -118,7 +120,7 @@ ssh_exec_wait() {
 }
 
 HOSTS_FILE="$(mktemp)"
-trap 'rm -f "$HOSTS_FILE"' EXIT
+trap 'rm -f "$HOSTS_FILE"; _elapsed_report' EXIT
 "$PYTHON" -m exec.cloudlab_hosts --manifest "$CLOUDLAB_MANIFEST" --user "$CLOUDLAB_USER" -o "$HOSTS_FILE"
 mapfile -t HOSTS < <(grep -vE '^\s*#|^\s*$' "$HOSTS_FILE")
 if [[ ${#HOSTS[@]} -eq 0 ]]; then

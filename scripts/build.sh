@@ -8,6 +8,8 @@ _ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$_ROOT"
 REPO_ROOT="$_ROOT"
 export REPO_ROOT
+# shellcheck source=/dev/null
+source "$_ROOT/scripts/elapsed.sh"
 
 # shellcheck source=/dev/null
 source "$_ROOT/scripts/config_env.sh"

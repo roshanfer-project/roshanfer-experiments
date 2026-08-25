@@ -11,6 +11,7 @@ scripts/
 ├── cloudlab_fetch.sh          laptop ← exp_runs_test from control
 ├── fetch_manifest.sh          write manifest.xml on the control node
 ├── pin_k8s_kernel.sh          pin Ubuntu kernel ABI on all manifest hosts
+├── elapsed.sh                 sourced helper: print [elapsed] on EXIT
 ├── config_env.sh              sourced defaults; loads config.env
 ├── pick_github_ssh_key.sh     pick a normal OpenSSH key for GitHub
 ├── build.sh                   build and push sidecar + bench images

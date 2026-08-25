@@ -25,6 +25,7 @@ exec/
 ├── config.py / models.py      JSON config + experiment dataclasses
 ├── cloudlab_hosts.py          manifest.xml → user@host lines
 ├── report.py                  write run report.md
+├── timings.py                 wall-clock timings.json + run_tests summary
 ├── rajomon_tuner.py           Bayesian tuner for rajomon
 ├── roshanfer_tuner.py         stub roshanfer tuner
 ├── plot_runner.py             per-repeat / per-experiment plots
@@ -169,6 +170,7 @@ python -m exec.merged_plot_runner \
 experiment_runs/
 └── exp-001/
     ├── run_summary.jsonl
+    ├── timings.json
     ├── tuning/
     │   └── <system>.json
     └── experiment_name/
