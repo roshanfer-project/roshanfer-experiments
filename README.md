@@ -17,6 +17,12 @@ Artifact-evaluation work is on the `artifact-evaluation` branch.
 
 A **benchmark** is a pair: a service graph under `benchmarks/` and a config tree under `configs/`. `run_tests.sh` runs that pair.
 
+An **experiment** is one `system`, one `type`, and one benchmark — one object in `experiments.json`. `--bench`, `--type`, and `--system` select it.
+
+A **run** is one `./run_tests.sh` invocation (directory `exp_runs_test/<id>/`).
+
+The CloudLab portal **Name** is a cluster, not an experiment.
+
 The work lives in three git submodules:
 
 
@@ -110,11 +116,11 @@ flowchart LR
 
 
 > [!IMPORTANT]
-> Each cluster can only run one (benchmark, experiment) pair at a time.
+> Each cluster can only run one experiment at a time.
 
 ## Paper environment
 
-Part 2 uses this same experiment.
+Part 2 uses this same cluster.
 
 
 | Item             | Value used in the paper                                                                                                                        |
@@ -123,10 +129,12 @@ Part 2 uses this same experiment.
 | Parameter set    | [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
 | Hardware         | CloudLab `c220g2`                                                                                                                              |
 | Roles            | 1 control, 3 generators, 22 workload                                                                                                           |
-| Cluster          | K3s and Cilium                                                                                                                                 |
+| Cluster          | K3s                                                                                                                                            |
 | Sidecar          | C++, `ubuntu:noble`                                                                                                                            |
 | Python           | 3.12                                                                                                                                           |
+| Images           | Docker Hub `farzad1132/*:latest`; `SKIP_BUILD=1`. Do not build.                                                                                |
 
+Scripts install the rest (venv, `rwg`, host packages, K3s, images). No need to install anything manually.
 
 > [!IMPORTANT]
 > You need a GitHub account with a normal OpenSSH public key added to it. PuTTY `.ppk` and FIDO/hardware keys do not work.
@@ -255,9 +263,9 @@ The flags `--type` and `--num-apis` select this entry in `configs/tests/one-serv
 }
 ```
 
-That is a 15 s Roshanfer run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
+That entry is one experiment: `system` roshanfer, `type` latency-and-rate-vs-time, benchmark `one-service`. `--num-apis 1` selects it among several `one-service` entries. It is a 15 s Roshanfer run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
 
-The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes artifacts. You do not need to generate or build anything now; the images are already published.
+The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes artifacts. Deploy pulls pre-built images (`SKIP_BUILD=1`). No need for building anything.
 
 ```json
 {
@@ -276,7 +284,7 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **Where:** control node.
 
-**What:** look at the run directory and plots. Check `run_summary.jsonl` for the fate of each experiment: `status` should be  `success` unless experiment failed for a reason.
+**What:** files under `exp_runs_test/<id>_tutorial/`.
 
 ```bash
 cat exp_runs_test/*_tutorial/one-service/exp-one-service/run_summary.csv
@@ -284,7 +292,11 @@ ls exp_runs_test/*_tutorial/one-service/exp-one-service/
 ls exp_runs_test/*_tutorial/plots/one-service/
 ```
 
-**Expected:** `status` is `success` for both repeats, metrics under `…/repeat_000/output/`, and a time-series plot under `plots/one-service/`.
+- `one-service/exp-one-service/run_summary.csv` — per-repeat `status` and output path
+- `…/latency-and-rate-vs-time-one-service-roshanfer/<unit>/repeat_00N/output/overall-f1.json` — aggregate goodput, SLO violations, drops, errors
+- `…/repeat_00N/output/realtime-f1.csv` — per-interval rate and latency (source of the PDFs)
+- `plots/one-service/…/rate_vs_time_repeat_00N.pdf` — stacked rates (goodput / SLO / dropped / errors)
+- `plots/one-service/…/latency_vs_time_repeat_00N.pdf` — p50/p99 vs time
 
 ### 9. Leave the control node
 
