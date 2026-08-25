@@ -8,7 +8,7 @@ We are submitting this artifact for the ACM / EuroSys 2027 badges **Available**,
 
 This README is sequential:
 
-1. **Part 1 — Tutorial (CloudLab)** — instantiate the paper cluster, initialize the control node, and run a small experiment (`one-service`). That is the same environment used in Part 2.
+1. **Part 1 — Cluster setup and tutorial** — instantiate the paper cluster, initialize the control node, and run a small experiment (`one-service`). That is the same environment used in Part 2.
 2. **Part 2 — Reproducing the paper** — assumes Part 1 is done. Regenerates the paper figures on that cluster.
 
 Artifact-evaluation work is on the `artifact-evaluation` branch.
@@ -72,7 +72,7 @@ Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experi
 
 ---
 
-# Part 1 — Tutorial (CloudLab)
+# Part 1 — Cluster setup and tutorial
 
 Purpose: set up the paper cluster, initialize the repo on the control node, and run a simple experiment. After this part the cluster is ready for figure reproduction.
 
@@ -104,7 +104,7 @@ flowchart LR
 ```
 
 > [!NOTE]
-> One `./run_tests.sh` at a time on this cluster. You may enter with `cloudlab_enter.sh` from more than one account; do not start a second run (another tmux, another CloudLab username on the same `node0`, or another laptop) until the first has exited. `run_tests.sh` refuses a concurrent run on the control node.
+> Each cluster can only run one (benchmark, experiment) pair at a time.
 
 ## Paper environment
 
