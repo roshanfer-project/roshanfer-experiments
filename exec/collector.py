@@ -44,7 +44,7 @@ class Collector:
         # 1. Collect Service Logs (Optional)
         if collect_service_logs:
              self._collect_service_logs(unit, raw_dir)
-             if self.config.nanolog_debug and unit.system == "sidecar":
+             if self.config.nanolog_debug and unit.system == "roshanfer":
                  self._nanolog_decompress_and_plot(unit_dir, raw_dir)
 
         # 2. Generate/Validate JSON Reports from CSV (Local processing)
@@ -79,7 +79,7 @@ class Collector:
         env["DEPLOYMENT_HOSTS"] = ",".join(unit.deployment_hosts)
         env["OUTPUT_DIR"] = str(raw_dir / "service_logs")
         env["SYSTEM"] = unit.system
-        if self.config.nanolog_debug and unit.system == "sidecar":
+        if self.config.nanolog_debug and unit.system == "roshanfer":
             env["COLLECT_SIDECAR_NANOLOG"] = "1"
 
         # Create subfolder

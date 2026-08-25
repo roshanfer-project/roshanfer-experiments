@@ -26,7 +26,7 @@ exec/
 ├── cloudlab_hosts.py          manifest.xml → user@host lines
 ├── report.py                  write run report.md
 ├── rajomon_tuner.py           Bayesian tuner for rajomon
-├── sidecar_tuner.py           stub sidecar tuner
+├── roshanfer_tuner.py         stub roshanfer tuner
 ├── plot_runner.py             per-repeat / per-experiment plots
 ├── merged_plot_runner.py      YAML overlay plots across systems
 ├── merge_plot_pdfs.py         combine PDFs → all_tests_plots.pdf
@@ -64,8 +64,8 @@ python -m exec.executor \
 
 Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}-{system}` (or `{type}-{bench}-{n}-{system}` for multi-API). Examples:
 ```bash
---only-names "latency-vs-throughput-one-service-plain,latency-vs-throughput-one-service-sidecar"
---name-contains "sidecar"
+--only-names "latency-vs-throughput-one-service-plain,latency-vs-throughput-one-service-roshanfer"
+--name-contains "roshanfer"
 --only-types "latency-vs-throughput" --name-contains "plain"
 ```
 

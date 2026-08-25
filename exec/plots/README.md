@@ -7,7 +7,7 @@
 ```bash
 python -m exec.plots.latency_rate_vs_time \
   --experiment-index fan-out \
-  --experiment-name latency-and-rate-vs-time-fan-out-sidecar \
+  --experiment-name latency-and-rate-vs-time-fan-out-roshanfer \
   --experiments-root exp_runs_test/<ts>/fan-out \
   --output-dir generated_plots
 ```

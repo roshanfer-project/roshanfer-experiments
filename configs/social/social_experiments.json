@@ -12,7 +12,7 @@
       "apis": [
         "compose-post"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 3,
       "collector_freq": 200
     },
@@ -30,7 +30,7 @@
         "read-user-timeline",
         "read-home-timeline"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 3,
       "collector_freq": 200
     },
@@ -46,7 +46,7 @@
       "apis": [
         "compose-post"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 3,
       "collector_freq": 200
     },
@@ -98,7 +98,7 @@
         "read-user-timeline",
         "read-home-timeline"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 1,
       "collector_freq": 200
     },
@@ -114,7 +114,7 @@
       "apis": [
         "compose-post"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 3,
       "collector_freq": 200,
       "services": [
@@ -143,7 +143,7 @@
         "read-user-timeline",
         "read-home-timeline"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 3,
       "collector_freq": 200,
       "services": [
@@ -336,7 +336,7 @@
       "apis": [
         "compose-post"
       ],
-      "system": "sidecar",
+      "system": "roshanfer",
       "repeat": 3,
       "collector_freq": 200,
       "warmup": 2,

@@ -2,7 +2,7 @@
 
 This module handles merging multiple experiments into unified figures based on
 a YAML configuration file. It focuses on creating combined visualizations
-where different systems (sidecar, rajomon, dagor) are compared in the same plot.
+where different systems (roshanfer, rajomon, dagor) are compared in the same plot.
 
 Supported merge types:
 1. latency-and-goodput-vs-load: Single figure with all experiments as legend entries
@@ -369,7 +369,7 @@ def generate_resource_waste_bar_merged(
                         _, _, prom_data = loaded_data[first_valid_api]
                         
                         # Check condition: Prom data exists OR it is Roshanfer (which can use overall data)
-                        is_roshanfer_exp = (label == 'Roshanfer' or 'sidecar' in exp_name)
+                        is_roshanfer_exp = (label == 'Roshanfer' or 'roshanfer' in exp_name)
                         
                         if (prom_data and prom_data.metrics) or is_roshanfer_exp:
                             waste_data = _calculate_waste_from_prometheus(prom_data, loaded_data, apis, bench, is_roshanfer=is_roshanfer_exp)

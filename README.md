@@ -50,7 +50,7 @@ roshanfer-experiments/
 └── rwg/                           submodule: load generator (see README)
 ```
 
-Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `sidecar` (Roshanfer), `rajomon`, or `dagor`.
+Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `roshanfer`, `rajomon`, or `dagor`.
 
 ---
 
@@ -250,12 +250,12 @@ The flags `--type` and `--num-apis` select this entry in `configs/tests/one-serv
     "loads": { "start": 5000, "end": 5000, "step": 1000 },
     "duration_sec": 15,
     "apis": ["f1"],
-    "system": "sidecar",
+    "system": "roshanfer",
     "repeat": 2
 }
 ```
 
-That is a 15 s sidecar run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
+That is a 15 s Roshanfer run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
 
 The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes manifests. You do not need to generate or build anything now; the images are already published.
 
@@ -329,7 +329,7 @@ In this part, we run experiments to produce figures used in the paper. This part
 > [!IMPORTANT]
 > **Execution times**
 >
-> Each experiment for any system (options are sidecar, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
+> Each experiment for any system (options are roshanfer, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
 
 ## Goodput vs load
 
@@ -338,7 +338,7 @@ The following command runs the Alibaba (30 microservices) benchmark to generate 
 **Option A: Only Roshanfer**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
-  --bench alibaba-large --also-alibaba --system sidecar --comment figure13_roshanfer
+  --bench alibaba-large --also-alibaba --system roshanfer --comment figure13_roshanfer
 ```
 **Option B: All systems**
 
@@ -358,7 +358,7 @@ The following command runs the Hotel Reservation benchmark to generate Figure 10
 **Option A: Only Roshanfer**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type max-queue \
-  --bench hotel --also-hotel-social --system sidecar --comment figure10_roshanfer
+  --bench hotel --also-hotel-social --system roshanfer --comment figure10_roshanfer
 ```
 
 **Option B: All systems**
@@ -378,7 +378,7 @@ The following command runs the Hotel Reservation benchmark to generate Figure 9.
 **Option A: Only Roshanfer**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type resource-waste \
-  --bench hotel --also-hotel-social --system sidecar --comment figure9_roshanfer
+  --bench hotel --also-hotel-social --system roshanfer --comment figure9_roshanfer
 ```
 
 **Option B: All systems**
@@ -398,7 +398,7 @@ The following command runs the Hotel Reservation benchmark to generate Figure 8.
 **Option A: Only Roshanfer**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
-  --system sidecar --type latency-and-rate-vs-time --comment figure8_roshanfer
+  --system roshanfer --type latency-and-rate-vs-time --comment figure8_roshanfer
 ```
 
 **Option B: All systems**
@@ -415,7 +415,7 @@ The plots are
 
 ## Impact of overcommitment, scheduling, and priority
 
-The following command runs the leaf synthetic benches to generate Figure 15. These experiments are sidecar-only (no baseline Option B).
+The following command runs the leaf synthetic benches to generate Figure 15. These experiments are roshanfer-only (no baseline Option B).
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 \
@@ -427,9 +427,9 @@ The following command runs the leaf synthetic benches to generate Figure 15. The
 
 The plots are:
 
-- `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-sidecar/throughput_vs_overcommitment.pdf`
-- `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-sidecar/throughput_vs_overcommitment.pdf`
-- `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-sidecar/throughput_vs_overcommitment.pdf`
+- `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
+- `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
+- `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
 
 ## Expected warnings and errors
 

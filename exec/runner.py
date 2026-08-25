@@ -550,7 +550,7 @@ class Runner:
                     f"mkdir -p {remote_out_dir} && "
                     f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
                 )
-                if not (unit.system in ["plain", "sidecar"]):
+                if not (unit.system in ["plain", "roshanfer"]):
                     # add --ignore-errors
                     cmd_str += " --ignore-errors"
                 

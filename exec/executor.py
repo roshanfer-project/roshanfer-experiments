@@ -118,7 +118,7 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
     step = exp.loads.step if exp.loads else 1
 
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
-    script = exp.script or ("run.sh" if exp.system == "sidecar" else "run-plain.sh")
+    script = exp.script or ("run.sh" if exp.system == "roshanfer" else "run-plain.sh")
 
     if exp.type == "throughput-vs-overcommitment":
         raw_ocs = exp.params.get("overcommitments") if exp.params else None
@@ -580,7 +580,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
-    p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar).")
+    p.add_argument("--only-system", help="Comma-separated list of systems (plain, roshanfer).")
     p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
     p.add_argument("--hosts-file", help="Override hosts_file from config.json")

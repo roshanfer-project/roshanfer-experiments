@@ -2,7 +2,7 @@
 
 A **benchmark** is a pair: a config tree here and a service graph under `benchmarks/`. `run_tests.sh` runs that pair.
 
-Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `sidecar` (Roshanfer), `rajomon`, or `dagor`. Hotel, social, and alibaba use the same trio with slightly different filenames (`config.hotel.json`, `hotel_experiments.json`, …).
+Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `roshanfer`, `rajomon`, or `dagor`. Hotel, social, and alibaba use the same trio with slightly different filenames (`config.hotel.json`, `hotel_experiments.json`, …).
 
 ## Repository layout
 

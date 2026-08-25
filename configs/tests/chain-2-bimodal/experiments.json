@@ -29,7 +29,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "sidecar",
+            "system": "roshanfer",
             "repeat": 1,
             "collector_freq": 200,
             "warmup": 2
@@ -46,7 +46,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "sidecar",
+            "system": "roshanfer",
             "repeat": 2,
             "collector_freq": 200
         },
@@ -62,7 +62,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "sidecar",
+            "system": "roshanfer",
             "repeat": 2,
             "collector_freq": 200,
             "services": [
