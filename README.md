@@ -170,6 +170,8 @@ cd roshanfer-experiments
 
 **Expected:** tmux session `roshanfer`, cwd `~/roshanfer-experiments`.
 
+Extra tmux panes do not inherit `KUBECONFIG` from `run_tests.sh`. `cloudlab_enter.sh` installs direnv and runs `direnv allow`, so a new pane in `~/roshanfer-experiments` can run `kubectl`. If `KUBECONFIG` is unset, `source ./init_env.sh`.
+
 ### 4. Fetch the experiment manifest
 
 **Where:** control node (inside tmux).

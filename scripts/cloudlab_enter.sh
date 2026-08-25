@@ -120,9 +120,12 @@ CLONE_URL=$(printf '%q' "$CLONE_URL")
 chmod 600 "\$HOME/.ssh/id_ed25519"
 chmod 644 "\$HOME/.ssh/id_ed25519.pub"
 
-if ! command -v tmux >/dev/null 2>&1; then
+need_pkgs=()
+command -v tmux >/dev/null 2>&1 || need_pkgs+=(tmux)
+command -v direnv >/dev/null 2>&1 || need_pkgs+=(direnv)
+if (( \${#need_pkgs[@]} )); then
   sudo apt-get update -qq
-  sudo apt-get install -y tmux
+  sudo apt-get install -y "\${need_pkgs[@]}"
 fi
 
 if [[ ! -d "\$DEST/.git" ]]; then
@@ -130,6 +133,11 @@ if [[ ! -d "\$DEST/.git" ]]; then
 else
   git -C "\$DEST" submodule update --init --recursive
 fi
+
+if ! grep -q 'direnv hook bash' "\$HOME/.bashrc" 2>/dev/null; then
+  echo 'eval "\$(direnv hook bash)"' >> "\$HOME/.bashrc"
+fi
+direnv allow "\$DEST"
 
 if ! tmux has-session -t "\$SESSION" 2>/dev/null; then
   tmux new-session -d -s "\$SESSION" -c "\$DEST"
