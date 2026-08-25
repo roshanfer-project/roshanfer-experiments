@@ -35,6 +35,7 @@ usage() {
   echo "experiments.json is executed; run data under exp_runs_test/<run_id>/<test_name>/,"
   echo "plots under exp_runs_test/<run_id>/plots/<test_name>/, merged PDF at .../plots/all_tests_plots.pdf."
   echo "<run_id> is YYYYMMDD_HHMMSS, or that plus _<comment> if --comment is set."
+  echo "Only one instance may run at a time (lock /tmp/roshanfer-run_tests.lock)."
   echo ""
   echo "Options:"
   echo "  -h, --help       Show this help and exit"
@@ -168,6 +169,17 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+LOCKFILE=/tmp/roshanfer-run_tests.lock
+# First creator: 0666 so other Unix users can flock the same file.
+(umask 000; set -o noclobber; : > "$LOCKFILE") 2>/dev/null || true
+exec 9>>"$LOCKFILE" || { echo "error: cannot open lock $LOCKFILE"; exit 1; }
+if ! flock -n 9; then
+  echo "error: run_tests.sh already running (lock $LOCKFILE)"
+  cat "$LOCKFILE" 2>/dev/null || true
+  exit 1
+fi
+printf 'pid=%s user=%s started=%s\n' "$$" "$(id -un)" "$(date -Iseconds)" > "$LOCKFILE"
 
 CLI_CLOUDLAB_MANIFEST="$CLOUDLAB_MANIFEST"
 CLI_CLOUDLAB_USER="$CLOUDLAB_USER"

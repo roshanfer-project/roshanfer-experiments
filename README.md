@@ -102,6 +102,9 @@ flowchart LR
   Gens -->|"RPCs"| Work
 ```
 
+> [!NOTE]
+> One `./run_tests.sh` at a time on this cluster. You may enter with `cloudlab_enter.sh` from more than one account; do not start a second run (another tmux, another CloudLab username on the same `node0`, or another laptop) until the first has exited. `run_tests.sh` refuses a concurrent run on the control node.
+
 ## Paper environment
 
 Part 2 uses this same experiment.
@@ -312,7 +315,7 @@ Same cluster as Part 1: [small-lan](https://www.cloudlab.us/p/PortalProfiles/sma
 
 ## How to run the paper experiments
 
-Run these on the control node (inside tmux). Each command runs every experiment in that bench. Figures come from those outputs (next section).
+Run these on the control node (inside tmux), **one command at a time** — wait for each to exit. Each command runs every experiment in that bench. Figures come from those outputs (next section).
 
 **Hotel Reservation**
 
