@@ -19,7 +19,7 @@ usage() {
   echo ""
   echo "Build and push sidecar + workload images via each bench's build.sh."
   echo "Names match run_tests.sh (one-service, hotel, alibaba-large, …)."
-  echo "TAG defaults to IMAGE_TAG in config.env, or latest if unset."
+  echo "TAG defaults to latest if --tag is omitted (not IMAGE_TAG from config.env)."
   echo ""
   echo "Example:"
   echo "  $0 --tag latest --bench one-service,hotel,social"
@@ -58,7 +58,7 @@ if [[ -z "$BENCH_FILTER" ]]; then
   exit 1
 fi
 
-TAG="${CLI_TAG:-${IMAGE_TAG:-latest}}"
+TAG="${CLI_TAG:-latest}"
 
 resolve_build_sh() {
   local name="$1"
