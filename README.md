@@ -62,26 +62,6 @@ Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experi
 
 ---
 
-## Time and resource overview
-
-> **Author TODO.** Fill in measured human time and compute time. Please do not estimate. Keep this section incomplete until those measurements exist.
->
-> Tutorial (CloudLab, same cluster as the paper):
->
-> - Instantiate the paper CloudLab parameter set:
-> - First provision, K3s, and `one-service`:
->
-> Paper reproduction (cluster already up from Part 1):
->
-> - Hotel Reservation sweep:
-> - Social Network sweep:
-> - Alibaba / DGG 30-MS sweep: ~1h30m Roshanfer-only, ~5h all systems
-> - Dynamic-graph sweep (`dynamic-large`, `fan-out-dynamic-0-9`): ~40m Roshanfer-only, ~3h all systems (`dynamic-large`)
-> - Figure 15 leaf benches (`leaf-1-2`, `leaf-1-10`, `leaf-1-2-p-2-1`):
-> - Disk space for a full campaign:
-
----
-
 # Part 1 — Cluster setup and tutorial
 
 Purpose: set up the paper cluster, initialize the repo on the control node, and run a simple experiment. After this part the cluster is ready for figure reproduction.
