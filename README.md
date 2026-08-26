@@ -30,7 +30,7 @@ This repository is the **orchestrator** (`run_tests.sh`, `exec/`, `configs/`). T
 | --------------------- | --------------------------------------------------------------------------------------------------- |
 | `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
 | `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
-| `rwg/`                | Open-loop HTTP/gRPC load generator. Runs on generator nodes, not in Kubernetes.                     |
+| `rwg/`                | Open-loop HTTP/1.1 load generator. Runs on generator nodes, not in Kubernetes.                      |
 | `formal/`             | TLA+ spec of the credit protocol.                                                                   |
 
 
@@ -92,7 +92,7 @@ flowchart LR
   Laptop -->|"cloudlab_fetch.sh rsync"| Control
   Control -->|"SSH kubeconfig"| Work
   Control -->|"SSH start rwg"| Gens
-  Gens -->|"RPCs"| Work
+  Gens -->|"HTTP"| Work
 ```
 
 
@@ -150,7 +150,7 @@ The saved parameters **are the ones used for paper experiments**.
 **What:** full clone on the laptop (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
 
 ```bash
-git clone --recurse-submodules -b artifact-evaluation git@github.com:farzad1132/roshanfer-experments.git
+git clone --recurse-submodules -b artifact-evaluation git@github.com:farzad1132/roshanfer-experiments.git
 cd roshanfer-experiments
 ```
 
@@ -219,7 +219,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **What:** provision hosts, create the Kubernetes cluster, and run one time-series experiment with a single API.
 
-Running all experiments (including generation of corresponding figures) is automatied through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
+Running all experiments (including generation of corresponding figures) is automated through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
 
 We can run a simple experiment with the following command:
 
@@ -232,9 +232,9 @@ We can run a simple experiment with the following command:
 
 The important options here are:
 
-- `--bench`: this tell the script to only filter `one-service` benchmark (both `/tests` and `/config` include a directory named `one-service` that keep implementation and configurations, respectively)
+- `--bench`: filter the `one-service` benchmark (`benchmarks/tests/one-service` graph, `configs/tests/one-service` config)
 - `--type`: filter experiments type of `latency-and-rate-vs-time`
-- `num-apis`: filter experiments with 1 API
+- `--num-apis`: filter experiments with 1 API
 - `--comment` append `tutorial` to the directory name of the output results.
 
 The flags `--type` and `--num-apis` select this entry in `configs/tests/one-service/experiments.json`:
@@ -332,7 +332,7 @@ In this part, we run experiments to produce figures used in the paper. This part
 > [!IMPORTANT]
 > **Execution times**
 >
-> Each experiment for any system (options are roshanfer, rajomon, dagor, and plain) will take up to 6 hours to finish excluding the any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
+> Each experiment for any system (options are roshanfer, rajomon, dagor, and plain) will take up to 6 hours to finish excluding any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
 
 ## Goodput vs load (real-world benchmark)
 
@@ -492,7 +492,7 @@ Farzad Mohammadi, Theo Akande, and Marios Kogias. 2027. Roshanfer: Achieving Per
 
 Farzad Mohammadi, [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
 
-Questions and problems: please [open a GitHub issue](https://github.com/farzad1132/roshanfer-experments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk)
+Questions and problems: please [open a GitHub issue](https://github.com/farzad1132/roshanfer-experiments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk)
 
 ---
 
