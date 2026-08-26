@@ -73,8 +73,8 @@ Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experi
 >
 > - Hotel Reservation sweep:
 > - Social Network sweep:
-> - Alibaba / DGG 30-MS sweep:
-> - Dynamic-graph sweep (`dynamic-large`, `fan-out-dynamic-0-9`):
+> - Alibaba / DGG 30-MS sweep: ~1h30m Roshanfer-only, ~5h all systems
+> - Dynamic-graph sweep (`dynamic-large`, `fan-out-dynamic-0-9`): ~40m Roshanfer-only, ~3h all systems (`dynamic-large`)
 > - Figure 15 leaf benches (`leaf-1-2`, `leaf-1-10`, `leaf-1-2-p-2-1`):
 > - Disk space for a full campaign:
 
@@ -351,12 +351,12 @@ In this part, we run experiments to produce figures used in the paper. This part
 
 The following command runs the Alibaba (30 microservices) benchmark to generate Figure 13.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~1h30m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
   --bench alibaba-large --also-alibaba --system roshanfer --comment figure13_roshanfer
 ```
-**Option B: All systems**
+**Option B: All systems (~5h)**
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
@@ -451,12 +451,12 @@ The plots are:
 
 The following command runs the `dynamic-large` benchmark to generate Figure 12.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~40m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
   --bench dynamic-large --system roshanfer --comment figure12_roshanfer
 ```
-**Option B: All systems**
+**Option B: All systems (~3h)**
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
