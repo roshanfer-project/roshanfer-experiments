@@ -401,12 +401,7 @@ class Runner:
             raise RuntimeError(msg)
 
     def teardown_system(self, bench: str, system: str, deployment_hosts: List[str], log_path: Optional[Path] = None, quiet: bool = False) -> None:
-        """
-        Teardowns the system using benchmarks/<bench>/destroy.sh or clean.sh
-        Also flushes conntrack on deployment hosts.
-        """
-        # Try destroy.sh first, then clean.sh, or assume deploy handles cleanup? 
-        # Typically good to have explicit teardown.
+        """Teardown via benchmarks/<bench>/destroy.sh and flush conntrack on deployment hosts."""
         script_path = Path("benchmarks") / bench / "destroy.sh"
         if not script_path.exists():
              raise FileNotFoundError(f"Destroy script not found: {script_path}")
