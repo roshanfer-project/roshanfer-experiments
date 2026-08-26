@@ -4,3 +4,6 @@
 [submodule "benchmarks"]
 	path = benchmarks
 	url = git@github.com:farzad1132/benchmarks.git
+[submodule "formal"]
+	path = formal
+	url = git@github.com:farzad1132/roshanfer-formal.git

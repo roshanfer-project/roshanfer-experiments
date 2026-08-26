@@ -23,7 +23,7 @@ A **run** is one `./run_tests.sh` invocation (directory `exp_runs_test/<id>/`).
 
 The CloudLab portal **Name** is a cluster, not an experiment.
 
-The work lives in three git submodules:
+This repository is the **orchestrator** (`run_tests.sh`, `exec/`, `configs/`). The systems live in four git submodules:
 
 
 | Submodule             | Role                                                                                                |
@@ -31,6 +31,7 @@ The work lives in three git submodules:
 | `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
 | `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
 | `rwg/`                | Open-loop HTTP/gRPC load generator. Runs on generator nodes, not in Kubernetes.                     |
+| `formal/`             | TLA+ spec of the credit protocol.                                                                   |
 
 
 ```text
@@ -53,7 +54,8 @@ roshanfer-experiments/
 │   └── tests/                     other synthetic graphs (Figs. 12, 15)
 ├── benchmarks/                    submodule: apps + K3s (see README)
 │   └── sidecar/                   nested submodule: C++ sidecar (see README)
-└── rwg/                           submodule: load generator (see README)
+├── rwg/                           submodule: load generator (see README)
+└── formal/                        submodule: TLA+ spec of the credit protocol
 ```
 
 Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `roshanfer`, `rajomon`, or `dagor`.
@@ -73,8 +75,8 @@ Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experi
 >
 > - Hotel Reservation sweep:
 > - Social Network sweep:
-> - Alibaba / DGG 30-MS sweep:
-> - Dynamic-graph sweep (`dynamic-large`, `fan-out-dynamic-0-9`):
+> - Alibaba / DGG 30-MS sweep: ~1h30m Roshanfer-only, ~5h all systems
+> - Dynamic-graph sweep (`dynamic-large`, `fan-out-dynamic-0-9`): ~40m Roshanfer-only, ~3h all systems (`dynamic-large`)
 > - Figure 15 leaf benches (`leaf-1-2`, `leaf-1-10`, `leaf-1-2-p-2-1`):
 > - Disk space for a full campaign:
 
@@ -152,6 +154,9 @@ Each step lists **where** to run it, **what** it does, and **what to expect**.
 1. Open the parameter set used in the paper: [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) (profile [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)).
 2. Instantiate. Fill only what CloudLab still asks for: your **Project** and a **Name**.
 
+> [!IMPORTANT]
+> CloudLab experiments are reserved for **16 hours by default**. If you need to keep the cluster, extend the experiment from the CloudLab portal before it expires.
+
 The saved parameters **are the ones used for paper experiments**.
 
 **When to proceed:** wait until the experiment status is **Ready** and **all 26 nodes** list Ready. Then copy **Name** and **Project** from that page; later steps use them as `--name` and `--project`.
@@ -226,6 +231,8 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected:** `All checks passed: 6.8.0-134-generic`.
 
+**Expected time:** less than 10 minutes.
+
 ### 7. Run a simple experiment
 
 **Where:** control node.
@@ -277,6 +284,10 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 ```
 
 **Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
+
+***In the case of any failures (e.g., Cloudlab machines sometimes temporarily lose network access so dependency installation might fail), it is safe to rerun `run_tests.sh` again. Each run's state and logs are persisted in separate directories to facilitate debugging and inspection.***
+
+**Expected time:** less than 10 minutes.
 
 **When to proceed:** wait until `./run_tests.sh` has exited.
 
@@ -347,12 +358,12 @@ In this part, we run experiments to produce figures used in the paper. This part
 
 The following command runs the Alibaba (30 microservices) benchmark to generate Figure 13.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~1h30m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
   --bench alibaba-large --also-alibaba --system roshanfer --comment figure13_roshanfer
 ```
-**Option B: All systems**
+**Option B: All systems (~5h)**
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
@@ -361,21 +372,23 @@ The following command runs the Alibaba (30 microservices) benchmark to generate 
 
 **Inspecting results**
 
+Fetching without `--plots-only` needs up to 2G of storage.
+
 The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-goodput-vs-load-alibaba-large_combined.pdf`.
 
 ## Queueing Comparison
 
 The following command runs the Hotel Reservation benchmark to generate Figure 10.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~5m)**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type max-queue \
+./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure10_roshanfer
 ```
 
-**Option B: All systems**
+**Option B: All systems (~1h)**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type max-queue \
+./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --comment figure10_all
 ```
 
@@ -387,15 +400,15 @@ The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/max-queue-hotel_max_qu
 
 The following command runs the Hotel Reservation benchmark to generate Figure 9.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~5m)**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type resource-waste \
+./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure9_roshanfer
 ```
 
-**Option B: All systems**
+**Option B: All systems (~1h)**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type resource-waste \
+./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
   --bench hotel --also-hotel-social --comment figure9_all
 ```
 
@@ -407,16 +420,16 @@ The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/resource-waste-bar-hot
 
 The following command runs the Hotel Reservation benchmark to generate Figure 8.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~5m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
-  --system roshanfer --type latency-and-rate-vs-time --comment figure8_roshanfer
+  --system roshanfer --type latency-and-rate-vs-time --num-apis 1 --comment figure8_roshanfer
 ```
 
-**Option B: All systems**
+**Option B: All systems (~1h)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
-  --type latency-and-rate-vs-time --comment figure8_all
+  --type latency-and-rate-vs-time --num-apis 1 --comment figure8_all
 ```
 
 **Inspecting results**
@@ -425,7 +438,7 @@ The plots are
 -  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_rate_vs_time.pdf`
 -  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_latency_vs_time.pdf`.
 
-## Impact of overcommitment, scheduling, and priority
+## Impact of overcommitment and priority
 
 The following command runs the `leaf-*` benchmarks to generate Figure 15. These experiments are roshanfer-only.
 
@@ -435,24 +448,26 @@ The following command runs the `leaf-*` benchmarks to generate Figure 15. These 
   --type throughput-vs-overcommitment --comment figure15
 ```
 
+**Expected time:** ~10m
+
 **Inspecting results**
 
 The plots are:
 
-- `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
-- `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
-- `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15a: `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15b: `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15c: `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
 
 ## Dynamic call graph
 
 The following command runs the `dynamic-large` benchmark to generate Figure 12.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~40m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
   --bench dynamic-large --system roshanfer --comment figure12_roshanfer
 ```
-**Option B: All systems**
+**Option B: All systems (~3h)**
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
@@ -460,6 +475,8 @@ The following command runs the `dynamic-large` benchmark to generate Figure 12.
 ```
 
 **Inspecting results**
+
+Fetching without `--plots-only` needs up to 2G of storage.
 
 The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-goodput-vs-load-dynamic-large_combined.pdf`.
 
@@ -470,12 +487,6 @@ The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-go
 ## Troubleshooting
 
 > **Author TODO.** Same pass. Please cover at least: direnv / `KUBECONFIG`, SSH user mismatch, uninitialized submodules, the `~/.roshanfer_provisioned` marker, `--remote-clean`, skipped plots, and Rajomon tuner duration.
-
----
-
-## Local development
-
-> **Author TODO.** Write this section. Cover running on a single Linux machine instead of CloudLab: `REQUIRE_REMOTE=0` in `config.env`, `hosts.txt` from `hosts.txt.example` (`user@host` lines; first lines are generators), omit `--remote`, and passwordless `ssh user@localhost`.
 
 ---
 
@@ -502,7 +513,7 @@ Questions and problems: please [open a GitHub issue](https://github.com/farzad11
 
 ## License
 
-Original code in this repository, and in the `rwg`, `benchmarks` (except as noted below), and `benchmarks/sidecar` submodules, is under the [MIT License](LICENSE). That license allows comparison and extension, as required for the Available badge.
+Original code in this repository, and in the `rwg`, `benchmarks` (except as noted below), `benchmarks/sidecar`, and `formal` submodules, is under the [MIT License](LICENSE). That license allows comparison and extension, as required for the Available badge.
 
 Third-party components keep their own licenses; see [THIRD_PARTY.md](THIRD_PARTY.md). `benchmarks/hotel/` and `benchmarks/social/` are derived from [DeathStarBench](https://github.com/delimitrou/DeathStarBench) (Apache License 2.0).
 

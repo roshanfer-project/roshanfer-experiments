@@ -21,4 +21,4 @@ Each of those trees keeps its upstream `LICENSE` file.
 
 ## TLA+ model
 
-**Author TODO.** Add the specification repository and its license when the TLA+ link is filled in.
+`formal/` is original Roshanfer code under the MIT License (same as this repository), not a third-party component. See [farzad1132/roshanfer-formal](https://github.com/farzad1132/roshanfer-formal).

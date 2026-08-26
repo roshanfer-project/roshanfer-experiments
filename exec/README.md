@@ -105,7 +105,7 @@ Hosts are always read from a plain-text file (one `user@host` per line, `#` comm
 - **Local mode** — repo-root `hosts.txt` (copy `hosts.txt.example`). `REQUIRE_REMOTE=0` in `config.env`. `create.sh` / `delete.sh` read the same file and skip the first `NUM_GENERATORS` lines; `provision.sh` uses every line.
 - **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` and passes it with `--hosts-file`. With `CONTROL_ON_CLUSTER=1`, the first node / control machine is dropped. Root `hosts.txt` is not read. If the manifest file is missing, it exits; place the XML yourself (or run `./scripts/fetch_manifest.sh` on the control node after `cloudlab_enter.sh`).
 
-`IMAGE_TAG` in `config.env` overrides the executor’s path-hash image tag. `SKIP_BUILD=1` skips `build.sh`. Populate Hub images first with `./scripts/build.sh --bench …` (tag defaults to `IMAGE_TAG`).
+`IMAGE_TAG` in `config.env` overrides the executor’s path-hash image tag. `SKIP_BUILD=1` skips `build.sh`. Populate Hub images first with `./scripts/build.sh --bench …` (tag defaults to `latest`; pass `--tag` to override).
 
 ## Tuning
 
