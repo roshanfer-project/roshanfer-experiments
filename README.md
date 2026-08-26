@@ -28,7 +28,7 @@ This repository is the **orchestrator** (`run_tests.sh`, `exec/`, `configs/`). T
 
 | Submodule             | Role                                                                                                |
 | --------------------- | --------------------------------------------------------------------------------------------------- |
-| `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
+| `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, and tests) and cluster scripts (K3s, host bootstrap). |
 | `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
 | `rwg/`                | Open-loop HTTP/1.1 load generator. Runs on generator nodes, not in Kubernetes.                      |
 | `formal/`             | TLA+ spec of the credit protocol.                                                                   |
@@ -51,7 +51,7 @@ roshanfer-experiments/
 │   ├── hotel/                     Hotel Reservation (Figs. 7–11, 14)
 │   ├── social/                    Social Network (Figs. 7, 9–11)
 │   ├── alibaba-large/             Alibaba / DGG 30-MS (Fig. 13)
-│   └── tests/                     other synthetic graphs (Figs. 12, 15)
+│   └── tests/                     dynamic-large (Fig. 12, Alibaba traces); leaf-* (Fig. 15)
 ├── benchmarks/                    submodule: apps + K3s (see README)
 │   └── sidecar/                   nested submodule: C++ sidecar (see README)
 ├── rwg/                           submodule: load generator (see README)
