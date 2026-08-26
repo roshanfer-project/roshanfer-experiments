@@ -147,14 +147,14 @@ The saved parameters **are the ones used for paper experiments**.
 
 **Where:** laptop.
 
-**What:** get the enter/leave scripts. The control node gets a full clone (with submodules) in the next step.
+**What:** full clone on the laptop (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
 
 ```bash
-git clone -b artifact-evaluation <this-repo-url>
+git clone --recurse-submodules -b artifact-evaluation <this-repo-url>
 cd roshanfer-experiments
 ```
 
-**Expected:** `scripts/cloudlab_enter.sh` exists.
+**Expected:** `scripts/cloudlab_enter.sh` exists and submodule dirs are populated (`benchmarks/sidecar`, `rwg`, `formal`).
 
 ### 3. Enter the control node
 
