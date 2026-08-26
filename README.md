@@ -380,13 +380,13 @@ The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-go
 
 The following command runs the Hotel Reservation benchmark to generate Figure 10.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~5m)~**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure10_roshanfer
 ```
 
-**Option B: All systems**
+**Option B: All systems (~1h)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --comment figure10_all
@@ -400,13 +400,13 @@ The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/max-queue-hotel_max_qu
 
 The following command runs the Hotel Reservation benchmark to generate Figure 9.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~5m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure9_roshanfer
 ```
 
-**Option B: All systems**
+**Option B: All systems (~1h)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
   --bench hotel --also-hotel-social --comment figure9_all
@@ -420,13 +420,13 @@ The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/resource-waste-bar-hot
 
 The following command runs the Hotel Reservation benchmark to generate Figure 8.
 
-**Option A: Only Roshanfer**
+**Option A: Only Roshanfer (~5m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
   --system roshanfer --type latency-and-rate-vs-time --num-apis 1 --comment figure8_roshanfer
 ```
 
-**Option B: All systems**
+**Option B: All systems (~1h)~**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
   --type latency-and-rate-vs-time --num-apis 1 --comment figure8_all
