@@ -324,16 +324,6 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the laptop clone, pull outputs the same way as in Part 1 step 10 (`./scripts/cloudlab_fetch.sh`).
 
-> [!IMPORTANT]
-> **Tuning requirements of baselines**
->
-> Based on the §2.3 of the paper, our baselines require tuning for any (benchmark, hardware, workload). This tuning can take 1-2 hours for every experiment in our setup. Thus, for every experiment, we also provide the option to only run Roshanfer and generate the corresponding plot.
-
-> [!IMPORTANT]
-> **Execution times**
->
-> Each experiment for any system (options are roshanfer, rajomon, dagor, and plain) will take up to 6 hours to finish excluding any required tuning. Some experiment types, such as `latency-and-rate-vs-time` (e.g., Figure 8), `max-queue` (e.g., Figure 10), and `resource-waste` (e.g., Figure 9) are much faster because they require fewer load levels.
-
 ## Goodput vs load (real-world benchmark)
 
 The following command runs the Alibaba (30 microservices) benchmark to generate Figure 13.
@@ -459,6 +449,67 @@ The following command runs the `dynamic-large` benchmark to generate Figure 12.
 Fetching without `--plots-only` needs up to 2G of storage.
 
 The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-goodput-vs-load-dynamic-large_combined.pdf`.
+
+## Multi-API
+
+The following command runs the Social Network benchmark to generate Figure 11.
+
+**Option A: Only Roshanfer (~TODO)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench social --also-hotel-social --num-apis 3 --system roshanfer --comment figure11_roshanfer
+```
+**Option B: All systems (~TODO)**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench social --also-hotel-social --num-apis 3 --comment figure11_all
+```
+
+**Inspecting results**
+
+Fetching without `--plots-only` needs up to TODO of storage.
+
+The plot is `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social-3_combined.pdf`.
+
+## Overhead
+
+The following command runs the Hotel Reservation benchmark to generate Figure 14.
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-vs-throughput --num-apis 1 \
+  --bench hotel --also-hotel-social --comment figure14
+```
+
+**Expected time:** ~TODO
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/latency-vs-throughput-hotel_latency_vs_throughput.pdf`.
+
+## Goodput vs load (Hotel Reservation and Social Network)
+
+The following command runs the Hotel Reservation and Social Network benchmarks to generate Figure 7.
+
+**Option A: Only Roshanfer (~TODO)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench hotel,social --also-hotel-social --num-apis 1 --system roshanfer --comment figure7_roshanfer
+```
+**Option B: All systems (~TODO)**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench hotel,social --also-hotel-social --num-apis 1 --comment figure7_all
+```
+
+**Inspecting results**
+
+Fetching without `--plots-only` needs up to TODO of storage.
+
+The plots are
+-  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
+-  `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social_combined.pdf`.
 
 ## Troubleshooting
 
