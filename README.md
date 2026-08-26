@@ -346,7 +346,7 @@ Fetching without `--plots-only` needs up to 2G of storage.
 
 The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-goodput-vs-load-alibaba-large_combined.pdf`.
 
-## Queueing Comparison
+## Queueing
 
 The following command runs the Hotel Reservation benchmark to generate Figure 10.
 
