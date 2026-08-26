@@ -150,7 +150,7 @@ The saved parameters **are the ones used for paper experiments**.
 **What:** full clone on the laptop (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
 
 ```bash
-git clone --recurse-submodules -b artifact-evaluation <this-repo-url>
+git clone --recurse-submodules -b artifact-evaluation git@github.com:farzad1132/roshanfer-experments.git
 cd roshanfer-experiments
 ```
 
