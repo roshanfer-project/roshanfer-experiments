@@ -426,7 +426,7 @@ The following command runs the Hotel Reservation benchmark to generate Figure 8.
   --system roshanfer --type latency-and-rate-vs-time --num-apis 1 --comment figure8_roshanfer
 ```
 
-**Option B: All systems (~1h)~**
+**Option B: All systems (~1h)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
   --type latency-and-rate-vs-time --num-apis 1 --comment figure8_all
