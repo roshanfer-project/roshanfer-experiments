@@ -438,7 +438,7 @@ The plots are
 -  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_rate_vs_time.pdf`
 -  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_latency_vs_time.pdf`.
 
-## Impact of overcommitment, scheduling, and priority
+## Impact of overcommitment and priority
 
 The following command runs the `leaf-*` benchmarks to generate Figure 15. These experiments are roshanfer-only.
 
@@ -448,13 +448,15 @@ The following command runs the `leaf-*` benchmarks to generate Figure 15. These 
   --type throughput-vs-overcommitment --comment figure15
 ```
 
+**Expected time:** ~10m
+
 **Inspecting results**
 
 The plots are:
 
-- `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
-- `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
-- `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15a: `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15b: `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15c: `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
 
 ## Dynamic call graph
 
