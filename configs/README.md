@@ -14,7 +14,6 @@ configs/
 └── tests/                     synthetic graphs
     ├── one-service/           tutorial
     ├── dynamic-large/         dynamic graphs (Fig. 12)
-    ├── fan-out-dynamic-0-9/   dynamic graphs (Fig. 12)
     ├── leaf-1-2/              overcommitment (Fig. 15)
     ├── leaf-1-10/             overcommitment (Fig. 15)
     ├── leaf-1-2-p-2-1/        overcommitment (Fig. 15)
