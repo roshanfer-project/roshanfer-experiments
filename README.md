@@ -282,6 +282,8 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
 
+***In the case of any failures (e.g., Cloudlab machines sometimes temporarily lose network access so dependency installation might fail), it is safe to rerun `run_tests.sh` again. Each run's state and logs are persisted in separate directories to facilitate debugging and inspection.***
+
 **Expected time:** less than 10 minutes.
 
 **When to proceed:** wait until `./run_tests.sh` has exited.
