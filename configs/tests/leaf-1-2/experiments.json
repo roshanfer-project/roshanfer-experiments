@@ -9,8 +9,8 @@
         1
       ],
       "loads": {
-        "start": 200,
-        "end": 200,
+        "start": 500,
+        "end": 500,
         "step": 50
       },
       "base_rate": 50,
