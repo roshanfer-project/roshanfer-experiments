@@ -382,13 +382,13 @@ The following command runs the Hotel Reservation benchmark to generate Figure 10
 
 **Option A: Only Roshanfer**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type max-queue \
+./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure10_roshanfer
 ```
 
 **Option B: All systems**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type max-queue \
+./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --comment figure10_all
 ```
 
@@ -402,13 +402,13 @@ The following command runs the Hotel Reservation benchmark to generate Figure 9.
 
 **Option A: Only Roshanfer**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type resource-waste \
+./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure9_roshanfer
 ```
 
 **Option B: All systems**
 ```bash
-./run_tests.sh --remote --num-generators 3 --type resource-waste \
+./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
   --bench hotel --also-hotel-social --comment figure9_all
 ```
 
@@ -423,13 +423,13 @@ The following command runs the Hotel Reservation benchmark to generate Figure 8.
 **Option A: Only Roshanfer**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
-  --system roshanfer --type latency-and-rate-vs-time --comment figure8_roshanfer
+  --system roshanfer --type latency-and-rate-vs-time --num-apis 1 --comment figure8_roshanfer
 ```
 
 **Option B: All systems**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
-  --type latency-and-rate-vs-time --comment figure8_all
+  --type latency-and-rate-vs-time --num-apis 1 --comment figure8_all
 ```
 
 **Inspecting results**
