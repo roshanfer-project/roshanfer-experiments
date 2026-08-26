@@ -154,6 +154,9 @@ Each step lists **where** to run it, **what** it does, and **what to expect**.
 1. Open the parameter set used in the paper: [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) (profile [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)).
 2. Instantiate. Fill only what CloudLab still asks for: your **Project** and a **Name**.
 
+> [!IMPORTANT]
+> CloudLab experiments are reserved for **16 hours by default**. If you need to keep the cluster, extend the experiment from the CloudLab portal before it expires.
+
 The saved parameters **are the ones used for paper experiments**.
 
 **When to proceed:** wait until the experiment status is **Ready** and **all 26 nodes** list Ready. Then copy **Name** and **Project** from that page; later steps use them as `--name` and `--project`.
