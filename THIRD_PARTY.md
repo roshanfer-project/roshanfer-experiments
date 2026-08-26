@@ -21,4 +21,6 @@ Each of those trees keeps its upstream `LICENSE` file.
 
 ## TLA+ model
 
-**Author TODO.** Add the specification repository and its license when the TLA+ link is filled in.
+The TLA+ specification is the `formal/` submodule: https://github.com/farzad1132/roshanfer-formal
+
+**Author TODO.** Add the TLA+ license once the formal repository has a LICENSE.

@@ -23,7 +23,7 @@ A **run** is one `./run_tests.sh` invocation (directory `exp_runs_test/<id>/`).
 
 The CloudLab portal **Name** is a cluster, not an experiment.
 
-The work lives in three git submodules:
+The work lives in four git submodules:
 
 
 | Submodule             | Role                                                                                                |
@@ -31,6 +31,7 @@ The work lives in three git submodules:
 | `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
 | `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
 | `rwg/`                | Open-loop HTTP/gRPC load generator. Runs on generator nodes, not in Kubernetes.                     |
+| `formal/`             | TLA+ model for paper §5 (Request Bound, Deadlock Freedom, Work Conservation). Public repo: https://github.com/farzad1132/roshanfer-formal . TLC: `formal/README.md` (or the public repo). |
 
 
 ```text
@@ -53,7 +54,8 @@ roshanfer-experiments/
 │   └── tests/                     other synthetic graphs (Figs. 12, 15)
 ├── benchmarks/                    submodule: apps + K3s (see README)
 │   └── sidecar/                   nested submodule: C++ sidecar (see README)
-└── rwg/                           submodule: load generator (see README)
+├── rwg/                           submodule: load generator (see README)
+└── formal/                        submodule: TLA+ model (§5); TLC: formal/README.md
 ```
 
 Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `roshanfer`, `rajomon`, or `dagor`.
