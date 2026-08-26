@@ -380,7 +380,7 @@ The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-go
 
 The following command runs the Hotel Reservation benchmark to generate Figure 10.
 
-**Option A: Only Roshanfer (~5m)~**
+**Option A: Only Roshanfer (~5m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
   --bench hotel --also-hotel-social --system roshanfer --comment figure10_roshanfer
