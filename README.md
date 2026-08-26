@@ -23,7 +23,7 @@ A **run** is one `./run_tests.sh` invocation (directory `exp_runs_test/<id>/`).
 
 The CloudLab portal **Name** is a cluster, not an experiment.
 
-The work lives in four git submodules:
+This repository is the **orchestrator** (`run_tests.sh`, `exec/`, `configs/`). The systems live in four git submodules:
 
 
 | Submodule             | Role                                                                                                |
