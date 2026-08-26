@@ -428,7 +428,7 @@ The following command runs the `leaf-*` benchmarks to generate Figure 15. These 
   --type throughput-vs-overcommitment --comment figure15
 ```
 
-**Expected time:** ~10m
+**Expected time:** ~20m
 
 **Inspecting results**
 

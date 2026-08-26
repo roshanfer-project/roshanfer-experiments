@@ -20,7 +20,7 @@
         "f2"
       ],
       "system": "roshanfer",
-      "repeat": 1,
+      "repeat": 3,
       "collector_freq": 200,
       "warmup": 2
     }
