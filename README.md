@@ -109,7 +109,7 @@ Part 2 uses this same cluster.
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | CloudLab profile | [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)                                                                 |
 | Parameter set    | [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
-| Hardware         | CloudLab `c220g2`                                                                                                                              |
+| Hardware         | CloudLab `c220g2` (the submission lists `c6420` by mistake; this will be fixed in camera-ready)                                                 |
 | Roles            | 1 control, 3 generators, 22 workload                                                                                                           |
 | Cluster          | K3s                                                                                                                                            |
 | Sidecar          | C++, `ubuntu:noble`                                                                                                                            |
