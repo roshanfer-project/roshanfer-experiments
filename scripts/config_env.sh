@@ -15,6 +15,7 @@ REPO_EXPERIMENTS="${REPO_EXPERIMENTS:-roshanfer-experiments}"
 REPO_BENCHMARKS="${REPO_BENCHMARKS:-benchmarks}"
 REPO_RWG="${REPO_RWG:-rwg}"
 REPO_SIDECAR="${REPO_SIDECAR:-roshanfer-sidecar}"
+REPO_FORMAL="${REPO_FORMAL:-roshanfer-formal}"
 
 _cfg="${REPO_ROOT:-}/config.env"
 if [[ -n "${REPO_ROOT:-}" && -f "$_cfg" ]]; then
@@ -36,11 +37,12 @@ REPO_URL="$(_git_url "$REPO_EXPERIMENTS")"
 REPO_BENCHMARKS_URL="$(_git_url "$REPO_BENCHMARKS")"
 REPO_RWG_URL="$(_git_url "$REPO_RWG")"
 REPO_SIDECAR_URL="$(_git_url "$REPO_SIDECAR")"
+REPO_FORMAL_URL="$(_git_url "$REPO_FORMAL")"
 export REQUIRE_REMOTE CONTROL_ON_CLUSTER CLOUDLAB_USER CLOUDLAB_MANIFEST
 export REGISTRY IMAGE_TAG SKIP_BUILD
 export GIT_PROTOCOL GIT_HOST GIT_ORG
-export REPO_EXPERIMENTS REPO_BENCHMARKS REPO_RWG REPO_SIDECAR
-export REPO_URL REPO_BENCHMARKS_URL REPO_RWG_URL REPO_SIDECAR_URL
+export REPO_EXPERIMENTS REPO_BENCHMARKS REPO_RWG REPO_SIDECAR REPO_FORMAL
+export REPO_URL REPO_BENCHMARKS_URL REPO_RWG_URL REPO_SIDECAR_URL REPO_FORMAL_URL
 
 _set_submodule_url() {
   local gitdir="$1" name="$2" url="$3"
@@ -55,5 +57,6 @@ apply_git_protocol() {
   [[ -n "${REPO_ROOT:-}" && -d "${REPO_ROOT}/.git" ]] || return 0
   _set_submodule_url "$REPO_ROOT" rwg "$REPO_RWG_URL"
   _set_submodule_url "$REPO_ROOT" benchmarks "$REPO_BENCHMARKS_URL"
+  _set_submodule_url "$REPO_ROOT" formal "$REPO_FORMAL_URL"
   _set_submodule_url "${REPO_ROOT}/benchmarks" sidecar "$REPO_SIDECAR_URL"
 }

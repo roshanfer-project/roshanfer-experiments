@@ -23,7 +23,7 @@ A **run** is one `./run_tests.sh` invocation (directory `exp_runs_test/<id>/`).
 
 The CloudLab portal **Name** is a cluster, not an experiment.
 
-The work lives in three git submodules:
+The work lives in four git submodules:
 
 
 | Submodule             | Role                                                                                                |
@@ -31,6 +31,7 @@ The work lives in three git submodules:
 | `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, synthetic tests) and cluster scripts (K3s, host bootstrap). |
 | `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
 | `rwg/`                | Open-loop HTTP/gRPC load generator. Runs on generator nodes, not in Kubernetes.                     |
+| `formal/`             | TLA+ spec of the credit protocol.                                                                   |
 
 
 ```text
@@ -53,7 +54,8 @@ roshanfer-experiments/
 │   └── tests/                     other synthetic graphs (Figs. 12, 15)
 ├── benchmarks/                    submodule: apps + K3s (see README)
 │   └── sidecar/                   nested submodule: C++ sidecar (see README)
-└── rwg/                           submodule: load generator (see README)
+├── rwg/                           submodule: load generator (see README)
+└── formal/                        submodule: TLA+ spec of the credit protocol
 ```
 
 Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `roshanfer`, `rajomon`, or `dagor`.
@@ -504,7 +506,7 @@ Questions and problems: please [open a GitHub issue](https://github.com/farzad11
 
 ## License
 
-Original code in this repository, and in the `rwg`, `benchmarks` (except as noted below), and `benchmarks/sidecar` submodules, is under the [MIT License](LICENSE). That license allows comparison and extension, as required for the Available badge.
+Original code in this repository, and in the `rwg`, `benchmarks` (except as noted below), `benchmarks/sidecar`, and `formal` submodules, is under the [MIT License](LICENSE). That license allows comparison and extension, as required for the Available badge.
 
 Third-party components keep their own licenses; see [THIRD_PARTY.md](THIRD_PARTY.md). `benchmarks/hotel/` and `benchmarks/social/` are derived from [DeathStarBench](https://github.com/delimitrou/DeathStarBench) (Apache License 2.0).
 
