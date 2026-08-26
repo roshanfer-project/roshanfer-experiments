@@ -460,13 +460,18 @@ Fetching without `--plots-only` needs up to 2G of storage.
 
 The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-goodput-vs-load-dynamic-large_combined.pdf`.
 
-## Expected warnings and errors
-
-> **Author TODO.** Careful pass over the paper-reproduction commands (hotel, social, alibaba, dynamic graphs, Fig. 15). For each step, record expected messages, genuine failures and the recovery step, and what a successful run prints. Please write this from observed output.
-
 ## Troubleshooting
 
-> **Author TODO.** Same pass. Please cover at least: direnv / `KUBECONFIG`, SSH user mismatch, uninitialized submodules, the `~/.roshanfer_provisioned` marker, `--remote-clean`, skipped plots, and Rajomon tuner duration.
+Each run writes `exp_runs_test/<id>/<bench>/exp-<index>/`. Rerunning `run_tests.sh` is safe because orchestrator is designed to be idempotent and each run uses a new directory.
+
+**1. Executor log.** `logs/executor_*.log` is the hub. It records every phase and prints `Logging output to: …` for specialized transcripts (provision, K3s, deploy, teardown, build, tuner). Start there to see what failed, then open the file it names.
+
+**2. Run summaries.** `run_summary.csv` (and `run_summary.jsonl`) lists every repeat. Rows with `status` other than `success` failed. The `path` column is that repeat’s `raw/` directory.
+
+**3. Repeat details.** In that `raw/` directory:
+- collected service and sidecar logs: `service_logs/`
+- load-generator stdout/stderr: `wrapper_stdout_*.txt` and `wrapper_stderr_*.txt`
+- structured error fields: `run_details.json`
 
 ---
 
