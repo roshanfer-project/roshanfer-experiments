@@ -365,6 +365,8 @@ The following command runs the Alibaba (30 microservices) benchmark to generate 
 
 **Inspecting results**
 
+Fetching without `--plots-only` needs up to 2G of storage.
+
 The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-goodput-vs-load-alibaba-large_combined.pdf`.
 
 ## Queueing Comparison
@@ -464,6 +466,8 @@ The following command runs the `dynamic-large` benchmark to generate Figure 12.
 ```
 
 **Inspecting results**
+
+Fetching without `--plots-only` needs up to 2G of storage.
 
 The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-goodput-vs-load-dynamic-large_combined.pdf`.
 
