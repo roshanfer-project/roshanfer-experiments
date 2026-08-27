@@ -508,8 +508,8 @@ The following command runs the Hotel Reservation and Social Network benchmarks t
 Fetching without `--plots-only` needs up to 8.5G of storage.
 
 The plots are
--  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
--  `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social_combined.pdf`.
+-  7a: `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
+-  7b: `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social_combined.pdf`.
 
 ## Troubleshooting
 
