@@ -218,7 +218,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Where:** control node.
 
-**What:** provision hosts, create the Kubernetes cluster, and run one time-series experiment with a single API. This command automatically installs all software used here.
+**What:** `./run_tests.sh` does everything end to end: installs everything required, runs the experiment, collects results, and plots. This first run is one time-series experiment with a single API.
 
 Running all experiments (including generation of corresponding figures) is automated through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
 
