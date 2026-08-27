@@ -18,5 +18,6 @@ scripts/
 ├── ensure_build_deps.sh       host packages for sidecar Docker bake
 ├── ensure_rwg.sh              build ./rwg/rwg if the binary is missing
 ├── regenerate_run_plots.sh    re-plot an existing exp_runs_test run
+├── run_paper_experiments.sh   sequential Part 2 paper experiments (Option B)
 └── queue_size.py              compute max ingress queue per API
 ```
