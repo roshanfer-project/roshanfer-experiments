@@ -454,12 +454,12 @@ The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-go
 
 The following command runs the Social Network benchmark to generate Figure 11.
 
-**Option A: Only Roshanfer (~TODO)**
+**Option A: Only Roshanfer (~30m)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
   --bench social --also-hotel-social --num-apis 3 --system roshanfer --comment figure11_roshanfer
 ```
-**Option B: All systems (~TODO)**
+**Option B: All systems (~3h)**
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
@@ -468,7 +468,7 @@ The following command runs the Social Network benchmark to generate Figure 11.
 
 **Inspecting results**
 
-Fetching without `--plots-only` needs up to TODO of storage.
+Fetching without `--plots-only` needs up to 3.5G of storage.
 
 The plot is `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social-3_combined.pdf`.
 
@@ -481,7 +481,7 @@ The following command runs the Hotel Reservation benchmark to generate Figure 14
   --bench hotel --also-hotel-social --comment figure14
 ```
 
-**Expected time:** ~TODO
+**Expected time:** ~45m
 
 **Inspecting results**
 
@@ -491,12 +491,12 @@ The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/latency-vs-throughput-
 
 The following command runs the Hotel Reservation and Social Network benchmarks to generate Figure 7.
 
-**Option A: Only Roshanfer (~TODO)**
+**Option A: Only Roshanfer (~1h)**
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
   --bench hotel,social --also-hotel-social --num-apis 1 --system roshanfer --comment figure7_roshanfer
 ```
-**Option B: All systems (~TODO)**
+**Option B: All systems (~6h)**
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
@@ -505,7 +505,7 @@ The following command runs the Hotel Reservation and Social Network benchmarks t
 
 **Inspecting results**
 
-Fetching without `--plots-only` needs up to TODO of storage.
+Fetching without `--plots-only` needs up to 8.5G of storage.
 
 The plots are
 -  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
