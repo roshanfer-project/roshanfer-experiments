@@ -52,8 +52,8 @@ Run experiments defined in a JSON file:
 
 ```bash
 python -m exec.executor \
-  --experiments-file configs/chain1/experimnts.json \
-  --config configs/chain1/config.json
+  --experiments-file configs/tests/one-service/experiments.json \
+  --config configs/tests/one-service/config.json
 ```
 
 **Options:**
@@ -109,7 +109,7 @@ Hosts are always read from a plain-text file (one `user@host` per line, `#` comm
 
 ## Tuning
 
-The orchestrator automatically looks for a tuner script in `tuner/<system>_tuner.py` or `exec/<system>_tuner.py`.
+The orchestrator automatically looks for a tuner script in `exec/<system>_tuner.py`.
 If found, it runs the tuner before deploying the system.
 Results are saved to `exp_runs/exp-<id>/tuning/<system>.json`.
 
@@ -156,9 +156,9 @@ Generate combined plots (e.g., comparing multiple experiments) defined in a YAML
 
 ```bash
 python -m exec.merged_plot_runner \
-  --merged-config configs/chain1/merged.yaml \
-  --experiments-file configs/chain1/experimnts.json \
-  --config configs/chain1/config.json \
+  --merged-config configs/tests/one-service/merged.yaml \
+  --experiments-file configs/tests/one-service/experiments.json \
+  --config configs/tests/one-service/config.json \
   --experiments-root exp_runs \
   --output-dir merged_plots \
   --experiment-index 001
