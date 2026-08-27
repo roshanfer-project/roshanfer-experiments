@@ -116,7 +116,8 @@ Part 2 uses this same cluster.
 | Python           | 3.12                                                                                                                                           |
 | Images           | Docker Hub `farzad1132/*:latest`; `SKIP_BUILD=1`. Do not build.                                                                                |
 
-Scripts install the rest (venv, `rwg`, host packages, K3s, images). No need to install anything manually.
+> [!NOTE]
+> Scripts automatically install all software used here (K3s, sidecar, Python venv, `rwg`, host packages, container images). The first `./run_tests.sh` does this.
 
 > [!IMPORTANT]
 > You need a GitHub account with a normal OpenSSH public key added to it. PuTTY `.ppk` and FIDO/hardware keys do not work.
@@ -217,7 +218,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Where:** control node.
 
-**What:** provision hosts, create the Kubernetes cluster, and run one time-series experiment with a single API.
+**What:** provision hosts, create the Kubernetes cluster, and run one time-series experiment with a single API. This command automatically installs all software used here.
 
 Running all experiments (including generation of corresponding figures) is automated through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
 
