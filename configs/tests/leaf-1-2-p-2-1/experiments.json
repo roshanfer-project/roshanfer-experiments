@@ -16,8 +16,8 @@
       "base_rate": 50,
       "duration_sec": 10,
       "apis": [
-        "f1",
-        "f2"
+        "api1",
+        "api2"
       ],
       "system": "roshanfer",
       "repeat": 3,

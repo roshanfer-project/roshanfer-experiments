@@ -4,8 +4,8 @@
   "bench": "tests/leaf-1-2",
   "hosts_file": "hosts.txt",
   "slos": {
-    "f1": "500",
-    "f2": "500"
+    "api1": "500",
+    "api2": "500"
   },
   "post_deploy_wait_sec": 1
 }
