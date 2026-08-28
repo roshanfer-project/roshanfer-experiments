@@ -424,8 +424,13 @@ def generate_resource_waste_bar_merged(
         exp_data.append({
             'label': label,
             'services': list(all_services_this_exp),
-            'data': aggregated_data
+            'data': aggregated_data,
+            'apis': apis,
         })
+
+    if not exp_data:
+        print(f"Warning: No run data for any included experiment in '{figure_name}'")
+        return []
     
     # Union of all services across experiments, preserve order of first appearance
     def unique_ordered(seq):
@@ -444,9 +449,7 @@ def generate_resource_waste_bar_merged(
     # Get all unique APIs across experiments
     all_apis = set()
     for ed in exp_data:
-        exp_def = experiment_configs[list(include_experiments.keys())[exp_data.index(ed)]]
-        apis = exp_def.get('apis', [])
-        all_apis.update(apis)
+        all_apis.update(ed.get('apis', []))
     all_apis = sorted(list(all_apis))
     n_apis = len(all_apis)  # Define n_apis early
     
@@ -711,12 +714,11 @@ def generate_max_queue_merged(
     global_config: str = None
 ) -> list:
     """
-    Generate merged max-queue and avg-queue figures.
+    Generate merged max-queue figure.
     For each included experiment, aggregate per (service, api) across repeats and plot grouped bars.
     Each experiment is a subplot (column). Shared legend for APIs above.
     """
     from pathlib import Path
-    import statistics
     # Import helpers from plugin
     # Import primitives
     try:
@@ -757,7 +759,6 @@ def generate_max_queue_merged(
         experiment_configs[en].get('bench', bench_default) == 'social'
         for en in exp_names
     )
-    ncols = len(exp_names)
     # For each experiment, aggregate max queue per (service, api)
     exp_data = []
     all_services = set()
@@ -810,6 +811,10 @@ def generate_max_queue_merged(
                 traceback.print_exc()
                 continue
 
+        if not repeat_metric_files:
+            print(f"Warning: No run data found for experiment '{exp_name}'")
+            continue
+
         # Determine services and APIs
         fallback_services = exp_def.get('services', [])
         fallback_apis = exp_def.get('apis', [])
@@ -835,7 +840,6 @@ def generate_max_queue_merged(
         all_apis.update(apis)
         
         data_max = {svc: {api: [] for api in apis} for svc in services}
-        data_avg = {svc: {api: [] for api in apis} for svc in services}
 
         for i in range(len(repeat_metric_files)):
             mf = repeat_metric_files[i]
@@ -844,7 +848,6 @@ def generate_max_queue_merged(
             for svc in services:
                 for api in apis:
                     val_max = 0.0
-                    val_avg = 0.0
                     found_prom = False
 
                     if prom and prom.metrics and api in prom.metrics:
@@ -856,15 +859,10 @@ def generate_max_queue_merged(
                             if 'max_queue' in node:
                                 val_max = float(node['max_queue'])
                                 found_prom = True
-                            if 'avg_queue' in node:
-                                val_avg = float(node['avg_queue'])
-                                found_prom = True
-                            if found_prom:
                                 break
 
                     if found_prom:
                         data_max[svc][api].append(val_max)
-                        data_avg[svc][api].append(val_avg)
                         continue
 
                     original_service_variants = [svc]
@@ -886,23 +884,25 @@ def generate_max_queue_merged(
                             break
                     if not chosen:
                         data_max[svc][api].append(0.0)
-                        data_avg[svc][api].append(0.0)
                         continue
                     ts, vals = extract_series(mf[chosen])
                     if not vals:
                         data_max[svc][api].append(0.0)
-                        data_avg[svc][api].append(0.0)
                     else:
                         data_max[svc][api].append(float(max(vals)))
-                        data_avg[svc][api].append(float(statistics.mean(vals)))
 
         exp_data.append({
             'label': label,
             'services': services,
             'apis': apis,
             'data_max': data_max,
-            'data_avg': data_avg,
         })
+
+    if not exp_data:
+        print(f"Warning: No run data for any included experiment in '{figure_name}'")
+        return []
+
+    ncols = len(exp_data)
 
     # Union of all services/apis across experiments, preserve order of first appearance
     def unique_ordered(seq):
@@ -922,8 +922,7 @@ def generate_max_queue_merged(
         for ed in exp_data:
             for api in all_apis:
                 vm = ed['data_max'].get(svc, {}).get(api, [])
-                va = ed['data_avg'].get(svc, {}).get(api, [])
-                if any(v > 0 for v in vm) or any(v > 0 for v in va):
+                if any(v > 0 for v in vm):
                     has_nonzero = True
                     break
             if has_nonzero:
@@ -938,7 +937,7 @@ def generate_max_queue_merged(
         all_services = _sort_services_social(all_services)
 
     if not all_services:
-        print("[max-queue-merged] All services have zero max and avg queue; skipping plots.")
+        print("[max-queue-merged] All services have zero max queue; skipping plots.")
         return []
 
     single_api_mode = len(all_apis) == 1
@@ -1035,7 +1034,6 @@ def generate_max_queue_merged(
 
     produced = [
         _save_one_merged('data_max', 'Queue Size\n  (req)', True, '_max_queue.pdf'),
-        _save_one_merged('data_avg', 'Queue Size\n  (req)', True, '_avg_queue.pdf'),
     ]
     return produced
 
@@ -1127,6 +1125,22 @@ def _load_summary(run_root: Path) -> List[Dict]:
     return records
 
 
+def _run_roots_to_scan(experiments_root: Path) -> List[Path]:
+    if experiments_root.name.startswith('exp-'):
+        return [experiments_root]
+    return [experiments_root / f'exp-{i:03d}' for i in range(1, 20)]
+
+
+def _executed_experiment_names(experiments_root: Path) -> set:
+    names = set()
+    for run_root in _run_roots_to_scan(experiments_root):
+        for rec in _load_summary(run_root):
+            en = rec.get('experiment_name')
+            if en:
+                names.add(en)
+    return names
+
+
 def _load_metric_files(metrics_dir: Path) -> Dict[str, dict]:
     """Load metric files from a metrics directory."""
     out: Dict[str, dict] = {}
@@ -1206,7 +1220,6 @@ def generate_latency_goodput_vs_load_merged(
         
         exp_def = experiment_configs[exp_name]
         apis = exp_def.get('apis', [])
-        all_apis.update(apis)
         
         # Load experiment run data
         records = []
@@ -1223,7 +1236,10 @@ def generate_latency_goodput_vs_load_merged(
                 continue
         
         if not records:
-            raise Exception(f"No run data found for experiment '{exp_name}' in {experiments_root}")
+            print(f"Warning: No run data found for experiment '{exp_name}' in {experiments_root}")
+            continue
+
+        all_apis.update(apis)
         
         # Group by load
         load_groups = {}
@@ -1561,12 +1577,20 @@ def generate_merged_figures(
     if experiment_index:
         experiments_root = experiments_root / f'exp-{experiment_index}'
         print(f"Using only experiment run directory: {experiments_root}")
+
+    executed = _executed_experiment_names(experiments_root)
     
     for figure_name, figure_config in figures.items():
         figure_type = figure_config.get('type')
         
         if not figure_type:
             print(f"Warning: Figure '{figure_name}' has no type specified")
+            continue
+
+        include = figure_config.get('include') or {}
+        include_names = list(include.keys()) if isinstance(include, dict) else []
+        if include_names and not any(name in executed for name in include_names):
+            print(f"Skipping '{figure_name}': included experiments were not executed")
             continue
         
         print(f"Generating merged figure: {figure_name} (type: {figure_type})")
@@ -1909,20 +1933,20 @@ def generate_latency_vs_throughput_merged(
         from exec.plots.data_loader import load_repeat_data
         from exec.plots.aggregation import aggregate_overall_metric
         from exec.plots.plotting_primitives import (
-            SubplotGrid, ACM_COMPACT_HALF, ACM_QUARTER, plot_line, plot_grouped_bars
+            SubplotGrid, ACM_COMPACT_HALF, plot_line
         )
     except ImportError:
         try:
             from plots.data_loader import load_repeat_data  # type: ignore
             from plots.aggregation import aggregate_overall_metric  # type: ignore
             from plots.plotting_primitives import (  # type: ignore
-                SubplotGrid, ACM_COMPACT_HALF, plot_line, ACM_QUARTER
+                SubplotGrid, ACM_COMPACT_HALF, plot_line
             )
         except ImportError:
             from data_loader import load_repeat_data  # type: ignore
             from aggregation import aggregate_overall_metric  # type: ignore
             from plotting_primitives import (  # type: ignore
-                SubplotGrid, ACM_COMPACT_HALF, plot_line, plot_grouped_bars, ACM_QUARTER
+                SubplotGrid, ACM_COMPACT_HALF, plot_line
             )
 
     include_experiments = figure_config.get('include', {})
@@ -1998,6 +2022,10 @@ def generate_latency_vs_throughput_merged(
                             unit_load_value[unit_name] = int(br) if br is not None else None
                     found_units[unit_name].append(Path(r.get('artifact_dir')))
 
+        if not found_units:
+            print(f"Warning: No run data found for experiment '{exp_name}'")
+            continue
+
         # 2. Process each unit (load level) for EACH API
         # We need to collect points separately for each API because they might be in different files or keys
         
@@ -2011,8 +2039,6 @@ def generate_latency_vs_throughput_merged(
                 # One sample per repeat from overall-*.json; CI across repeats.
                 repeat_throughputs: List[float] = []
                 repeat_p99: List[float] = []
-                repeat_goodputs: List[float] = []
-                repeat_p75: List[float] = []
                 repeat_p50: List[float] = []
 
                 for artifact_dir in artifact_dirs:
@@ -2026,8 +2052,6 @@ def generate_latency_vs_throughput_merged(
                         if overall is not None:
                             repeat_throughputs.append(float(overall.throughput))
                             repeat_p99.append(float(overall.p99_latency))
-                            repeat_goodputs.append(float(overall.goodput))
-                            repeat_p75.append(float(overall.p75_latency))
                             repeat_p50.append(float(overall.p50_latency))
                         elif os.environ.get('PLOT_DEBUG') == '1':
                             print(f"    [DEBUG] Overall data is None for {api} in {artifact_dir}")
@@ -2036,13 +2060,7 @@ def generate_latency_vs_throughput_merged(
 
                 if repeat_throughputs and repeat_p99:
                     tp_mean, _, tp_ci = aggregate_overall_metric(repeat_throughputs)
-                    gp_mean, _, gp_ci = aggregate_overall_metric(repeat_goodputs)
                     p99_mean, _, p99_ci = aggregate_overall_metric(repeat_p99)
-                    p75_mean, _, p75_ci = (
-                        aggregate_overall_metric(repeat_p75)
-                        if repeat_p75
-                        else (None, None, None)
-                    )
                     p50_mean, _, p50_ci = (
                         aggregate_overall_metric(repeat_p50)
                         if repeat_p50
@@ -2053,12 +2071,8 @@ def generate_latency_vs_throughput_merged(
                         exp_points.append({
                             'tp': tp_mean,
                             'tp_ci': tp_ci if tp_ci is not None else 0.0,
-                            'gp': gp_mean if gp_mean is not None else 0.0,
-                            'gp_ci': gp_ci if gp_ci is not None else 0.0,
                             'p99': p99_mean,
                             'p99_ci': p99_ci if p99_ci is not None else 0.0,
-                            'p75': p75_mean if p75_mean is not None else 0.0,
-                            'p75_ci': p75_ci if p75_ci is not None else 0.0,
                             'p50': p50_mean if p50_mean is not None else 0.0,
                             'p50_ci': p50_ci if p50_ci is not None else 0.0,
                             'load_value': unit_load_value.get(unit_name),
@@ -2094,12 +2108,8 @@ def generate_latency_vs_throughput_merged(
             plot_data[api][label] = {
                 'tps': [p['tp'] for p in exp_points],
                 'tp_ci': [p['tp_ci'] for p in exp_points],
-                'goodputs': [p['gp'] for p in exp_points],
-                'goodput_ci': [p['gp_ci'] for p in exp_points],
                 'p99': [p['p99'] for p in exp_points],
                 'p99_ci': [p['p99_ci'] for p in exp_points],
-                'p75': [p['p75'] for p in exp_points],
-                'p75_ci': [p['p75_ci'] for p in exp_points],
                 'p50': [p['p50'] for p in exp_points],
                 'p50_ci': [p['p50_ci'] for p in exp_points],
             }
@@ -2111,6 +2121,10 @@ def generate_latency_vs_throughput_merged(
                 
                 if max_tp > api_limits[api]['max_tp']: api_limits[api]['max_tp'] = max_tp
                 if max_p99 > api_limits[api]['max_p99']: api_limits[api]['max_p99'] = max_p99
+
+    if not any(plot_data[api] for api in all_apis):
+        print(f"Warning: No run data for any included experiment in '{figure_name}'")
+        return []
 
     # Load SLOs from config file
     with open(global_config) as f:
@@ -2133,7 +2147,6 @@ def generate_latency_vs_throughput_merged(
 
     line_specs = [
         ('p99', 'p99_ci', 'P99 latency\n   (ms)', f'{figure_name}_latency_vs_throughput.pdf'),
-        ('p75', 'p75_ci', 'P75 Latency\n   (ms)', f'{figure_name}_latency_vs_throughput_p75.pdf'),
     ]
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2295,90 +2308,7 @@ def generate_latency_vs_throughput_merged(
         line_path = output_dir / pdf_name
         grid.save(line_path)
         produced.append(line_path)
-    
 
-    
-    # 4. Generate Latency vs Throughput Bar Plot (Goodput at Max Rate)
-    # This plot visualizes the peak goodput for each included experiment/API as a grouped bar chart
-    
-    print(f"Generating merged latency-vs-throughput bar plot...")
-    
-    # Create grid (1x1) using user-specified width
-    bar_style = ACM_QUARTER
-    bar_grid = SubplotGrid(bar_style, layout="1x1")
-    ax_bar = bar_grid.get_ax(0, 0)
-    
-    # Prepare data for plot_grouped_bars
-    # Grouping: Experiments (X-axis)
-    # Bars: APIs (Colors/Legend)
-    
-    # We need to preserve the order from include_experiments
-    sorted_exp_items = []
-    for exp_idx, (exp_name, exp_cfg) in enumerate(include_experiments.items()):
-        if exp_name in experiment_configs:
-            sorted_exp_items.append((exp_name, exp_cfg))
-    
-    x_positions = list(range(len(sorted_exp_items)))
-    exp_labels = [item[1].get('label', item[0]) for item in sorted_exp_items]
-    
-    bar_groups = []
-    max_goodput = 0
-    
-    for api in all_apis:
-        heights = []
-        errors = []
-        
-        has_data = False
-        for exp_name, exp_cfg in sorted_exp_items:
-            label = exp_cfg.get('label', exp_name)
-            
-            # Get data for this API and Experiment
-            if label in plot_data[api]:
-                d = plot_data[api][label]
-                if d['goodputs']:
-                    # Last point = highest offered load (exp_points sorted by load_value)
-                    heights.append(d['goodputs'][-1])
-                    errors.append(d['goodput_ci'][-1] if 'goodput_ci' in d else 0.0)
-                    has_data = True
-                else:
-                    heights.append(0.0)
-                    errors.append(0.0)
-            else:
-                heights.append(0.0)
-                errors.append(0.0)
-        
-        # Add API to groups if it has any data (or maybe just add anyway for consistency)
-        if has_data:
-            bar_groups.append((api, heights, errors))
-        if max(heights) > max_goodput:
-            max_goodput = max(heights)
-            
-    if bar_groups:
-        plot_grouped_bars(ax_bar, x_positions, bar_groups, style=bar_style)
-        
-        # Configure Axis
-        bar_grid.configure_ax(ax_bar,
-            xlabel="",
-            ylabel="Goodput (RPS)",
-            show_xticklabels=True,
-            y_guard=0.05,
-            ylim=(0, max_goodput * 1.1),
-            y_step=100,
-            y_type='int'
-        )
-        
-        # Set X-tick labels to Experiment Labels
-        ax_bar.set_xticks(x_positions)
-        ax_bar.set_xticklabels(exp_labels, rotation=0 if len(exp_labels) < 4 else 30, ha='center', fontsize=bar_style.font_size - 1)
-        
-        # Legend
-        bar_grid.add_shared_legend(position="top")
-        
-        # Save
-        bar_path = output_dir / f'{figure_name}_goodput_bar.pdf'
-        bar_grid.save(bar_path)
-        produced.append(bar_path)
-    
     return produced
 
 
