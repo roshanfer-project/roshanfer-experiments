@@ -174,19 +174,7 @@ cd roshanfer-experiments
 
 Extra tmux panes do not inherit `KUBECONFIG` from `run_tests.sh`. `cloudlab_enter.sh` installs direnv and runs `direnv allow`, so a new pane in `~/roshanfer-experiments` can run `kubectl`. If `KUBECONFIG` is unset, `source ./init_env.sh`.
 
-### 4. Fetch the experiment manifest
-
-**Where:** control node (inside tmux).
-
-**What:** write `manifest.xml` (needed by `--remote`).
-
-```bash
-./scripts/fetch_manifest.sh
-```
-
-**Expected:** `Wrote ./manifest.xml`.
-
-### 5. Configure once
+### 4. Configure once
 
 **Where:** control node.
 
@@ -200,7 +188,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected:** `config.env` exists with `CLOUDLAB_USER` set.
 
-### 6. Pin the Ubuntu kernel
+### 5. Pin the Ubuntu kernel
 
 **Where:** control node.
 
@@ -214,7 +202,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected time:** less than 10 minutes.
 
-### 7. Run a simple experiment
+### 6. Run a simple experiment
 
 **Where:** control node.
 
@@ -272,7 +260,7 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **When to proceed:** wait until `./run_tests.sh` has exited.
 
-### 8. Inspect output
+### 7. Inspect output
 
 **Where:** control node.
 
@@ -290,7 +278,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 - `plots/one-service/…/rate_vs_time_repeat_00N.pdf` — stacked rates (goodput / SLO / dropped / errors)
 - `plots/one-service/…/latency_vs_time_repeat_00N.pdf` — p50/p99 vs time
 
-### 9. Leave the control node
+### 8. Leave the control node
 
 **Where:** control node, inside tmux.
 
@@ -303,7 +291,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 **Expected:** you are back on the laptop. Re-enter with the same `cloudlab_enter.sh` command.
 
-### 10. Download results to the laptop
+### 9. Download results to the laptop
 
 **Where:** laptop, from this clone (could be another terminal).
 
@@ -323,7 +311,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 # Part 2 — Running paper experiments
 
-In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the laptop clone, pull outputs the same way as in Part 1 step 10 (`./scripts/cloudlab_fetch.sh`).
+In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the laptop clone, pull outputs the same way as in Part 1 step 9 (`./scripts/cloudlab_fetch.sh`).
 
 ## Goodput vs load (real-world benchmark)
 

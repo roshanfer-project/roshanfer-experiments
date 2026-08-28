@@ -72,9 +72,7 @@ Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}
 
 ## CloudLab manifest → hosts
 
-Place the experiment **manifest XML** at `./manifest.xml` (or `CLOUDLAB_MANIFEST`) yourself. Download it from the CloudLab experiment page. `run_tests.sh` does not fetch it.
-
-If you used `./scripts/cloudlab_enter.sh` and are on the control node, you can run `./scripts/fetch_manifest.sh` (`geni-get` → `./manifest.xml`). That helper is optional.
+Place the experiment **manifest XML** at `./manifest.xml` (or `CLOUDLAB_MANIFEST`). `run_tests.sh` does not fetch it. `./scripts/cloudlab_enter.sh` writes it on first enter (`geni-get` → `./manifest.xml`) and skips later enters if the file already exists. Re-fetch with `./scripts/fetch_manifest.sh` if the file is missing or nodes changed after swap-in. You can also download the XML from the CloudLab experiment page.
 
 Then:
 
@@ -103,7 +101,7 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 Hosts are always read from a plain-text file (one `user@host` per line, `#` comments ignored) via `InfraBuilder`. A line without `@` is an error. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes.
 
 - **Local mode** — repo-root `hosts.txt` (copy `hosts.txt.example`). `REQUIRE_REMOTE=0` in `config.env`. `create.sh` / `delete.sh` read the same file and skip the first `NUM_GENERATORS` lines; `provision.sh` uses every line.
-- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` and passes it with `--hosts-file`. With `CONTROL_ON_CLUSTER=1`, the first node / control machine is dropped. Root `hosts.txt` is not read. If the manifest file is missing, it exits; place the XML yourself (or run `./scripts/fetch_manifest.sh` on the control node after `cloudlab_enter.sh`).
+- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` and passes it with `--hosts-file`. With `CONTROL_ON_CLUSTER=1`, the first node / control machine is dropped. Root `hosts.txt` is not read. If the manifest file is missing, it exits; `cloudlab_enter.sh` writes it on first enter, or run `./scripts/fetch_manifest.sh` on the control node.
 
 `IMAGE_TAG` in `config.env` overrides the executor’s path-hash image tag. `SKIP_BUILD=1` skips `build.sh`. Populate Hub images first with `./scripts/build.sh --bench …` (tag defaults to `latest`; pass `--tag` to override).
 

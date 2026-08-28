@@ -1,5 +1,5 @@
 #!/bin/bash
-# SSH to CloudLab node0, clone this repo, attach tmux session "roshanfer".
+# SSH to CloudLab node0, clone this repo, fetch manifest on first enter, attach tmux session "roshanfer".
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,8 +12,8 @@ usage() {
   echo "Usage: $0 --name NAME --project PROJECT --user USER [--url URL]"
   echo ""
   echo "SSH to the CloudLab control node (node0), clone this repo (branch"
-  echo "${BRANCH}, with submodules) into ~/${DEST_REL}, and attach tmux"
-  echo "session ${SESSION}."
+  echo "${BRANCH}, with submodules) into ~/${DEST_REL}, fetch the experiment"
+  echo "manifest on first enter, and attach tmux session ${SESSION}."
   echo ""
   echo "Options:"
   echo "  --name NAME       Experiment Name from the CloudLab experiment page (required)"
@@ -139,6 +139,10 @@ if ! grep -q 'direnv hook bash' "\$HOME/.bashrc" 2>/dev/null; then
   echo 'eval "\$(direnv hook bash)"' >> "\$HOME/.bashrc"
 fi
 direnv allow "\$DEST"
+
+if [[ ! -s "\$DEST/manifest.xml" ]]; then
+  "\$DEST/scripts/fetch_manifest.sh"
+fi
 
 if ! tmux has-session -t "\$SESSION" 2>/dev/null; then
   tmux new-session -d -s "\$SESSION" -c "\$DEST"
