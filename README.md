@@ -108,7 +108,7 @@ Part 2 uses this same cluster.
 | Item             | Value used in the paper                                                                                                                        |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | CloudLab profile | [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)                                                                 |
-| Parameter set    | [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
+| Parameter set    | [paper cluster parameters](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
 | Hardware         | CloudLab `c220g2` (the submission lists `c6420` by mistake; this will be fixed in camera-ready)                                                 |
 | Roles            | 1 control, 3 generators, 22 workload nodes                                                                                                     |
 | Cluster          | K3s                                                                                                                                            |
@@ -132,7 +132,7 @@ Each step lists **where** to run it, **what** it does, and **what to expect**.
 
 **What:** create the paper cluster from the saved parameter set. No change needed.
 
-1. Open the parameter set used in the paper: [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) (profile [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)).
+1. Open the [paper cluster parameters](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) (profile [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)).
 2. Instantiate. Fill only what CloudLab still asks for: your **Project** and a **Name**.
 
 > [!IMPORTANT]
