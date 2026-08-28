@@ -40,9 +40,9 @@ roshanfer-experiments/
 ├── init_env.sh                    Python venv + KUBECONFIG
 ├── config.env.example             copy to config.env
 ├── scripts/                       helper scripts (see README)
-├── scripts/cloudlab_enter.sh      laptop → control node
-├── scripts/cloudlab_leave.sh      control → laptop
-├── scripts/cloudlab_fetch.sh      laptop ← exp_runs_test from control
+├── scripts/cloudlab_enter.sh      local machine → control node
+├── scripts/cloudlab_leave.sh      control → local machine
+├── scripts/cloudlab_fetch.sh      local machine ← exp_runs_test from control
 ├── scripts/fetch_manifest.sh      write manifest.xml on the control node
 ├── scripts/pin_k8s_kernel.sh      pin Ubuntu kernel on generator + workload hosts
 ├── exec/                          orchestrator (see README)
@@ -73,7 +73,7 @@ We have not validated other hardware types or node counts.
 
 | Role          | Where             | Purpose                                                                                                               |
 | ------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Laptop**    | your machine      | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
+| **Local machine** | your machine      | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
 | **Control**   | CloudLab `node0`  | Clone of this repository. Runs experiments, collects logs, produces plots.                                            |
 | **Generator** | 3 CloudLab nodes  | Runs `rwg` (load generator). Not in Kubernetes.                                                                       |
 | **Workload**  | 22 CloudLab nodes | Kubernetes nodes. Run services and, when requested, the Roshanfer sidecar.                                            |
@@ -81,15 +81,15 @@ We have not validated other hardware types or node counts.
 
 ```mermaid
 flowchart LR
-  Laptop["Laptop this clone"]
+  LocalMachine["Local machine this clone"]
   subgraph cloudlab [CloudLab paper cluster]
     Control["Control node0 tmux roshanfer"]
     Gens["3 generators rwg"]
     Work["22 workload K3s plus services"]
   end
-  Laptop -->|"cloudlab_enter.sh SSH plus tmux"| Control
-  Control -->|"cloudlab_leave.sh detach"| Laptop
-  Laptop -->|"cloudlab_fetch.sh rsync"| Control
+  LocalMachine -->|"cloudlab_enter.sh SSH plus tmux"| Control
+  Control -->|"cloudlab_leave.sh detach"| LocalMachine
+  LocalMachine -->|"cloudlab_fetch.sh rsync"| Control
   Control -->|"SSH kubeconfig"| Work
   Control -->|"SSH start rwg"| Gens
   Gens -->|"HTTP"| Work
@@ -144,11 +144,11 @@ The saved parameters **are the ones used for paper experiments**.
 
 **Expected:** experiment Ready, 26/26 nodes Ready, **Name** and **Project** noted.
 
-### 2. Clone on the laptop
+### 2. Clone on the local machine
 
-**Where:** laptop.
+**Where:** local machine.
 
-**What:** full clone on the laptop (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
+**What:** full clone on the local machine (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
 
 ```bash
 git clone --recurse-submodules -b artifact-evaluation git@github.com:roshanfer-project/roshanfer-experiments.git
@@ -159,7 +159,7 @@ cd roshanfer-experiments
 
 ### 3. Enter the control node
 
-**Where:** laptop, from this clone.
+**Where:** local machine, from this clone.
 
 **What:** SSH to `node0`, clone the repo into `~/roshanfer-experiments`, attach tmux session `roshanfer`.
 
@@ -168,7 +168,7 @@ cd roshanfer-experiments
 # default --url wisc.cloudlab.us
 ```
 
-`NAME` and `PROJECT` are on the CloudLab experiment page. `--user` is your CloudLab username. You need a normal OpenSSH GitHub key on the laptop (not PuTTY `.ppk` and not a FIDO/hardware key).
+`NAME` and `PROJECT` are on the CloudLab experiment page. `--user` is your CloudLab username. You need a normal OpenSSH GitHub key on the local machine (not PuTTY `.ppk` and not a FIDO/hardware key).
 
 **Expected:** tmux session `roshanfer`, cwd `~/roshanfer-experiments`.
 
@@ -289,11 +289,11 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 # or Ctrl-b d
 ```
 
-**Expected:** you are back on the laptop. Re-enter with the same `cloudlab_enter.sh` command.
+**Expected:** you are back on the local machine. Re-enter with the same `cloudlab_enter.sh` command.
 
-### 9. Download results to the laptop
+### 9. Download results to the local machine
 
-**Where:** laptop, from this clone (could be another terminal).
+**Where:** local machine, from this clone (could be another terminal).
 
 **What:** rsync `exp_runs_test/` from the control node so you can open PDFs locally.
 
@@ -305,13 +305,13 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 `--list` prints remote run folder names. `--run RUN_ID` copies one run. `--plots-only` copies only `plots/` trees (skip raw metrics).
 
-**Expected:** `./exp_runs_test/` on the laptop matches the control node (or only its `plots/` dirs with `--plots-only`).
+**Expected:** `./exp_runs_test/` on the local machine matches the control node (or only its `plots/` dirs with `--plots-only`).
 
 ---
 
 # Part 2 — Running paper experiments
 
-In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the laptop clone, pull outputs the same way as in Part 1 step 9 (`./scripts/cloudlab_fetch.sh`).
+In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the local machine clone, pull outputs the same way as in Part 1 step 9 (`./scripts/cloudlab_fetch.sh`).
 
 ## Goodput vs load (real-world benchmark)
 
