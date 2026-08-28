@@ -15,13 +15,15 @@ source "$_ROOT/scripts/elapsed.sh"
 source "$_ROOT/scripts/config_env.sh"
 
 usage() {
-  echo "Usage: $0 --bench NAME[,NAME...] [--tag TAG]"
+  echo "Usage: $0 [--bench NAME[,NAME...]] [--tag TAG]"
   echo ""
   echo "Build and push sidecar + workload images via each bench's build.sh."
+  echo "If --bench is omitted, builds all tests under benchmarks/tests/ plus hotel, social, and alibaba-large."
   echo "Names match run_tests.sh (one-service, hotel, alibaba-large, …)."
   echo "TAG defaults to latest if --tag is omitted (not IMAGE_TAG from config.env)."
   echo ""
   echo "Example:"
+  echo "  $0 --tag latest"
   echo "  $0 --tag latest --bench one-service,hotel,social"
 }
 
@@ -52,12 +54,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$BENCH_FILTER" ]]; then
-  echo "error: --bench is required"
-  usage
-  exit 1
-fi
-
 TAG="${CLI_TAG:-latest}"
 
 resolve_build_sh() {
@@ -73,8 +69,19 @@ resolve_build_sh() {
   return 1
 }
 
-IFS=',' read -ra NAMES <<< "$BENCH_FILTER"
+NAMES=()
+if [[ -z "$BENCH_FILTER" ]]; then
+  for script in "$_ROOT/benchmarks/tests"/*/build.sh; do
+    [[ -x "$script" ]] || continue
+    NAMES+=("$(basename "$(dirname "$script")")")
+  done
+  NAMES+=(hotel social alibaba-large)
+else
+  IFS=',' read -ra NAMES <<< "$BENCH_FILTER"
+fi
+
 scripts=()
+built_names=()
 for raw in "${NAMES[@]}"; do
   name="${raw// /}"
   [[ -z "$name" ]] && continue
@@ -83,10 +90,11 @@ for raw in "${NAMES[@]}"; do
     exit 1
   fi
   scripts+=("$script")
+  built_names+=("$name")
 done
 
 if [[ ${#scripts[@]} -eq 0 ]]; then
-  echo "error: --bench produced no names"
+  echo "error: no benches to build"
   exit 1
 fi
 
@@ -98,4 +106,9 @@ for script in "${scripts[@]}"; do
   echo "=== $script $TAG ==="
   "$script" "$TAG"
 done
-echo "Build complete."
+
+echo ""
+echo "Build complete. ${#built_names[@]} bench(es), tag $TAG, registry ${REGISTRY}:"
+for name in "${built_names[@]}"; do
+  echo "  - $name"
+done
