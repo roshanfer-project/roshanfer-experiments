@@ -151,7 +151,7 @@ The saved parameters **are the ones used for paper experiments**.
 **What:** full clone on the laptop (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
 
 ```bash
-git clone --recurse-submodules -b artifact-evaluation git@github.com:farzad1132/roshanfer-experiments.git
+git clone --recurse-submodules -b artifact-evaluation git@github.com:roshanfer-project/roshanfer-experiments.git
 cd roshanfer-experiments
 ```
 
@@ -544,7 +544,7 @@ Farzad Mohammadi, Theo Akande, and Marios Kogias. 2027. Roshanfer: Achieving Per
 
 Farzad Mohammadi, [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
 
-Questions and problems: please [open a GitHub issue](https://github.com/farzad1132/roshanfer-experiments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk)
+Questions and problems: please [open a GitHub issue](https://github.com/roshanfer-project/roshanfer-experiments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk)
 
 ---
 
