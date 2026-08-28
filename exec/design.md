@@ -8,7 +8,7 @@ Orchestrator for Tune → Deploy → Run → Collect (see [README](README.md)). 
 
 # rwg
 
-HTTP/1.1 load generator, git submodule. Do not change it from this repo.
+HTTP/1.1 load generator, git submodule. Do not change it in this repo.
 
 # configs
 

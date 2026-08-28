@@ -76,7 +76,7 @@ We have not validated other hardware types or node counts.
 | **Local machine** | your machine      | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
 | **Control**   | CloudLab `node0`  | Clone of this repository. Runs experiments, collects logs, produces plots.                                            |
 | **Generator** | 3 CloudLab nodes  | Runs `rwg` (load generator). Not in Kubernetes.                                                                       |
-| **Workload**  | 22 CloudLab nodes | Kubernetes nodes. Run services and, when requested, the Roshanfer sidecar.                                            |
+| **Workload**  | 22 CloudLab nodes | Kubernetes nodes that run services and, when requested, the Roshanfer sidecar.                                        |
 
 
 ```mermaid
@@ -110,7 +110,7 @@ Part 2 uses this same cluster.
 | CloudLab profile | [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)                                                                 |
 | Parameter set    | [f369c1b9-2eff-425f-b5ce-d7493a17fd76](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
 | Hardware         | CloudLab `c220g2` (the submission lists `c6420` by mistake; this will be fixed in camera-ready)                                                 |
-| Roles            | 1 control, 3 generators, 22 workload                                                                                                           |
+| Roles            | 1 control, 3 generators, 22 workload nodes                                                                                                     |
 | Cluster          | K3s                                                                                                                                            |
 | Sidecar          | C++, `ubuntu:noble`                                                                                                                            |
 | Python           | 3.12                                                                                                                                           |
@@ -148,7 +148,7 @@ The saved parameters **are the ones used for paper experiments**.
 
 **Where:** local machine.
 
-**What:** full clone on the local machine (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recurse clone in the next step.
+**What:** full clone on the local machine (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recursive clone in the next step.
 
 ```bash
 git clone --recurse-submodules -b artifact-evaluation git@github.com:roshanfer-project/roshanfer-experiments.git
@@ -192,7 +192,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Where:** control node.
 
-**What:** Recent kernel version of Ubuntu 24.04 is `6.8.0-138-generic` but this kernel has a [bug](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2162843) that prevents `io_uring` (a sidecar dependency) from registering to kernel. We avoid this issue by pinning all hosts to `6.8.0-134-generic`:
+**What:** The recent kernel version of Ubuntu 24.04 is `6.8.0-138-generic` but this kernel has a [bug](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2162843) that prevents `io_uring` (a sidecar dependency) from registering with the kernel. We avoid this issue by pinning all hosts to `6.8.0-134-generic`:
 
 ```bash
 ./scripts/pin_k8s_kernel.sh --kernel 6.8.0-134-generic
@@ -206,7 +206,7 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Where:** control node.
 
-**What:** `./run_tests.sh` does everything end to end: installs everything required, runs the experiment, collects results, and plots. This first run is one time-series experiment with a single API.
+**What:** `./run_tests.sh` does everything end to end: installs everything required, runs the experiment, collects results, and plots. This first run is a one time-series experiment with a single API.
 
 Running all experiments (including generation of corresponding figures) is automated through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
 
@@ -222,9 +222,9 @@ We can run a simple experiment with the following command:
 The important options here are:
 
 - `--bench`: filter the `one-service` benchmark (`benchmarks/tests/one-service` graph, `configs/tests/one-service` config)
-- `--type`: filter experiments type of `latency-and-rate-vs-time`
+- `--type`: filter experiments of type `latency-and-rate-vs-time`
 - `--num-apis`: filter experiments with 1 API
-- `--comment` append `tutorial` to the directory name of the output results.
+- `--comment`: append `tutorial` to the directory name of the output results.
 
 The flags `--type` and `--num-apis` select this entry in `configs/tests/one-service/experiments.json`:
 
@@ -241,7 +241,7 @@ The flags `--type` and `--num-apis` select this entry in `configs/tests/one-serv
 
 That entry is one experiment: `system` roshanfer, `type` latency-and-rate-vs-time, benchmark `one-service`. `--num-apis 1` selects it among several `one-service` entries. It is a 15 s Roshanfer run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
 
-The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes artifacts. Deploy pulls pre-built images (`SKIP_BUILD=1`). No need for building anything.
+The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes artifacts. Deploy pulls pre-built images (`SKIP_BUILD=1`). No need to build anything.
 
 ```json
 {
@@ -254,7 +254,7 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
 
-***In the case of any failures (e.g., Cloudlab machines sometimes temporarily lose network access so dependency installation might fail), it is safe to rerun `run_tests.sh` again. Each run's state and logs are persisted in separate directories to facilitate debugging and inspection. See [Troubleshooting](#troubleshooting).***
+***In the case of any failures (e.g., CloudLab machines sometimes temporarily lose network access, so dependency installation might fail), it is safe to rerun `run_tests.sh`. Each run's state and logs are persisted in separate directories to facilitate debugging and inspection. See [Troubleshooting](#troubleshooting).***
 
 **Expected time:** less than 10 minutes.
 
@@ -399,7 +399,7 @@ The plots are
 
 ## Impact of overcommitment and priority
 
-The following command runs the `leaf-*` benchmarks to generate Figure 15. These experiments are roshanfer-only.
+The following command runs the `leaf-*` benchmarks to generate Figure 15. These experiments are Roshanfer-only.
 
 ```bash
 ./run_tests.sh --remote --num-generators 3 \
@@ -502,7 +502,7 @@ The plots are
 
 ## Troubleshooting
 
-Each run writes `exp_runs_test/<id>/<bench>/exp-<index>/`. Rerunning `run_tests.sh` is safe because orchestrator is designed to be idempotent and each run uses a new directory.
+Each run writes `exp_runs_test/<id>/<bench>/exp-<index>/`. Rerunning `run_tests.sh` is safe because the orchestrator is designed to be idempotent and each run uses a new directory.
 
 **1. Executor log.** `logs/executor_*.log` is the hub. It records every phase and prints `Logging output to: …` for specialized transcripts (provision, K3s, deploy, teardown, build, tuner). Start there to see what failed, then open the file it names.
 
@@ -532,7 +532,7 @@ Farzad Mohammadi, Theo Akande, and Marios Kogias. 2027. Roshanfer: Achieving Per
 
 Farzad Mohammadi, [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
 
-Questions and problems: please [open a GitHub issue](https://github.com/roshanfer-project/roshanfer-experiments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk)
+Questions and problems: please [open a GitHub issue](https://github.com/roshanfer-project/roshanfer-experiments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
 
 ---
 

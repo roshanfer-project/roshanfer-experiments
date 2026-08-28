@@ -177,7 +177,7 @@ experiment_runs/
                 ├── output/            # CSV results and parsed JSON
                 │   ├── overall-{api}.json
                 │   └── realtime-{api}.csv
-                ├── metrics/           # JSON copies for Plotting
+                ├── metrics/           # JSON copies for plotting
                 ├── raw/               # Service Logs & Raw Output
                 └── run_details.json
 ```
