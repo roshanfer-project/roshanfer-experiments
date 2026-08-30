@@ -86,12 +86,48 @@ def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
         exps.append(ExperimentConfig.from_dict(raw))
     return exps
 
+_INGRESS_AIMD_PARAMS = {
+    "aimd_err_d": "SIDECAR_AIMD_ERR_D",
+    "aimd_err_i": "SIDECAR_AIMD_ERR_I",
+    "aimd_adj_d": "SIDECAR_AIMD_ADJ_D",
+    "aimd_adj_i": "SIDECAR_AIMD_ADJ_I",
+    "safe_multiply": "SIDECAR_SAFE_MULTIPLY",
+}
+
+
 def _derive_experiment_name(exp: ExperimentConfig, bench: str) -> str:
     """Derive name from type, bench, system. Include api count when > 1 for uniqueness."""
     bench_slug = bench.split("/")[-1] if bench else ""
+    if exp.type == "ingress-param-sensitivity":
+        param = (exp.params or {}).get("parameter", "")
+        if len(exp.apis) > 1:
+            return f"{exp.type}-{param}-{bench_slug}-{len(exp.apis)}-{exp.system}"
+        return f"{exp.type}-{param}-{bench_slug}-{exp.system}"
     if len(exp.apis) > 1:
         return f"{exp.type}-{bench_slug}-{len(exp.apis)}-{exp.system}"
     return f"{exp.type}-{bench_slug}-{exp.system}"
+
+
+def _float_range(start: float, end: float, step: float) -> List[float]:
+    if step <= 0:
+        raise ValueError("param_range.step must be > 0")
+    if end < start:
+        raise ValueError("param_range.end must be >= start")
+    values: List[float] = []
+    n = 0
+    while True:
+        v = start + n * step
+        if v > end + abs(step) * 1e-9:
+            break
+        values.append(v)
+        n += 1
+        if n > 10000:
+            raise ValueError("param_range produced too many values")
+    return values
+
+
+def _fmt_param_value(v: float) -> str:
+    return f"{v:g}"
 
 def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[ExperimentConfig]:
     """Assign derived names when missing, adding suffix for duplicates."""
@@ -154,6 +190,65 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
                     cleanup_args=exp.cleanup_args,
                     execution_args=exp.execution_args,
                     metadata={"overcommitment": oc},
+                    repeats=exp.repeat,
+                    generator_hosts=generator_hosts,
+                    deployment_hosts=deployment,
+                    params=params,
+                )
+        return
+
+    if exp.type == "ingress-param-sensitivity":
+        parameter = (exp.params or {}).get("parameter")
+        if parameter not in _INGRESS_AIMD_PARAMS:
+            raise ValueError(
+                f"Experiment '{exp.name}' type ingress-param-sensitivity "
+                f"requires parameter in {sorted(_INGRESS_AIMD_PARAMS)}"
+            )
+        raw_range = (exp.params or {}).get("param_range")
+        if not isinstance(raw_range, dict):
+            raise ValueError(
+                f"Experiment '{exp.name}' type ingress-param-sensitivity "
+                "requires param_range {{start, end, step}}"
+            )
+        try:
+            p_start = float(raw_range["start"])
+            p_end = float(raw_range["end"])
+            p_step = float(raw_range["step"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(
+                f"Experiment '{exp.name}' param_range must have numeric start, end, step"
+            ) from e
+        param_values = _float_range(p_start, p_end, p_step)
+        if not param_values:
+            raise ValueError(
+                f"Experiment '{exp.name}' param_range produced no values"
+            )
+        loads = [0] if (exp.loads is None and exp.base_rate == 0) else list(range(start, end, step))
+        env_key = _INGRESS_AIMD_PARAMS[parameter]
+        for pval in param_values:
+            pstr = _fmt_param_value(pval)
+            for load in loads:
+                params = copy.deepcopy(exp.params) if exp.params else {}
+                deploy_env = dict(params.get("deploy_env") or {})
+                deploy_env[env_key] = pstr
+                params["deploy_env"] = deploy_env
+                yield RunUnit(
+                    name=f"{exp.name}-{parameter}-v{pstr}-rate-{load}",
+                    type=exp.type,
+                    script=script,
+                    base=exp.base_rate,
+                    rate=load,
+                    duration=exp.duration,
+                    system=exp.system,
+                    apis=exp.apis,
+                    bench=bench,
+                    collector_freq=exp.collector_freq,
+                    warmup=exp.warmup,
+                    cooldown=exp.cooldown,
+                    services=exp.services,
+                    cleanup_args=exp.cleanup_args,
+                    execution_args=exp.execution_args,
+                    metadata={"parameter": parameter, "param_value": pval},
                     repeats=exp.repeat,
                     generator_hosts=generator_hosts,
                     deployment_hosts=deployment,
