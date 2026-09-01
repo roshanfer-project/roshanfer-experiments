@@ -119,14 +119,30 @@ Part 2 uses this same cluster.
 > [!NOTE]
 > Scripts automatically install all software used here (K3s, sidecar, Python venv, `rwg`, host packages, container images). The first `./run_tests.sh` does this.
 
-> [!IMPORTANT]
-> You need a GitHub account with a normal OpenSSH public key added to it. PuTTY `.ppk` and FIDO/hardware keys do not work.
-
 ## Setup
 
 Each step lists **where** to run it, **what** it does, and **what to expect**.
 
-### 1. Instantiate the CloudLab experiment
+### 1. Add an SSH key to GitHub and CloudLab
+
+**Where:** local machine and browser.
+
+**What:** if you do not already have a normal OpenSSH key on the local machine, create one with the following command:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+```
+
+Add the **same** public key to:
+
+- GitHub: [SSH keys](https://github.com/settings/keys)
+- CloudLab portal: [My Account](https://www.cloudlab.us/) → SSH Keys
+
+`cloudlab_enter.sh` copies this key to the control node. Later, git clones and SSH from the control node to generator and workload nodes use it. Using different keys on GitHub and CloudLab breaks one of those paths.
+
+**Expected:** the public key is listed on both GitHub and CloudLab.
+
+### 2. Instantiate the CloudLab experiment
 
 **Where:** browser, [CloudLab portal](https://www.cloudlab.us/). You need a CloudLab account in a project that can instantiate.
 
@@ -144,11 +160,11 @@ The saved parameters **are the ones used for paper experiments**.
 
 **Expected:** experiment Ready, 26/26 nodes Ready, **Name** and **Project** noted.
 
-### 2. Clone on the local machine
+### 3. Clone on the local machine
 
 **Where:** local machine.
 
-**What:** full clone on the local machine (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; node0 still gets its own recursive clone in the next step.
+**What:** full clone on the local machine (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; `node0` still gets its own recursive clone in the next step.
 
 ```bash
 git clone --recurse-submodules -b artifact-evaluation git@github.com:roshanfer-project/roshanfer-experiments.git
@@ -157,7 +173,7 @@ cd roshanfer-experiments
 
 **Expected:** `scripts/cloudlab_enter.sh` exists and submodule dirs are populated (`benchmarks/sidecar`, `rwg`, `formal`).
 
-### 3. Enter the control node
+### 4. Enter the control node
 
 **Where:** local machine, from this clone.
 
@@ -168,13 +184,13 @@ cd roshanfer-experiments
 # default --url wisc.cloudlab.us
 ```
 
-`NAME` and `PROJECT` are on the CloudLab experiment page. `--user` is your CloudLab username. You need a normal OpenSSH GitHub key on the local machine (not PuTTY `.ppk` and not a FIDO/hardware key).
+`NAME` and `PROJECT` are on the CloudLab experiment page. `--user` is your CloudLab username. You need the SSH key from step 1.
 
 **Expected:** tmux session `roshanfer`, cwd `~/roshanfer-experiments`.
 
 Extra tmux panes do not inherit `KUBECONFIG` from `run_tests.sh`. `cloudlab_enter.sh` installs direnv and runs `direnv allow`, so a new pane in `~/roshanfer-experiments` can run `kubectl`. If `KUBECONFIG` is unset, `source ./init_env.sh`.
 
-### 4. Configure once
+### 5. Configure once
 
 **Where:** control node.
 
@@ -188,11 +204,11 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected:** `config.env` exists with `CLOUDLAB_USER` set.
 
-### 5. Pin the Ubuntu kernel
+### 6. Pin the Ubuntu kernel
 
 **Where:** control node.
 
-**What:** The recent kernel version of Ubuntu 24.04 is `6.8.0-138-generic` but this kernel has a [bug](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2162843) that prevents `io_uring` (a sidecar dependency) from registering with the kernel. We avoid this issue by pinning all hosts to `6.8.0-134-generic`:
+**What:** the latest Ubuntu 24.04 kernel is `6.8.0-138-generic`, but this kernel has a [bug](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2162843) that prevents `io_uring` (a sidecar dependency) from registering with the kernel. We avoid this issue by pinning all hosts to `6.8.0-134-generic`:
 
 ```bash
 ./scripts/pin_k8s_kernel.sh --kernel 6.8.0-134-generic
@@ -202,11 +218,11 @@ You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same
 
 **Expected time:** less than 10 minutes.
 
-### 6. Run a simple experiment
+### 7. Run a simple experiment
 
 **Where:** control node.
 
-**What:** `./run_tests.sh` does everything end to end: installs everything required, runs the experiment, collects results, and plots. This first run is a one time-series experiment with a single API.
+**What:** `./run_tests.sh` does everything end-to-end: installs everything required, runs the experiment, collects results, and plots. This first run is a time-series experiment with a single API.
 
 Running all experiments (including generation of corresponding figures) is automated through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
 
@@ -260,7 +276,7 @@ The service graph is generated from `benchmarks/tests/one-service/callgraph.json
 
 **When to proceed:** wait until `./run_tests.sh` has exited.
 
-### 7. Inspect output
+### 8. Inspect output
 
 **Where:** control node.
 
@@ -278,7 +294,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 - `plots/one-service/…/rate_vs_time_repeat_00N.pdf` — stacked rates (goodput / SLO / dropped / errors)
 - `plots/one-service/…/latency_vs_time_repeat_00N.pdf` — p50/p99 vs time
 
-### 8. Leave the control node
+### 9. Leave the control node
 
 **Where:** control node, inside tmux.
 
@@ -291,7 +307,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 **Expected:** you are back on the local machine. Re-enter with the same `cloudlab_enter.sh` command.
 
-### 9. Download results to the local machine
+### 10. Download results to the local machine
 
 **Where:** local machine, from this clone (could be another terminal).
 
@@ -311,7 +327,7 @@ ls exp_runs_test/*_tutorial/plots/one-service/
 
 # Part 2 — Running paper experiments
 
-In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the local machine clone, pull outputs the same way as in Part 1 step 9 (`./scripts/cloudlab_fetch.sh`).
+In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the local machine clone, pull outputs the same way as in Part 1 step 10 (`./scripts/cloudlab_fetch.sh`).
 
 ## Goodput vs load (real-world benchmark)
 
@@ -393,9 +409,10 @@ The following command runs the Hotel Reservation benchmark to generate Figure 8.
 
 **Inspecting results**
 
-The plots are
--  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_rate_vs_time.pdf`
--  `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_latency_vs_time.pdf`.
+The plots are:
+
+- `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_rate_vs_time.pdf`
+- `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_latency_vs_time.pdf`
 
 ## Impact of overcommitment and priority
 
@@ -496,9 +513,10 @@ The following command runs the Hotel Reservation and Social Network benchmarks t
 
 Fetching without `--plots-only` needs up to 8.5G of storage.
 
-The plots are
--  7a: `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
--  7b: `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social_combined.pdf`.
+The plots are:
+
+- 7a: `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
+- 7b: `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social_combined.pdf`
 
 ## Troubleshooting
 
