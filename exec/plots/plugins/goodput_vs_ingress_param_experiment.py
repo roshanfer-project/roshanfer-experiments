@@ -58,6 +58,14 @@ _PARAM_LABELS = {
     "aimd_err_i": r"$err_{i}$",
 }
 
+_PARAM_DEFAULTS = {
+    "aimd_err_d": -0.05,
+    "aimd_err_i": -0.3,
+    "aimd_adj_d": 1.5,
+    "aimd_adj_i": 1.0,
+    "safe_multiply": 2.0,
+}
+
 
 def _fmt_tick(v: float) -> str:
     return f"{v:g}"
@@ -173,12 +181,17 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:
         y_type='float',
     )
     ax.set_xticks(x_positions)
-    ax.set_xticklabels(
+    ticks = ax.set_xticklabels(
         labels,
         rotation=0 if len(labels) < 6 else 30,
         ha='center',
         fontsize=style.font_size - 1,
     )
+    default = _PARAM_DEFAULTS.get(parameter)
+    if default is not None:
+        for tick, x in zip(ticks, xs):
+            if math.isclose(x, default, rel_tol=1e-6, abs_tol=1e-9):
+                tick.set_fontweight('bold')
     if len(bar_groups) > 1:
         grid.add_shared_legend(position="top")
 
