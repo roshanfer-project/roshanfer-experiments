@@ -542,6 +542,121 @@
         "posts",
         "graph"
       ]
+    },
+    {
+      "type": "ingress-param-sensitivity",
+      "parameter": "aimd_err_d",
+      "param_range": {
+        "start": -0.20,
+        "end": 0.0,
+        "step": 0.05
+      },
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "apis": [
+        "compose-post"
+      ],
+      "system": "roshanfer",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2
+    },
+    {
+      "type": "ingress-param-sensitivity",
+      "parameter": "aimd_err_i",
+      "param_range": {
+        "start": -0.50,
+        "end": -0.10,
+        "step": 0.10
+      },
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "apis": [
+        "compose-post"
+      ],
+      "system": "roshanfer",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2
+    },
+    {
+      "type": "ingress-param-sensitivity",
+      "parameter": "aimd_adj_d",
+      "param_range": {
+        "start": 1.1,
+        "end": 2.5,
+        "step": 0.2
+      },
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "apis": [
+        "compose-post"
+      ],
+      "system": "roshanfer",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2
+    },
+    {
+      "type": "ingress-param-sensitivity",
+      "parameter": "aimd_adj_i",
+      "param_range": {
+        "start": 0.5,
+        "end": 2.0,
+        "step": 0.25
+      },
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "apis": [
+        "compose-post"
+      ],
+      "system": "roshanfer",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2
+    },
+    {
+      "type": "ingress-param-sensitivity",
+      "parameter": "safe_multiply",
+      "param_range": {
+        "start": 1.0,
+        "end": 4.0,
+        "step": 0.5
+      },
+      "loads": {
+        "start": 10000,
+        "end": 10000,
+        "step": 1
+      },
+      "base_rate": 1000,
+      "duration_sec": 15,
+      "apis": [
+        "compose-post"
+      ],
+      "system": "roshanfer",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2
     }
   ]
 }
