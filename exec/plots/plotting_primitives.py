@@ -52,7 +52,7 @@ class PlotStyle:
     
     # Line/marker styles
     line_width: float = 1.8
-    marker_size: float = 5.5
+    marker_size: float = 3
     
     # Bar plot settings
     bar_width_fraction: float = 0.8  # Fraction of x-unit
@@ -99,10 +99,10 @@ class PlotStyle:
 
 # ACM Presets
 TEXT_SIZE = 7
-ACM_THIRD_COLUMN = PlotStyle(width_points=80, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)
-ACM_QUARTER = PlotStyle(width_points=120, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 1.665 inches (half column)
-ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=4)  # 3.33 inches (full column)
-ACM_COMPACT_FULL = PlotStyle(width_points=504, font_size=TEXT_SIZE, legend_size=TEXT_SIZE, title_size=TEXT_SIZE, marker_size=4)  # 7 inches (double column)
+ACM_THIRD_COLUMN = PlotStyle(width_points=80, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=3)
+ACM_QUARTER = PlotStyle(width_points=120, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=3)  # 1.665 inches (half column)
+ACM_COMPACT_HALF = PlotStyle(width_points=240, font_size=TEXT_SIZE, title_size=TEXT_SIZE, legend_size=TEXT_SIZE, marker_size=3)  # 3.33 inches (full column)
+ACM_COMPACT_FULL = PlotStyle(width_points=504, font_size=TEXT_SIZE, legend_size=TEXT_SIZE, title_size=TEXT_SIZE, marker_size=3)  # 7 inches (double column)
 
 
 class SubplotGrid:
