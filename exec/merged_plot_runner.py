@@ -372,7 +372,7 @@ def generate_resource_waste_bar_merged(
                             label == 'Roshanfer'
                             or label in SYSTEM_DISPLAY_LABELS.values()
                             or 'roshanfer' in exp_name
-                            or 'approx' in exp_name
+                            or 'amphiqueue' in exp_name
                         )
                         
                         if (prom_data and prom_data.metrics) or is_roshanfer_exp:

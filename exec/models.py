@@ -11,28 +11,28 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime
 import re
 
-APPROX_SYSTEMS = ("approx", "approx-fcfs", "approx-edf")
-ROSHANFER_FAMILY = ("roshanfer",) + APPROX_SYSTEMS
+AMPHIQUEUE_SYSTEMS = ("amphiqueue", "amphiqueue-fcfs", "amphiqueue-edf")
+ROSHANFER_FAMILY = ("roshanfer",) + AMPHIQUEUE_SYSTEMS
 RUN_SH_SYSTEMS = ROSHANFER_FAMILY + ("envoy", "p2c", "wrr")
-NO_IGNORE_ERRORS_SYSTEMS = ("plain", "p2c", "wrr", "roshanfer") + APPROX_SYSTEMS + ("envoy",)
+NO_IGNORE_ERRORS_SYSTEMS = ("plain", "p2c", "wrr", "roshanfer") + AMPHIQUEUE_SYSTEMS + ("envoy",)
 
 SYSTEM_DISPLAY_LABELS = {
     "roshanfer": "Roshanfer",
-    "approx": "Approx",
-    "approx-fcfs": "Approx-FCFS",
-    "approx-edf": "Approx-EDF",
+    "amphiqueue": "AmphiQueue",
+    "amphiqueue-fcfs": "AmphiQueue-FCFS",
+    "amphiqueue-edf": "AmphiQueue-EDF",
     "p2c": "P2C",
     "wrr": "WRR",
 }
 
 
-def is_approx_system(system: str) -> bool:
-    return system in APPROX_SYSTEMS
+def is_amphiqueue_system(system: str) -> bool:
+    return system in AMPHIQUEUE_SYSTEMS
 
 
 def is_sidecar_family(system: str) -> bool:
-    """roshanfer (non-LB) or any approx* LB mode."""
-    return system == "roshanfer" or is_approx_system(system)
+    """roshanfer (non-LB) or any amphiqueue* LB mode."""
+    return system == "roshanfer" or is_amphiqueue_system(system)
 
 
 def resolve_plot_label(exp_cfg: Dict[str, Any], exp_name: str, exp_def: Optional[Dict[str, Any]] = None) -> str:

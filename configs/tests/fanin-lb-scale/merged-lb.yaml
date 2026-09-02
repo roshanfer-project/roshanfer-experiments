@@ -6,12 +6,12 @@ figures:
         label: P2C
       latency-vs-throughput-fanin-lb-scale-wrr:
         label: RR
-      latency-vs-throughput-fanin-lb-scale-approx:
-        label: Approx
-#      latency-vs-throughput-fanin-lb-scale-approx-fcfs:
-#        label: Approx-FCFS
-      latency-vs-throughput-fanin-lb-scale-approx-edf:
-        label: Approx-EDF
+      latency-vs-throughput-fanin-lb-scale-amphiqueue:
+        label: AmphiQueue
+#      latency-vs-throughput-fanin-lb-scale-amphiqueue-fcfs:
+#        label: AmphiQueue-FCFS
+      latency-vs-throughput-fanin-lb-scale-amphiqueue-edf:
+        label: AmphiQueue-EDF
 
   latency-vs-throughput-fanin-lb-scale-2:
     type: latency-vs-throughput
@@ -20,12 +20,12 @@ figures:
         label: P2C
       latency-vs-throughput-fanin-lb-scale-2-wrr:
         label: WRR
-      latency-vs-throughput-fanin-lb-scale-2-approx:
-        label: Approx
-      latency-vs-throughput-fanin-lb-scale-2-approx-fcfs:
-        label: Approx-FCFS
-      latency-vs-throughput-fanin-lb-scale-2-approx-edf:
-        label: Approx-EDF
+      latency-vs-throughput-fanin-lb-scale-2-amphiqueue:
+        label: AmphiQueue
+      latency-vs-throughput-fanin-lb-scale-2-amphiqueue-fcfs:
+        label: AmphiQueue-FCFS
+      latency-vs-throughput-fanin-lb-scale-2-amphiqueue-edf:
+        label: AmphiQueue-EDF
 
   latency-and-rate-vs-time-fanin-lb-scale:
     type: latency-and-rate-vs-time

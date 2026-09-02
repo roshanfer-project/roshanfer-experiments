@@ -48,7 +48,7 @@
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "approx",
+            "system": "amphiqueue",
             "repeat": 3,
             "collector_freq": 200,
             "warmup_duration_sec": 10,
@@ -66,7 +66,7 @@
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "approx-fcfs",
+            "system": "amphiqueue-fcfs",
             "repeat": 3,
             "collector_freq": 200,
             "warmup_duration_sec": 10,
@@ -84,7 +84,7 @@
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "approx-edf",
+            "system": "amphiqueue-edf",
             "repeat": 3,
             "collector_freq": 200,
             "warmup_duration_sec": 10,
@@ -120,7 +120,7 @@
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "approx-edf",
+            "system": "amphiqueue-edf",
             "repeat": 1,
             "collector_freq": 200,
             "warmup_duration_sec": 10,

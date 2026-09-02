@@ -44,7 +44,7 @@ usage() {
   echo "                  configs/tests/<name> dirs (e.g. multi-api); with --also-hotel-social,"
   echo "                  hotel and social are also valid; with --also-alibaba, alibaba-large is valid."
   echo "  --type TYPES    Run only experiments whose JSON \"type\" matches (comma-separated)"
-  echo "  --system SYS    Run only experiments with system SYS (plain, roshanfer, approx, envoy; comma-separated)"
+  echo "  --system SYS    Run only experiments with system SYS (plain, roshanfer, amphiqueue, envoy; comma-separated)"
   echo "  --num-apis N    Run only experiments with N APIs (comma-separated, e.g. 1,3)"
   echo "  --shared-generator  Allow fewer generators than APIs (assign round-robin)"
   echo "  --remote          Use CloudLab manifest for hosts (requires manifest, --num-generators,"
@@ -62,7 +62,7 @@ usage() {
   echo "                       --bench filters this too when set (e.g. --bench alibaba-large)."
   echo "  --nanolog-debug      Build sidecar with NanoLog M# metrics; for roshanfer runs, collect"
   echo "                       compressed logs, decompress, plot repeat_<n>/nanolog/metrics-<sidecar-stem>.pdf."
-  echo "  --debug              Deploy sidecar/approx* with deploy.sh debug (glog via"
+  echo "  --debug              Deploy sidecar/amphiqueue* with deploy.sh debug (glog via"
   echo "                       k8s/sidecar-debug-glog.env, debug restart behavior)."
   echo "  --comment TEXT       Append sanitized TEXT to run folder name after the timestamp"
   echo "                       (e.g. exp_runs_test/20260403_120000_my-label/)."
@@ -85,7 +85,7 @@ usage() {
   echo "  $0 --also-alibaba"
   echo "  $0 --bench alibaba-large --also-alibaba"
   echo "  $0 --bench chain-2 --comment roshanfer-tuning"
-  echo "  $0 --bench chain-2 --system approx --debug --comment approx-test"
+  echo "  $0 --bench chain-2 --system amphiqueue --debug --comment amphiqueue-test"
   echo "  $0 --namespace newsys --bench leaf-1-2"
 }
 

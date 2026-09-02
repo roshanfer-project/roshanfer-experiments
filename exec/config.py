@@ -38,7 +38,7 @@ class Config:
     remote_repo_path: Optional[str] = None
 
     nanolog_debug: bool = False
-    # Deploy sidecar/approx* with deploy.sh debug (glog + debug restart behavior).
+    # Deploy sidecar/amphiqueue* with deploy.sh debug (glog + debug restart behavior).
     sidecar_deploy_debug: bool = False
     # Same branch name for roshanfer-experments and benchmarks on remotes.
     branch: Optional[str] = None

@@ -2,12 +2,12 @@ figures:
   latency-and-rate-vs-time-chain-2-lb:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-chain-2-approx:
-        label: Approx
-      latency-and-rate-vs-time-chain-2-approx-fcfs:
-        label: Approx-FCFS
-      latency-and-rate-vs-time-chain-2-approx-edf:
-        label: Approx-EDF
+      latency-and-rate-vs-time-chain-2-amphiqueue:
+        label: AmphiQueue
+      latency-and-rate-vs-time-chain-2-amphiqueue-fcfs:
+        label: AmphiQueue-FCFS
+      latency-and-rate-vs-time-chain-2-amphiqueue-edf:
+        label: AmphiQueue-EDF
       latency-and-rate-vs-time-chain-2-p2c:
         label: P2C
       latency-and-rate-vs-time-chain-2-wrr:

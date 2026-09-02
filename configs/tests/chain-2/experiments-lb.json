@@ -12,7 +12,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "approx",
+            "system": "amphiqueue",
             "repeat": 1,
             "collector_freq": 200
         },
@@ -28,7 +28,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "approx-fcfs",
+            "system": "amphiqueue-fcfs",
             "repeat": 1,
             "collector_freq": 200
         },
@@ -44,7 +44,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "approx-edf",
+            "system": "amphiqueue-edf",
             "repeat": 1,
             "collector_freq": 200
         },

@@ -6,17 +6,17 @@ figures:
         label: P2C
       latency-vs-throughput-alibaba-lb-wrr:
         label: RR
-      latency-vs-throughput-alibaba-lb-approx:
-        label: Approx
-#      latency-vs-throughput-alibaba-lb-approx-fcfs:
-#        label: Approx-FCFS
-      latency-vs-throughput-alibaba-lb-approx-edf:
-        label: Approx-EDF
+      latency-vs-throughput-alibaba-lb-amphiqueue:
+        label: AmphiQueue
+#      latency-vs-throughput-alibaba-lb-amphiqueue-fcfs:
+#        label: AmphiQueue-FCFS
+      latency-vs-throughput-alibaba-lb-amphiqueue-edf:
+        label: AmphiQueue-EDF
 
   latency-and-rate-vs-time-alibaba-lb:
     type: latency-and-rate-vs-time
     include:
       latency-and-rate-vs-time-alibaba-lb-p2c:
         label: Z8trRkp4mp
-      latency-and-rate-vs-time-alibaba-lb-approx-edf:
+      latency-and-rate-vs-time-alibaba-lb-amphiqueue-edf:
         label: Z8trRkp4mp

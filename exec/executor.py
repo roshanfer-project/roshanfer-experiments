@@ -443,7 +443,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         logging.info("nanolog_debug: SIDECAR_ENABLE_NANOLOG=1 for sidecar builds")
 
     if config.sidecar_deploy_debug:
-        logging.info("sidecar_deploy_debug: deploy.sh roshanfer/approx* debug enabled")
+        logging.info("sidecar_deploy_debug: deploy.sh roshanfer/amphiqueue* debug enabled")
 
     if getattr(config, "branch", None):
         logging.info("Provision branch: %s (same name for roshanfer-experments and benchmarks)", config.branch)
@@ -723,14 +723,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
-    p.add_argument("--only-system", help="Comma-separated list of systems (plain, roshanfer, approx, approx-fcfs, approx-edf, envoy, ...).")
+    p.add_argument("--only-system", help="Comma-separated list of systems (plain, roshanfer, amphiqueue, amphiqueue-fcfs, amphiqueue-edf, envoy, ...).")
     p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
     p.add_argument("--hosts-file", help="Override hosts_file from config.json")
     p.add_argument("--num-generators", type=int, help="Override num_generators from config.json")
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
-    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for roshanfer and approx* units.")
-    p.add_argument("--debug", action="store_true", help="Deploy roshanfer/approx* with deploy.sh debug (glog via sidecar-debug-glog.env, debug restart behavior).")
+    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for roshanfer and amphiqueue* units.")
+    p.add_argument("--debug", action="store_true", help="Deploy roshanfer/amphiqueue* with deploy.sh debug (glog via sidecar-debug-glog.env, debug restart behavior).")
     p.add_argument(
         "--branch",
         help="Git branch to provision on remotes (same name for roshanfer-experments and benchmarks). Default: local active branch.",
