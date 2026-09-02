@@ -4,11 +4,11 @@ figures:
     include:
       latency-vs-throughput-multi-api-3-plain:
         label: Plain
-      latency-vs-throughput-multi-api-3-sidecar:
+      latency-vs-throughput-multi-api-3-roshanfer:
         label: Roshanfer
 
   max-queue-multi-api-3:
     type: max-queue
     include:
-      max-queue-multi-api-3-sidecar:
+      max-queue-multi-api-3-roshanfer:
         label: Roshanfer

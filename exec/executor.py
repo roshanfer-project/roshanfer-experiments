@@ -5,6 +5,7 @@ Refactored for CloudLab orchestration.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import hashlib
 import json
@@ -20,7 +21,7 @@ import subprocess
 
 from dataclasses import replace as dc_replace
 from .config import load_config, Config
-from .models import ExperimentConfig, RunUnit, RunResult, CollectorResult
+from .models import ExperimentConfig, RunUnit, RunResult, CollectorResult, RUN_SH_SYSTEMS
 from .load import (
     expand_sweep_steady_rates,
     legacy_sweep_steady_rates,
@@ -32,6 +33,7 @@ from .runner import Runner
 from .collector import Collector
 from .infra import InfraBuilder
 from . import report as report_module
+from .timings import empty_timings, write_timings, log_executor_summary
 import traceback as tb
 
 def _timestamp() -> str:
@@ -153,10 +155,14 @@ def _make_run_unit(
     )
 
 
-def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
-    bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
-    script = exp.script or ("run.sh" if exp.system in ("sidecar", "approx", "approx-fcfs", "approx-edf", "envoy", "p2c", "wrr") else "run-plain.sh")
-
+def _expand_load_units(
+    exp: ExperimentConfig,
+    config: Config,
+    generator_hosts: List[str],
+    deployment: List[str],
+    script: str,
+    bench: str,
+) -> Iterable[RunUnit]:
     if exp.load_mode == "phases":
         api_phases = resolve_phases_mode(exp)
         yield _make_run_unit(
@@ -215,6 +221,34 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
             deployment=deployment,
         )
 
+
+def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator_hosts: List[str], deployment: List[str]) -> Iterable[RunUnit]:
+    bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
+    script = exp.script or ("run.sh" if exp.system in RUN_SH_SYSTEMS else "run-plain.sh")
+
+    if exp.type == "throughput-vs-overcommitment":
+        raw_ocs = exp.params.get("overcommitments") if exp.params else None
+        if not raw_ocs:
+            raise ValueError(
+                f"Experiment '{exp.name}' type throughput-vs-overcommitment "
+                "requires a non-empty overcommitments list"
+            )
+        for raw_oc in raw_ocs:
+            oc = float(raw_oc)
+            pct = int(round(oc * 100))
+            params = copy.deepcopy(exp.params) if exp.params else {}
+            deploy_env = dict(params.get("deploy_env") or {})
+            deploy_env["SIDECAR_OVER_COMMIT"] = str(int(oc)) if oc == int(oc) else str(oc)
+            params["deploy_env"] = deploy_env
+            oc_exp = dc_replace(exp, params=params)
+            for unit in _expand_load_units(oc_exp, config, generator_hosts, deployment, script, bench):
+                unit.name = unit.name.replace(exp.name, f"{exp.name}-oc-{pct}", 1)
+                unit.metadata["overcommitment"] = oc
+                yield unit
+        return
+
+    yield from _expand_load_units(exp, config, generator_hosts, deployment, script, bench)
+
 def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:
     mx = 0
     for e in exps:
@@ -223,7 +257,7 @@ def _get_max_apis_needed(exps: List[ExperimentConfig]) -> int:
 
 
 def _resolve_tuner_module(system: str) -> str:
-    aliases = {"rajomon-lb": "rajomon"}
+    aliases = {"rajomon-lb": "rajomon", "sidecar": "roshanfer"}
     base = aliases.get(system, system.replace("-", "_"))
     return f"exec.{base}_tuner"
 
@@ -401,12 +435,15 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     )
     logging.info(f"Execution started. Logs at {logs_dir}")
 
+    timings = empty_timings()
+    timings_path = run_root / "timings.json"
+
     if config.nanolog_debug:
         os.environ["SIDECAR_ENABLE_NANOLOG"] = "1"
         logging.info("nanolog_debug: SIDECAR_ENABLE_NANOLOG=1 for sidecar builds")
 
     if config.sidecar_deploy_debug:
-        logging.info("sidecar_deploy_debug: deploy.sh sidecar/approx* debug enabled")
+        logging.info("sidecar_deploy_debug: deploy.sh roshanfer/approx* debug enabled")
 
     if getattr(config, "branch", None):
         logging.info("Provision branch: %s (same name for roshanfer-experments and benchmarks)", config.branch)
@@ -429,15 +466,19 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         prov_log = logs_dir / f"provision_{_timestamp()}.log"
         k8s_log = logs_dir / f"k8s_setup_{_timestamp()}.log"
         prov_host_logs_dir = logs_dir / "provision_hosts"
+        t0 = time.time()
         infra.provision_hosts(
             Path(config.provisioning_script),
             log_path=prov_log,
             provision_host_logs_dir=prov_host_logs_dir,
             branch=getattr(config, "branch", None),
         )
+        timings["setup"]["provision_sec"] = time.time() - t0
         
         if hasattr(config, "k8s_script") and config.k8s_script:
-            infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
+            t0 = time.time()
+            infra.setup_k8s(Path(config.k8s_script), effective_num_gens, log_path=k8s_log)
+            timings["setup"]["k8s_sec"] = time.time() - t0
             k8s_ran = True
 
         _write_infra_partition(run_root, config, generators, deployment, filters)
@@ -445,6 +486,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
              
     except Exception as e:
         logging.error(f"Infra failure: {e}")
+        timings["total_sec"] = time.time() - start_all
+        write_timings(timings_path, timings)
+        log_executor_summary(timings)
         return 1
 
     # 3. Initialize Runner & Collector
@@ -475,25 +519,35 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         bench = system_exps[0].bench or getattr(config, "bench", None) or config.extra.get("bench", "")
         
         # A. Build & Deploy (Moved before Tuning so images exist)
+        t_build = time.time()
         try:
             # Build Step
-            path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
-            tag_base = f"{config.experiment_index}-{path_hash}"
-            tag = _safe_name(tag_base)
+            image_tag = (os.environ.get("IMAGE_TAG") or "").strip()
+            if image_tag:
+                tag = _safe_name(image_tag)
+            else:
+                path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
+                tag = _safe_name(f"{config.experiment_index}-{path_hash}")
             logging.info(f"Tag: {tag}")
-            
-            # Status file in the run directory (separate marker when NanoLog binary required)
+
             _bsuf = "_nanolog" if config.nanolog_debug else ""
             build_status_file = run_root / f"build_success_{tag}{_bsuf}"
-            
-            # Check build
-            if not build_status_file.exists():
+            skip_build = os.environ.get("SKIP_BUILD", "0").strip().lower() in ("1", "true", "yes")
+
+            t_build = time.time()
+            if skip_build:
+                logging.info("SKIP_BUILD set; skipping build.sh (deploy will pull %s)", tag)
+                timings["setup"]["build"][system] = 0.0
+            elif not build_status_file.exists():
                 build_log = logs_dir / f"build_{system}_{_timestamp()}.log"
                 runner.build_system(bench, system, tag, build_status_file, log_path=build_log)
+                timings["setup"]["build"][system] = time.time() - t_build
             else:
                 logging.info(f"Build for tag {tag} already successful. Skipping.")
+                timings["setup"]["build"][system] = 0.0
 
         except Exception as e:
+            timings["setup"]["build"][system] = time.time() - t_build
             logging.error(f"Skipping system {system} due to build failure: {e}")
             continue
 
@@ -517,6 +571,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         try:
             for exp in system_exps:
                 logging.info(f"  Running Experiment: {exp.name}")
+                t_exp = time.time()
                 exp_dir = run_root / _safe_name(exp.name)
                 exp_dir.mkdir(parents=True, exist_ok=True)
                 
@@ -594,11 +649,25 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             except Exception as te:
                                 logging.warning(f"Teardown failed for repeat {r}: {te}")
 
+                tune_sec = float((timings["tuning"].get(system) or {}).get("sec") or 0)
+                run_sec = time.time() - t_exp
+                timings["experiments"].append({
+                    "name": exp.name,
+                    "system": system,
+                    "run_sec": run_sec,
+                    "tune_sec": tune_sec,
+                    "plot_sec": 0.0,
+                    "e2e_sec": run_sec + tune_sec,
+                })
+
         except Exception as e:
             logging.error(f"System {system} loop aborted (Unexpected top-level error): {e}", exc_info=True)
 
     # 5. Report
     # report_module.generate_report(...) # Optional
+    timings["total_sec"] = time.time() - start_all
+    write_timings(timings_path, timings)
+    log_executor_summary(timings)
     logging.info(f"Execution finished. Results in {run_root}")
     return 0
 
@@ -654,14 +723,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
-    p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar, approx, approx-fcfs, approx-edf, envoy, ...).")
+    p.add_argument("--only-system", help="Comma-separated list of systems (plain, roshanfer, approx, approx-fcfs, approx-edf, envoy, ...).")
     p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
     p.add_argument("--hosts-file", help="Override hosts_file from config.json")
     p.add_argument("--num-generators", type=int, help="Override num_generators from config.json")
     p.add_argument("--shared-generator", action="store_true", help="Allow fewer generators than APIs; assign round-robin")
-    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for sidecar and approx* units.")
-    p.add_argument("--debug", action="store_true", help="Deploy sidecar/approx* with deploy.sh debug (glog via sidecar-debug-glog.env, debug restart behavior).")
+    p.add_argument("--nanolog-debug", action="store_true", help="Build sidecar with NanoLog metrics; collect/decompress/plot for roshanfer and approx* units.")
+    p.add_argument("--debug", action="store_true", help="Deploy roshanfer/approx* with deploy.sh debug (glog via sidecar-debug-glog.env, debug restart behavior).")
     p.add_argument(
         "--branch",
         help="Git branch to provision on remotes (same name for roshanfer-experments and benchmarks). Default: local active branch.",

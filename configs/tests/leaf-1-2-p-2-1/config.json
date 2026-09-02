@@ -1,0 +1,11 @@
+{
+  "experiment_index": "leaf-1-2-p-2-1",
+  "num_generators": 2,
+  "bench": "tests/leaf-1-2-p-2-1",
+  "hosts_file": "hosts.txt",
+  "slos": {
+    "api1": "500",
+    "api2": "500"
+  },
+  "post_deploy_wait_sec": 1
+}

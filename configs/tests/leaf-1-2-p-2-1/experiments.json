@@ -1,0 +1,28 @@
+{
+  "experiments": [
+    {
+      "type": "throughput-vs-overcommitment",
+      "overcommitments": [
+        0,
+        0.2,
+        0.6,
+        1
+      ],
+      "loads": {
+        "start": 500,
+        "end": 500,
+        "step": 50
+      },
+      "base_rate": 50,
+      "duration_sec": 10,
+      "apis": [
+        "api1",
+        "api2"
+      ],
+      "system": "roshanfer",
+      "repeat": 3,
+      "collector_freq": 200,
+      "warmup": 2
+    }
+  ]
+}

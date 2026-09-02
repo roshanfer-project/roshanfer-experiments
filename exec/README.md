@@ -9,28 +9,42 @@ It follows a **Tune -> Deploy -> Run -> Collect** cycle.
 
 1.  **Partition**: Hosts are split into **Generators** and **Deployment** nodes.
 2.  **Tune**: System-specific tuners find optimal parameters (e.g., resource limits).
-3.  **Deploy**: The system is deployed ONCE per benchmark/system. Supported systems: `plain`, `p2c`, `wrr`, `sidecar`, `approx`, `approx-fcfs`, `approx-edf`, `envoy`, `rajomon`, `rajomon-lb`, `dagor`, `dagor-lb`.
+3.  **Deploy**: The system is deployed ONCE per benchmark/system. Supported systems: `plain`, `p2c`, `wrr`, `roshanfer`, `approx`, `approx-fcfs`, `approx-edf`, `envoy`, `rajomon`, `rajomon-lb`, `dagor`, `dagor-lb`.
 4.  **Run**: Workload generators run remotely on generator nodes.
 5.  **Collect**: Logs and metrics are pulled to the local machine.
+
+## Repository layout
+
+```text
+exec/
+├── executor.py                Tune → Deploy → Run → Collect
+├── runner.py                  deploy system, run rwg, tear down
+├── collector.py               pull logs, parse RWG CSV → JSON
+├── extractor.py               RWG overall-{api}.json helper
+├── infra.py                   hosts file, provision / K8s helpers
+├── config.py / models.py      JSON config + experiment dataclasses
+├── cloudlab_hosts.py          manifest.xml → user@host lines
+├── report.py                  write run report.md
+├── timings.py                 wall-clock timings.json + run_tests summary
+├── rajomon_tuner.py           Bayesian tuner for rajomon
+├── roshanfer_tuner.py         stub roshanfer tuner
+├── plot_runner.py             per-repeat / per-experiment plots
+├── merged_plot_runner.py      YAML overlay plots across systems
+├── merge_plot_pdfs.py         combine PDFs → all_tests_plots.pdf
+└── plots/                     ACM-style matplotlib + plugins
+```
 
 ## Prerequisites
 
 1.  **Submodules**: From repo root, run `git submodule update --init benchmarks rwg` (or clone with `--recurse-submodules`). Provisioning/K8s scripts live under `benchmarks/`.
-2.  **Hosts File**: Create `hosts.txt` with a list of SSH-accessible hosts (one per line).
+2.  **Hosts File**: Create repo-root `hosts.txt` (from `hosts.txt.example`) with `user@host` lines.
     ```text
     user@node1.cloudlab.us
     user@node2.cloudlab.us
     ...
     ```
-3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent. It clones/checks out one branch name on remotes for both `roshanfer-experments` and `benchmarks` (passed as `BRANCH` / `--branch`; default = local active branch). Both GitHub repos must publish that same branch name. If a remote checkout is on a different branch, provision wipes `~/roshanfer-experments` and re-clones. If already on the right branch but behind `origin/$BRANCH`, it `git pull`s both repos (and rebuilds rwg) without a full re-provision.
-4.  **direnv** (for kubeconfig isolation): Install direnv and enable the repo's `.envrc`:
-    ```bash
-    sudo apt install direnv
-    echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc   # or ~/.bashrc
-    source ~/.zshrc
-    cd /path/to/this/repo && direnv allow
-    ```
-    The `.envrc` sets `KUBECONFIG` to `benchmarks/k8s/kubeconfig` so each clone/worktree targets its own cluster. `run_tests.sh` will refuse to start if direnv is not active.
+3.  **Provisioning**: Ensure `benchmarks/provisioning/provision.sh` exists and is idempotent. It clones/checks out one branch name on remotes for both `roshanfer-experments` and `benchmarks` (passed as `BRANCH` / `--branch`; default = local active branch). Both GitHub repos must publish that same branch name. If a remote checkout is on a different branch, provision wipes `~/roshanfer-experiments` and re-clones. If already on the right branch but behind `origin/$BRANCH`, it `git pull`s both repos (and rebuilds rwg) without a full re-provision.
+4.  **KUBECONFIG**: `init_env.sh` (sourced by `run_tests.sh`) sets `KUBECONFIG` to this clone’s `benchmarks/k8s/kubeconfig`, so each worktree talks to its own cluster. The credentials file is written later by `benchmarks/k8s/create.sh`. Optional: install direnv and allow `.envrc` for interactive `kubectl` in this directory.
 
 ## Running Experiments
 
@@ -38,8 +52,8 @@ Run experiments defined in a JSON file:
 
 ```bash
 python -m exec.executor \
-  --experiments-file configs/chain1/experimnts.json \
-  --config configs/chain1/config.json
+  --experiments-file configs/tests/one-service/experiments.json \
+  --config configs/tests/one-service/config.json
 ```
 
 **Options:**
@@ -52,8 +66,8 @@ python -m exec.executor \
 
 Experiment names are derived from `type`, `bench`, and `system`: `{type}-{bench}-{system}` (or `{type}-{bench}-{n}-{system}` for multi-API). Examples:
 ```bash
---only-names "latency-vs-throughput-one-service-plain,latency-vs-throughput-one-service-sidecar"
---name-contains "sidecar"
+--only-names "latency-vs-throughput-one-service-plain,latency-vs-throughput-one-service-roshanfer"
+--name-contains "roshanfer"
 --only-types "latency-vs-throughput" --name-contains "plain"
 ```
 
@@ -142,13 +156,15 @@ Top-level `loads` / `base_rate` / `duration_sec` are ignored in this mode.
 
 ## CloudLab manifest → hosts
 
-Download the experiment **manifest** (XML) from the CloudLab portal, then:
+Place the experiment **manifest XML** at `./manifest.xml` (or `CLOUDLAB_MANIFEST`). `run_tests.sh` does not fetch it. `./scripts/cloudlab_enter.sh` writes it on first enter (`geni-get` → `./manifest.xml`) and skips later enters if the file already exists. Re-fetch with `./scripts/fetch_manifest.sh` if the file is missing or nodes changed after swap-in. You can also download the XML from the CloudLab experiment page.
+
+Then:
 
 ```bash
 python -m exec.cloudlab_hosts --manifest ./manifest.xml -o ./cloudlab_hosts.txt
 ```
 
-Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--ssh-user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--ssh-user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-download the manifest if nodes change after swap-in.
+Uses `<login hostname="..." username="..."/>`. If several usernames share the same host (shared project), pass **`--user YOUR_USERNAME`** so the correct `<login>` is chosen. With a single user per host, `--user` is optional. Host order follows **`<node>` elements in the manifest** (CloudLab node0, node1, …). When `CONTROL_ON_CLUSTER=1`, the first node is the control machine and is dropped; when `0`, every host is kept. If there are no `<node>` wrappers with nested logins, falls back to a flat `<login>` scan sorted by hostname. Re-fetch the manifest if nodes change after swap-in.
 
 ## Batch: `run_tests.sh`
 
@@ -157,26 +173,28 @@ From repo root, run all `configs/tests/*` benchmarks (and optionally hotel/socia
 ```bash
 ./run_tests.sh
 ./run_tests.sh --also-hotel-social
-./run_tests.sh --remote --cloudlab-manifest ~/manifest.xml --num-generators 3 --cloudlab-ssh-user ubuntu
-./run_tests.sh --remote --branch lb-explore --cloudlab-manifest ~/manifest.xml --num-generators 3
+./run_tests.sh --remote --num-generators 3
+./run_tests.sh --remote --branch lb-explore --num-generators 3
 ```
 
-`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run.
+`--remote` writes `exp_runs_test/<timestamp>/cloudlab_hosts.txt` and passes `--hosts-file` / `--num-generators` to each executor run. `CLOUDLAB_MANIFEST` and `CLOUDLAB_USER` come from `config.env` unless you pass `--cloudlab-manifest` / `--cloudlab-user`. `CLOUDLAB_USER` is required.
 
 `--branch NAME` selects the git branch provisioned on remotes for **both** `roshanfer-experments` and `benchmarks` (one name; both remotes must have it). Default is the local active branch. Before starting exec, `run_tests.sh` requires the local parent and `benchmarks` checkouts to be on the **same** named branch; if they differ (or are detached), it errors and does not invoke exec. If `--branch` is set, it must match that local pair.
 
 `--namespace NS` selects namespace-specific config files (`config-<ns>.json`, `experiments-<ns>.json`) instead of the default `config.json` / `experiments.json`. The namespace is stored in `exp_runs_test/<run_id>/.namespace` for plot regeneration. See [Config namespaces](#config-namespaces) below.
 
-`--remote-clean` (with the same `--cloudlab-manifest` and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` using **deployment** hosts only (all lines after the first `num_generators`). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
+`--remote-clean` (with the same manifest and `--num-generators`) removes `~/.roshanfer_provisioned` on **every** listed host, then runs `benchmarks/k8s/delete.sh` using **deployment** hosts only (all lines after the first `num_generators`). Use alone to reset infra and exit, or add `--remote` to clean and then run tests.
 
 ### Local vs Remote Host Resolution
 
-Hosts are always read from a plain-text file (one `[user@]host` per line, `#` comments ignored) via `InfraBuilder`. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes. The two modes differ only in *which* file is used:
+Hosts are always read from a plain-text file (one `user@host` per line, `#` comments ignored) via `InfraBuilder`. A line without `@` is an error. The first `num_generators` lines become generator nodes; the rest become deployment (K8s) nodes.
 
-- **Local mode** — each test's `config.json` has a `hosts_file` field pointing to a static per-test file, e.g. `configs/tests/one-service/hosts.txt`. There is no auto-discovery; you edit that file to match your local setup.
-- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` (via `exec.cloudlab_hosts`) and passes it with `--hosts-file`, overriding whatever `hosts_file` the config specifies.
+- **Local mode** — repo-root `hosts.txt` (copy `hosts.txt.example`). `REQUIRE_REMOTE=0` in `config.env`. `create.sh` / `delete.sh` read the same file and skip the first `NUM_GENERATORS` lines; `provision.sh` uses every line.
+- **Remote mode** (`--remote`) — `run_tests.sh` parses the CloudLab `manifest.xml` into a generated `cloudlab_hosts.txt` and passes it with `--hosts-file`. With `CONTROL_ON_CLUSTER=1`, the first node / control machine is dropped. Root `hosts.txt` is not read. If the manifest file is missing, it exits; `cloudlab_enter.sh` writes it on first enter, or run `./scripts/fetch_manifest.sh` on the control node.
 
 `benchmarks/k8s/hosts.txt` and `benchmarks/provisioning/hosts.txt` are only used as defaults when running those shell scripts *manually*; the executor always overrides them by setting the `HOSTS_FILE` env var (and `BRANCH` when `--branch` / local default is set).
+
+`IMAGE_TAG` in `config.env` overrides the executor’s path-hash image tag. `SKIP_BUILD=1` skips `build.sh`. Populate Hub images first with `./scripts/build.sh --bench …` (tag defaults to `latest`; pass `--tag` to override).
 
 ## Tuning
 
@@ -239,8 +257,8 @@ Use namespaces to try alternate experiment setups without changing existing conf
 A suite is run for namespace `<ns>` only when both config and experiments files exist. Merged plots are optional (skipped if the merged file is missing).
 
 ```bash
-./run_tests.sh --namespace newsys --bench leaf-diverse
-python -m exec.namespace resolve --kind tests --dir configs/tests/leaf-diverse --namespace newsys
+./run_tests.sh --namespace newsys --bench leaf-1-2
+python -m exec.namespace resolve --kind tests --dir configs/tests/leaf-1-2 --namespace newsys
 python -m exec.namespace list-tests --namespace newsys
 ```
 
@@ -248,15 +266,18 @@ Run dirs record the namespace in `.namespace`; `scripts/regenerate_run_plots.sh`
 
 ## Config (`config.json`)
 
-Ensure your config includes:
+Per-bench keys the executor reads:
 ```json
 {
-  "hosts_file": "hosts.txt",
-  "provisioning_script": "benchmarks/provisioning/provision.sh",
   "experiment_index": "001",
-  "output_base_dir": "experiment_runs"
+  "num_generators": 1,
+  "bench": "tests/one-service",
+  "hosts_file": "hosts.txt",
+  "slos": { "f1": "20" }
 }
 ```
+
+Output layout is a caller concern: `run_tests.sh` passes `--output-base-dir`; a standalone executor run uses that flag or the dataclass default (`./experiment_runs`). Optional JSON keys: `post_deploy_wait_sec`, `tuner`.
 
 ## Generating Merged Plots
 
@@ -264,9 +285,9 @@ Generate combined plots (e.g., comparing multiple experiments) defined in a YAML
 
 ```bash
 python -m exec.merged_plot_runner \
-  --merged-config configs/chain1/merged.yaml \
-  --experiments-file configs/chain1/experimnts.json \
-  --config configs/chain1/config.json \
+  --merged-config configs/tests/one-service/merged.yaml \
+  --experiments-file configs/tests/one-service/experiments.json \
+  --config configs/tests/one-service/config.json \
   --experiments-root exp_runs \
   --output-dir merged_plots \
   --experiment-index 001
@@ -278,30 +299,28 @@ python -m exec.merged_plot_runner \
 experiment_runs/
 └── exp-001/
     ├── run_summary.jsonl
+    ├── timings.json
     ├── tuning/
-    │   └── <system>.json
+    │   └── <system>/best_params.json
     └── experiment_name/
         └── unit_name/
             └── repeat_000/
                 ├── output/            # CSV results and parsed JSON
                 │   ├── overall-{api}.json
                 │   └── realtime-{api}.csv
-                ├── metrics/           # JSON copies for Plotting
+                ├── metrics/           # JSON copies for plotting
                 ├── raw/               # Service Logs & Raw Output
                 └── run_details.json
 ```
 
 ## Parallel Dev/Test with Git Worktrees
 
-To work on two clusters simultaneously (e.g., dev and test), use git worktrees. Each worktree is a separate checkout with its own `benchmarks/k8s/kubeconfig`, and the committed `.envrc` automatically points `KUBECONFIG` to the right one via `$PWD`.
+To work on two clusters simultaneously (e.g., dev and test), use git worktrees. Each worktree is a separate checkout with its own `benchmarks/k8s/kubeconfig`. `init_env.sh` / `run_tests.sh` point `KUBECONFIG` at that file via the worktree root.
 
 ```bash
 # Create a worktree for dev on a new branch
-cd ~/files/roshanfer-experments
+cd ~/files/roshanfer-experiments
 git worktree add ../local-experiments dev
-
-# Allow direnv in the new worktree
-cd ../local-experiments && direnv allow
 ```
 
-After running `benchmarks/k8s/create.sh` in each worktree, each gets its own kubeconfig. Open two terminals — `cd` into each directory and kubectl talks to the corresponding cluster automatically.
+After running `benchmarks/k8s/create.sh` in each worktree, each gets its own kubeconfig. For interactive `kubectl`, `cd` into the worktree and either `source ./init_env.sh` or allow `.envrc` with direnv.

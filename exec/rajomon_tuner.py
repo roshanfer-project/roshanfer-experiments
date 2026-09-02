@@ -62,7 +62,7 @@ except ImportError:
 
 
 def _resolve_tune_api(config: Config, bench: str) -> str:
-    t = config.extra.get("tuner")
+    t = config.tuner
     if isinstance(t, dict):
         v = t.get("tune_api")
         if isinstance(v, str) and v.strip():
@@ -84,7 +84,7 @@ def _coerce_knob(key: str, val: Any) -> Any:
 
 def _effective_tuner_knobs(config: Config) -> Dict[str, Any]:
     out = dict(_DEFAULT_KNOBS)
-    raw = config.extra.get("tuner")
+    raw = config.tuner
     if not isinstance(raw, dict):
         return out
     for k in _TUNER_KNOB_KEYS:

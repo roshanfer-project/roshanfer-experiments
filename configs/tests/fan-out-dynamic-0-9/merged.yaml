@@ -4,13 +4,13 @@ figures:
     include:
       latency-vs-throughput-fan-out-dynamic-0-9-plain:
         label: Plain
-      latency-vs-throughput-fan-out-dynamic-0-9-sidecar:
+      latency-vs-throughput-fan-out-dynamic-0-9-roshanfer:
         label: Roshanfer
 
   max-queue-fan-out-dynamic-0-9:
     type: max-queue
     include:
-      max-queue-fan-out-dynamic-0-9-sidecar:
+      max-queue-fan-out-dynamic-0-9-roshanfer:
         label: Roshanfer
       max-queue-fan-out-dynamic-0-9-rajomon:
         label: Rajomon
@@ -20,7 +20,7 @@ figures:
   latency-and-goodput-vs-load-fan-out-dynamic-0-9:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-fan-out-dynamic-0-9-sidecar:
+      latency-and-goodput-vs-load-fan-out-dynamic-0-9-roshanfer:
         label: Roshanfer
       latency-and-goodput-vs-load-fan-out-dynamic-0-9-rajomon:
         label: Rajomon
@@ -30,9 +30,9 @@ figures:
   latency-and-rate-vs-time-fan-out-dynamic-0-9:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-fan-out-dynamic-0-9-sidecar:
+      latency-and-rate-vs-time-fan-out-dynamic-0-9-roshanfer:
         label: Roshanfer
-        unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-sidecar-rate-4000
+        unit: latency-and-rate-vs-time-fan-out-dynamic-0-9-roshanfer-rate-4000
         repeat: 0
       latency-and-rate-vs-time-fan-out-dynamic-0-9-rajomon:
         label: Rajomon

@@ -28,7 +28,7 @@
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "sidecar",
+            "system": "roshanfer",
             "repeat": 3,
             "collector_freq": 200
         },
@@ -76,7 +76,7 @@
             "apis": [
                 "Z8trRkp4mp"
             ],
-            "system": "sidecar",
+            "system": "roshanfer",
             "repeat": 3,
             "collector_freq": 200
         },

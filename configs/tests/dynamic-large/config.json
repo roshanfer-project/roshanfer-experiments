@@ -1,23 +1,16 @@
 {
-    "output_base_dir": "./exp_runs",
-    "experiment_index": "dynamic-large",
-    "num_generators": 1,
-    "raw_artifact_subdir": "raw",
-    "metrics_subdir": "metrics",
-    "rwg_binary_path": "./rwg/rwg",
-    "bench": "tests/dynamic-large",
-    "hosts_file": "configs/tests/dynamic-large/hosts.txt",
-    "ssh_binary": "ssh",
-    "git_root": "..",
-    "slos": {
-        "f1": "55"
-    },
-    "metrics": {},
-    "post_deploy_wait_sec": 1,
-    "tuner": {
-        "tune_api": "f1",
-        "tuner_base": 1000,
-        "tuner_rate": 4000,
-        "maximum_goodput": 2000
-    }
+  "experiment_index": "dynamic-large",
+  "num_generators": 1,
+  "bench": "tests/dynamic-large",
+  "hosts_file": "hosts.txt",
+  "slos": {
+    "f1": "55"
+  },
+  "post_deploy_wait_sec": 1,
+  "tuner": {
+    "tune_api": "f1",
+    "tuner_base": 1000,
+    "tuner_rate": 4000,
+    "maximum_goodput": 2000
+  }
 }

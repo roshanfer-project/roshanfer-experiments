@@ -1,17 +1,10 @@
 {
-  "output_base_dir": "./exp_runs",
   "experiment_index": "ingress-stress",
   "num_generators": 1,
-  "raw_artifact_subdir": "raw",
-  "metrics_subdir": "metrics",
-  "rwg_binary_path": "./rwg/rwg",
   "bench": "tests/ingress-stress",
-  "hosts_file": "configs/tests/ingress-stress/hosts.txt",
-  "ssh_binary": "ssh",
-  "git_root": "..",
+  "hosts_file": "hosts.txt",
   "slos": {
     "f1": "50"
   },
-  "metrics": {},
   "post_deploy_wait_sec": 1
 }

@@ -11,3 +11,5 @@ exp_runs
 exp_runs_test
 .venv
 *.xml
+/config.env
+/hosts.txt

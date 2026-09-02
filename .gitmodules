@@ -1,6 +1,9 @@
 [submodule "rwg"]
 	path = rwg
-	url = git@github.com:farzad1132/rwg.git
+	url = git@github.com:roshanfer-project/rwg.git
 [submodule "benchmarks"]
 	path = benchmarks
-	url = git@github.com:farzad1132/benchmarks.git
+	url = git@github.com:roshanfer-project/benchmarks.git
+[submodule "formal"]
+	path = formal
+	url = git@github.com:roshanfer-project/roshanfer-formal.git

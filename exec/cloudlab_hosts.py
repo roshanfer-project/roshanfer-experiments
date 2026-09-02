@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -16,23 +17,23 @@ def _local_tag(tag: str) -> str:
     return tag
 
 
-def _pick_user(users: List[str], hostname: str, ssh_user: Optional[str]) -> str:
-    if ssh_user:
-        if ssh_user not in users:
+def _pick_user(users: List[str], hostname: str, user: Optional[str]) -> str:
+    if user:
+        if user not in users:
             raise SystemExit(
-                f"No <login username=\"{ssh_user}\"/> for hostname {hostname!r}. "
+                f"No <login username=\"{user}\"/> for hostname {hostname!r}. "
                 f"Available usernames: {', '.join(users)}"
             )
-        return ssh_user
+        return user
     if len(users) == 1:
         return users[0]
     raise SystemExit(
-        f"Hostname {hostname!r} has multiple SSH users ({', '.join(users)}). "
-        "Pass --ssh-user YOUR_CLOUDLAB_USERNAME to pick one."
+        f"Hostname {hostname!r} has multiple usernames ({', '.join(users)}). "
+        "Pass --user YOUR_CLOUDLAB_USERNAME to pick one."
     )
 
 
-def _hosts_in_manifest_node_order(root: ET.Element, ssh_user: Optional[str]) -> List[str]:
+def _hosts_in_manifest_node_order(root: ET.Element, user: Optional[str]) -> List[str]:
     """One line per <node> in document order (matches CloudLab topology node0, node1, …)."""
     lines: List[str] = []
     seen_hosts: set[str] = set()
@@ -46,7 +47,7 @@ def _hosts_in_manifest_node_order(root: ET.Element, ssh_user: Optional[str]) -> 
             h = sub.get("hostname") or sub.get("host")
             if not h:
                 continue
-            u = sub.get("username") or sub.get("user") or ssh_user
+            u = sub.get("username") or sub.get("user") or user
             if not u:
                 continue
             if u not in logins_by_host[h]:
@@ -60,13 +61,13 @@ def _hosts_in_manifest_node_order(root: ET.Element, ssh_user: Optional[str]) -> 
         h, users = next(iter(logins_by_host.items()))
         if h in seen_hosts:
             continue
-        u = _pick_user(users, h, ssh_user)
+        u = _pick_user(users, h, user)
         seen_hosts.add(h)
         lines.append(f"{u}@{h}")
     return lines
 
 
-def _parse_manifest_legacy_sorted(path: Path, ssh_user: Optional[str]) -> List[str]:
+def _parse_manifest_legacy_sorted(path: Path, user: Optional[str]) -> List[str]:
     """Flat <login> scan + sorted hostnames (old behavior)."""
     tree = ET.parse(path)
     root = tree.getroot()
@@ -78,7 +79,7 @@ def _parse_manifest_legacy_sorted(path: Path, ssh_user: Optional[str]) -> List[s
         h = elem.get("hostname") or elem.get("host")
         if not h:
             continue
-        u = elem.get("username") or elem.get("user") or ssh_user
+        u = elem.get("username") or elem.get("user") or user
         if not u:
             continue
         if u not in logins_by_host[h]:
@@ -86,7 +87,7 @@ def _parse_manifest_legacy_sorted(path: Path, ssh_user: Optional[str]) -> List[s
 
     by_host: Dict[str, str] = {}
     for h, users in sorted(logins_by_host.items()):
-        by_host[h] = _pick_user(users, h, ssh_user)
+        by_host[h] = _pick_user(users, h, user)
 
     if not logins_by_host:
         for elem in root.iter():
@@ -99,36 +100,44 @@ def _parse_manifest_legacy_sorted(path: Path, ssh_user: Optional[str]) -> List[s
                 continue
             if not h or "@" in h or h in by_host:
                 continue
-            if not ssh_user:
+            if not user:
                 continue
-            by_host[h] = ssh_user
+            by_host[h] = user
 
     if not by_host:
         raise SystemExit(
-            "No SSH hosts found in manifest. Try --ssh-user if nodes only have bare hostnames."
+            "No SSH hosts found in manifest. Try --user if nodes only have bare hostnames."
         )
 
     return sorted(f"{u}@{h}" for h, u in by_host.items())
 
 
-def _parse_manifest(path: Path, ssh_user: Optional[str]) -> List[str]:
+def _control_on_cluster() -> bool:
+    v = os.environ.get("CONTROL_ON_CLUSTER", "1").strip().lower()
+    return v in ("1", "true", "yes")
+
+
+def _parse_manifest(path: Path, user: Optional[str]) -> List[str]:
     try:
         tree = ET.parse(path)
     except ET.ParseError as e:
         raise SystemExit(f"Invalid XML in {path}: {e}") from e
 
     root = tree.getroot()
-    ordered = _hosts_in_manifest_node_order(root, ssh_user)
+    ordered = _hosts_in_manifest_node_order(root, user)
     if ordered:
         return ordered
-    return _parse_manifest_legacy_sorted(path, ssh_user)
+    return _parse_manifest_legacy_sorted(path, user)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="CloudLab manifest -> user@host lines (stdout or -o).")
-    p.add_argument("--manifest", required=True, type=Path, help="Path to downloaded experiment manifest XML")
+    p = argparse.ArgumentParser(
+        description="CloudLab manifest -> user@host lines (stdout or -o). "
+        "When CONTROL_ON_CLUSTER=1, drops the first host (control machine)."
+    )
+    p.add_argument("--manifest", required=True, type=Path, help="Path to experiment manifest XML")
     p.add_argument(
-        "--ssh-user",
+        "--user",
         default=None,
         help="Your CloudLab username: required when multiple <login> usernames share a host; "
         "also used for <node>/<host> if there are no <login> rows",
@@ -139,7 +148,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not args.manifest.is_file():
         raise SystemExit(f"Not a file: {args.manifest}")
 
-    lines = _parse_manifest(args.manifest, args.ssh_user)
+    lines = _parse_manifest(args.manifest, args.user)
+    # On-cluster control is the first <node>; do not use it as generator/workload.
+    if _control_on_cluster() and lines:
+        lines = lines[1:]
+    if len(lines) < 2:
+        raise SystemExit(
+            "Need at least two hosts (one generator and one workload)"
+            + (" after dropping the control node." if _control_on_cluster() else ".")
+        )
     text = "\n".join(lines) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

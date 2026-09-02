@@ -12,8 +12,12 @@ from datetime import datetime
 import re
 
 APPROX_SYSTEMS = ("approx", "approx-fcfs", "approx-edf")
+ROSHANFER_FAMILY = ("roshanfer",) + APPROX_SYSTEMS
+RUN_SH_SYSTEMS = ROSHANFER_FAMILY + ("envoy", "p2c", "wrr")
+NO_IGNORE_ERRORS_SYSTEMS = ("plain", "p2c", "wrr", "roshanfer") + APPROX_SYSTEMS + ("envoy",)
 
 SYSTEM_DISPLAY_LABELS = {
+    "roshanfer": "Roshanfer",
     "approx": "Approx",
     "approx-fcfs": "Approx-FCFS",
     "approx-edf": "Approx-EDF",
@@ -27,8 +31,8 @@ def is_approx_system(system: str) -> bool:
 
 
 def is_sidecar_family(system: str) -> bool:
-    """sidecar (non-LB) or any approx* LB mode."""
-    return system == "sidecar" or is_approx_system(system)
+    """roshanfer (non-LB) or any approx* LB mode."""
+    return system == "roshanfer" or is_approx_system(system)
 
 
 def resolve_plot_label(exp_cfg: Dict[str, Any], exp_name: str, exp_def: Optional[Dict[str, Any]] = None) -> str:

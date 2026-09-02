@@ -1,56 +1,563 @@
-Experiment Execution Framework
-==============================
+# Roshanfer artifact — EuroSys 2027
 
-Clone
------
-Benchmark wrappers (`benchmarks/provisioning`, `benchmarks/k8s`, test harnesses) live in the **`benchmarks`** submodule. After clone, initialize it (and `rwg` if you run generators from this tree):
+This repository is the artifact for:
 
-```bash
-git clone --recurse-submodules <repo-url>
-# or, if you already cloned without submodules:
-git submodule update --init benchmarks rwg
+**Roshanfer: Achieving Performance Resilience in Cloud Microservices.** Farzad Mohammadi, Theo Akande, and Marios Kogias. EuroSys 2027 (paper #1195). [citation](#citation).
+
+We are submitting this artifact for the ACM / EuroSys 2027 badges **Available**, **Functional**, and **Reproduced**.
+
+This README is sequential:
+
+1. **Part 1 — Cluster setup and tutorial** — instantiate the paper cluster, initialize the control node, and run a small experiment (`one-service`). That is the same environment used in Part 2.
+2. **Part 2 — Running paper experiments** — assumes Part 1 is done.
+
+Artifact-evaluation work is on the `artifact-evaluation` branch.
+
+## Repository layout
+
+A **benchmark** is a pair: a service graph under `benchmarks/` and a config tree under `configs/`. `run_tests.sh` runs that pair.
+
+An **experiment** is one `system`, one `type`, and one benchmark — one object in `experiments.json`. `--bench`, `--type`, and `--system` select it.
+
+A **run** is one `./run_tests.sh` invocation (directory `exp_runs_test/<id>/`).
+
+The CloudLab portal **Name** is a cluster, not an experiment.
+
+This repository is the **orchestrator** (`run_tests.sh`, `exec/`, `configs/`). The systems live in four git submodules:
+
+
+| Submodule             | Role                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `benchmarks/`         | Service graphs (Hotel, Social, Alibaba, and tests) and cluster scripts (K3s, host bootstrap). |
+| `benchmarks/sidecar/` | Nested under `benchmarks/`. Roshanfer C++ sidecar (Agent, Ingress, credit protocol).                |
+| `rwg/`                | Open-loop HTTP/1.1 load generator. Runs on generator nodes, not in Kubernetes.                      |
+| `formal/`             | TLA+ spec of the credit protocol.                                                                   |
+
+
+```text
+roshanfer-experiments/
+├── run_tests.sh                   run a benchmark
+├── init_env.sh                    Python venv + KUBECONFIG
+├── config.env.example             copy to config.env
+├── scripts/                       helper scripts (see README)
+├── scripts/cloudlab_enter.sh      local machine → control node
+├── scripts/cloudlab_leave.sh      control → local machine
+├── scripts/cloudlab_fetch.sh      local machine ← exp_runs_test from control
+├── scripts/fetch_manifest.sh      write manifest.xml on the control node
+├── scripts/pin_k8s_kernel.sh      pin Ubuntu kernel on generator + workload hosts
+├── exec/                          orchestrator (see README)
+├── configs/                       what to run (see README)
+│   ├── tests/one-service/         tutorial
+│   ├── hotel/                     Hotel Reservation (Figs. 7–11, 14)
+│   ├── social/                    Social Network (Figs. 7, 9–11)
+│   ├── alibaba-large/             Alibaba / DGG 30-MS (Fig. 13)
+│   └── tests/                     dynamic-large (Fig. 12, Alibaba traces); leaf-* (Fig. 15)
+├── benchmarks/                    submodule: apps + K3s (see README)
+│   └── sidecar/                   nested submodule: C++ sidecar (see README)
+├── rwg/                           submodule: load generator (see README)
+└── formal/                        submodule: TLA+ spec of the credit protocol
 ```
 
-Overview
---------
-Modular system to run experiments end-to-end (execute -> collect -> report) without manual intervention.
+Each `configs/<bench>/` directory has `config.json` (which graph, SLOs), `experiments.json` (what to measure), and often `merged.yaml` (how to overlay systems on one plot). `system` in `experiments.json` is `plain`, `roshanfer`, `rajomon`, or `dagor`.
 
-Components
-----------
-1. executor.py: Orchestrates experiments from a JSON spec, manages run folder, reporting.
-2. runner.py: Executes a RunUnit (script or custom logic) and stores raw artifacts.
-3. collector.py: Fetches telemetry (Prometheus etc.) and persists metrics snapshots.
-4. report.py: Builds Markdown + JSON summary; extend to call plotting scripts.
-5. config.py: Centralizes configurable parameters (URLs, directories, retries...).
-6. models.py: Shared dataclasses.
+---
 
-Usage
------
-python -m experiments.exec.executor --experiments-file experiments/exec/sample_experiments.json --config path/to/config.json
+# Part 1 — Cluster setup and tutorial
 
-Config
-------
-See config.py for available fields. Provide a JSON file overriding any subset, e.g.:
+Purpose: set up the paper cluster, initialize the repo on the control node, and run a simple experiment. After this part the cluster is ready for figure reproduction.
+
+We have not validated other hardware types or node counts.
+
+## Roles and machines
+
+
+| Role          | Where             | Purpose                                                                                                               |
+| ------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Local machine** | your machine      | Clone of this repository. Used to enter and leave the control node, and to fetch `exp_runs_test/` (PDFs and results). |
+| **Control**   | CloudLab `node0`  | Clone of this repository. Runs experiments, collects logs, produces plots.                                            |
+| **Generator** | 3 CloudLab nodes  | Runs `rwg` (load generator). Not in Kubernetes.                                                                       |
+| **Workload**  | 22 CloudLab nodes | Kubernetes nodes that run services and, when requested, the Roshanfer sidecar.                                        |
+
+
+```mermaid
+flowchart LR
+  LocalMachine["Local machine this clone"]
+  subgraph cloudlab [CloudLab paper cluster]
+    Control["Control node0 tmux roshanfer"]
+    Gens["3 generators rwg"]
+    Work["22 workload K3s plus services"]
+  end
+  LocalMachine -->|"cloudlab_enter.sh SSH plus tmux"| Control
+  Control -->|"cloudlab_leave.sh detach"| LocalMachine
+  LocalMachine -->|"cloudlab_fetch.sh rsync"| Control
+  Control -->|"SSH kubeconfig"| Work
+  Control -->|"SSH start rwg"| Gens
+  Gens -->|"HTTP"| Work
+```
+
+
+
+> [!IMPORTANT]
+> Each cluster can only run one experiment at a time.
+
+## Paper environment
+
+Part 2 uses this same cluster.
+
+
+| Item             | Value used in the paper                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| CloudLab profile | [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)                                                                 |
+| Parameter set    | [paper cluster parameters](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) |
+| Hardware         | CloudLab `c220g2` (the submission lists `c6420` by mistake; this will be fixed in camera-ready)                                                 |
+| Roles            | 1 control, 3 generators, 22 workload nodes                                                                                                     |
+| Cluster          | K3s                                                                                                                                            |
+| Sidecar          | C++, `ubuntu:noble`                                                                                                                            |
+| Python           | 3.12                                                                                                                                           |
+| Images           | Docker Hub `farzad1132/*:latest`; `SKIP_BUILD=1`. Do not build.                                                                                |
+
+> [!NOTE]
+> Scripts automatically install all software used here (K3s, sidecar, Python venv, `rwg`, host packages, container images). The first `./run_tests.sh` does this.
+
+## Setup
+
+Each step lists **where** to run it, **what** it does, and **what to expect**.
+
+### 1. Add an SSH key to GitHub and CloudLab
+
+**Where:** local machine and browser.
+
+**What:** if you do not already have a normal OpenSSH key on the local machine, create one with the following command:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+```
+
+Add the **same** public key to:
+
+- GitHub: [SSH keys](https://github.com/settings/keys)
+- CloudLab portal: [My Account](https://www.cloudlab.us/) → SSH Keys
+
+`cloudlab_enter.sh` copies this key to the control node. Later, git clones and SSH from the control node to generator and workload nodes use it. Using different keys on GitHub and CloudLab breaks one of those paths.
+
+**Expected:** the public key is listed on both GitHub and CloudLab.
+
+### 2. Instantiate the CloudLab experiment
+
+**Where:** browser, [CloudLab portal](https://www.cloudlab.us/). You need a CloudLab account in a project that can instantiate.
+
+**What:** create the paper cluster from the saved parameter set. No change needed.
+
+1. Open the [paper cluster parameters](https://www.cloudlab.us/p/PortalProfiles/small-lan&rerun_paramset=f369c1b9-2eff-425f-b5ce-d7493a17fd76) (profile [PortalProfiles/small-lan](https://www.cloudlab.us/p/PortalProfiles/small-lan)).
+2. Instantiate. Fill only what CloudLab still asks for: your **Project** and a **Name**.
+
+> [!IMPORTANT]
+> CloudLab experiments are reserved for **16 hours by default**. If you need to keep the cluster, extend the experiment from the CloudLab portal before it expires.
+
+The saved parameters **are the ones used for paper experiments**.
+
+**When to proceed:** wait until the experiment status is **Ready** and **all 26 nodes** list Ready. Then copy **Name** and **Project** from that page; later steps use them as `--name` and `--project`.
+
+**Expected:** experiment Ready, 26/26 nodes Ready, **Name** and **Project** noted.
+
+### 3. Clone on the local machine
+
+**Where:** local machine.
+
+**What:** full clone on the local machine (orchestrator plus `benchmarks/`, `rwg/`, `formal/`, and nested `benchmarks/sidecar/`). Enter/leave scripts still come from this clone; `node0` still gets its own recursive clone in the next step.
+
+```bash
+git clone --recurse-submodules -b artifact-evaluation git@github.com:roshanfer-project/roshanfer-experiments.git
+cd roshanfer-experiments
+```
+
+**Expected:** `scripts/cloudlab_enter.sh` exists and submodule dirs are populated (`benchmarks/sidecar`, `rwg`, `formal`).
+
+### 4. Enter the control node
+
+**Where:** local machine, from this clone.
+
+**What:** SSH to `node0`, clone the repo into `~/roshanfer-experiments`, attach tmux session `roshanfer`.
+
+```bash
+./scripts/cloudlab_enter.sh --name NAME --project PROJECT --user USER
+# default --url wisc.cloudlab.us
+```
+
+`NAME` and `PROJECT` are on the CloudLab experiment page. `--user` is your CloudLab username. You need the SSH key from step 1.
+
+**Expected:** tmux session `roshanfer`, cwd `~/roshanfer-experiments`.
+
+Extra tmux panes do not inherit `KUBECONFIG` from `run_tests.sh`. `cloudlab_enter.sh` installs direnv and runs `direnv allow`, so a new pane in `~/roshanfer-experiments` can run `kubectl`. If `KUBECONFIG` is unset, `source ./init_env.sh`.
+
+### 5. Configure once
+
+**Where:** control node.
+
+**What:** create `config.env` and set your CloudLab username.
+
+```bash
+cp config.env.example config.env
+```
+
+You must set `CLOUDLAB_USER` in `config.env` to your CloudLab username (the same `--user` you passed to `cloudlab_enter.sh`).
+
+**Expected:** `config.env` exists with `CLOUDLAB_USER` set.
+
+### 6. Pin the Ubuntu kernel
+
+**Where:** control node.
+
+**What:** the latest Ubuntu 24.04 kernel is `6.8.0-138-generic`, but this kernel has a [bug](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2162843) that prevents `io_uring` (a sidecar dependency) from registering with the kernel. We avoid this issue by pinning all hosts to `6.8.0-134-generic`:
+
+```bash
+./scripts/pin_k8s_kernel.sh --kernel 6.8.0-134-generic
+```
+
+**Expected:** `All checks passed: 6.8.0-134-generic`.
+
+**Expected time:** less than 10 minutes.
+
+### 7. Run a simple experiment
+
+**Where:** control node.
+
+**What:** `./run_tests.sh` does everything end-to-end: installs everything required, runs the experiment, collects results, and plots. This first run is a time-series experiment with a single API.
+
+Running all experiments (including generation of corresponding figures) is automated through `./run_tests.sh` (check `./run_tests.sh --help` for the full usage guide).
+
+We can run a simple experiment with the following command:
+
+```bash
+./run_tests.sh --remote --num-generators 3 \
+  --bench one-service \
+  --type latency-and-rate-vs-time --num-apis 1 \
+  --comment tutorial
+```
+
+The important options here are:
+
+- `--bench`: filter the `one-service` benchmark (`benchmarks/tests/one-service` graph, `configs/tests/one-service` config)
+- `--type`: filter experiments of type `latency-and-rate-vs-time`
+- `--num-apis`: filter experiments with 1 API
+- `--comment`: append `tutorial` to the directory name of the output results.
+
+The flags `--type` and `--num-apis` select this entry in `configs/tests/one-service/experiments.json`:
+
+```json
 {
-  "output_base_dir": "./experiment_runs",
-  "prometheus_url": "http://prometheus:9090"
+    "type": "latency-and-rate-vs-time",
+    "loads": { "start": 5000, "end": 5000, "step": 1000 },
+    "duration_sec": 15,
+    "apis": ["f1"],
+    "system": "roshanfer",
+    "repeat": 2
 }
+```
 
-Experiment load fields (`loads`, `load_mode`, `api_loads`) are documented in [exec/README.md](exec/README.md#experiment-load-schema).
+That entry is one experiment: `system` roshanfer, `type` latency-and-rate-vs-time, benchmark `one-service`. `--num-apis 1` selects it among several `one-service` entries. It is a 15 s Roshanfer run of API `f1` at 5000 RPS, twice. Other entries in the same file (more APIs, other `type`s) are skipped.
 
-Append-Only Storage
--------------------
-Each invocation creates run-YYYYMMDD_HHMMSS under output_base_dir with per-unit subfolders. CSV + JSONL summaries are appended, never overwritten across invocations.
+The service graph is generated from `benchmarks/tests/one-service/callgraph.json` (one `frontend` with APIs `f1`–`f3`). `benchmarks/callgraph-framework` turns that JSON into Go services and Kubernetes artifacts. Deploy pulls pre-built images (`SKIP_BUILD=1`). No need to build anything.
 
-Placeholders (User Implementation Needed)
-----------------------------------------
-1. executor._expand_experiment: Break high-level configs into multiple RunUnit objects.
-2. runner: Environment lifecycle (containers, services) and non-script experiment logic.
-3. collector: Robust metric queries, failure detection, retry policy.
-4. report: Invoke existing plotting scripts and embed image links.
+```json
+{
+    "id": "frontend",
+    "interfaces": [
+        { "name": "f1", "avg_rt": 1, "slo": 20 }
+    ]
+}
+```
 
-Next Steps
-----------
-- Integrate your existing plot.py scripts inside report.py.
-- Add richer metadata (git commit hash, system info) to run_details.
-- Implement retry & health checks.
+**Expected:** `Run directory: exp_runs_test/<id>_tutorial/`, then provisioning (`All hosts provisioned successfully.`), then K3s setup, then plots under `exp_runs_test/<id>_tutorial/plots/one-service/`.
+
+***In the case of any failures (e.g., CloudLab machines sometimes temporarily lose network access, so dependency installation might fail), it is safe to rerun `run_tests.sh`. Each run's state and logs are persisted in separate directories to facilitate debugging and inspection. See [Troubleshooting](#troubleshooting).***
+
+**Expected time:** less than 10 minutes.
+
+**When to proceed:** wait until `./run_tests.sh` has exited.
+
+### 8. Inspect output
+
+**Where:** control node.
+
+**What:** files under `exp_runs_test/<id>_tutorial/`.
+
+```bash
+cat exp_runs_test/*_tutorial/one-service/exp-one-service/run_summary.csv
+ls exp_runs_test/*_tutorial/one-service/exp-one-service/
+ls exp_runs_test/*_tutorial/plots/one-service/
+```
+
+- `one-service/exp-one-service/run_summary.csv` — per-repeat `status` and output path
+- `…/latency-and-rate-vs-time-one-service-roshanfer/<unit>/repeat_00N/output/overall-f1.json` — aggregate goodput, SLO violations, drops, errors
+- `…/repeat_00N/output/realtime-f1.csv` — per-interval rate and latency (source of the PDFs)
+- `plots/one-service/…/rate_vs_time_repeat_00N.pdf` — stacked rates (goodput / SLO / dropped / errors)
+- `plots/one-service/…/latency_vs_time_repeat_00N.pdf` — p50/p99 vs time
+
+### 9. Leave the control node
+
+**Where:** control node, inside tmux.
+
+**What:** detach tmux. SSH exits; the session and clone stay on `node0`.
+
+```bash
+./scripts/cloudlab_leave.sh
+# or Ctrl-b d
+```
+
+**Expected:** you are back on the local machine. Re-enter with the same `cloudlab_enter.sh` command.
+
+### 10. Download results to the local machine
+
+**Where:** local machine, from this clone (could be another terminal).
+
+**What:** rsync `exp_runs_test/` from the control node so you can open PDFs locally.
+
+```bash
+./scripts/cloudlab_fetch.sh --name NAME --project PROJECT --user USER
+# then open e.g. exp_runs_test/*_tutorial/plots/one-service/
+# or the merged PDF: exp_runs_test/*_tutorial/plots/all_tests_plots.pdf
+```
+
+`--list` prints remote run folder names. `--run RUN_ID` copies one run. `--plots-only` copies only `plots/` trees (skip raw metrics).
+
+**Expected:** `./exp_runs_test/` on the local machine matches the control node (or only its `plots/` dirs with `--plots-only`).
+
+---
+
+# Part 2 — Running paper experiments
+
+In this part, we run experiments to produce figures used in the paper. This part assumes Part 1 is done. Re-attach with the same `cloudlab_enter.sh` command if you left. From the local machine clone, pull outputs the same way as in Part 1 step 10 (`./scripts/cloudlab_fetch.sh`).
+
+## Goodput vs load (real-world benchmark)
+
+The following command runs the Alibaba (30 microservices) benchmark to generate Figure 13.
+
+**Option A: Only Roshanfer (~1h30m)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench alibaba-large --also-alibaba --system roshanfer --comment figure13_roshanfer
+```
+**Option B: All systems (~5h)**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench alibaba-large --also-alibaba --comment figure13_all
+```
+
+**Inspecting results**
+
+Fetching without `--plots-only` needs up to 2G of storage.
+
+The plot is `exp_runs_test/*_<comment>/plots/alibaba-large/merged/latency-and-goodput-vs-load-alibaba-large_combined.pdf`.
+
+## Queueing
+
+The following command runs the Hotel Reservation benchmark to generate Figure 10.
+
+**Option A: Only Roshanfer (~5m)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
+  --bench hotel --also-hotel-social --system roshanfer --comment figure10_roshanfer
+```
+
+**Option B: All systems (~1h)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type max-queue --num-apis 1 \
+  --bench hotel --also-hotel-social --comment figure10_all
+```
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/max-queue-hotel_max_queue.pdf`.
+
+## Resource waste
+
+The following command runs the Hotel Reservation benchmark to generate Figure 9.
+
+**Option A: Only Roshanfer (~5m)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
+  --bench hotel --also-hotel-social --system roshanfer --comment figure9_roshanfer
+```
+
+**Option B: All systems (~1h)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type resource-waste --num-apis 1 \
+  --bench hotel --also-hotel-social --comment figure9_all
+```
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/resource-waste-bar-hotel_resource_waste_bar.pdf`.
+
+## Latency and rates over time
+
+The following command runs the Hotel Reservation benchmark to generate Figure 8.
+
+**Option A: Only Roshanfer (~5m)**
+```bash
+./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
+  --system roshanfer --type latency-and-rate-vs-time --num-apis 1 --comment figure8_roshanfer
+```
+
+**Option B: All systems (~1h)**
+```bash
+./run_tests.sh --remote --num-generators 3 --bench hotel --also-hotel-social \
+  --type latency-and-rate-vs-time --num-apis 1 --comment figure8_all
+```
+
+**Inspecting results**
+
+The plots are:
+
+- `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_rate_vs_time.pdf`
+- `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-rate-vs-time-hotel_latency_vs_time.pdf`
+
+## Impact of overcommitment and priority
+
+The following command runs the `leaf-*` benchmarks to generate Figure 15. These experiments are Roshanfer-only.
+
+```bash
+./run_tests.sh --remote --num-generators 3 \
+  --bench leaf-1-2,leaf-1-10,leaf-1-2-p-2-1 \
+  --type throughput-vs-overcommitment --comment figure15
+```
+
+**Expected time:** ~20m
+
+**Inspecting results**
+
+The plots are:
+
+- 15a: `exp_runs_test/*_<comment>/plots/leaf-1-2/throughput-vs-overcommitment-leaf-1-2-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15b: `exp_runs_test/*_<comment>/plots/leaf-1-10/throughput-vs-overcommitment-leaf-1-10-2-roshanfer/throughput_vs_overcommitment.pdf`
+- 15c: `exp_runs_test/*_<comment>/plots/leaf-1-2-p-2-1/throughput-vs-overcommitment-leaf-1-2-p-2-1-2-roshanfer/throughput_vs_overcommitment.pdf`
+
+## Dynamic call graph
+
+The following command runs the `dynamic-large` benchmark to generate Figure 12.
+
+**Option A: Only Roshanfer (~40m)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench dynamic-large --system roshanfer --comment figure12_roshanfer
+```
+**Option B: All systems (~3h)**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench dynamic-large --comment figure12_all
+```
+
+**Inspecting results**
+
+Fetching without `--plots-only` needs up to 2G of storage.
+
+The plot is `exp_runs_test/*_<comment>/plots/dynamic-large/merged/latency-and-goodput-vs-load-dynamic-large_combined.pdf`.
+
+## Multi-API
+
+The following command runs the Social Network benchmark to generate Figure 11.
+
+**Option A: Only Roshanfer (~30m)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench social --also-hotel-social --num-apis 3 --system roshanfer --comment figure11_roshanfer
+```
+**Option B: All systems (~3h)**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench social --also-hotel-social --num-apis 3 --comment figure11_all
+```
+
+**Inspecting results**
+
+Fetching without `--plots-only` needs up to 3.5G of storage.
+
+The plot is `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social-3_combined.pdf`.
+
+## Overhead
+
+The following command runs the Hotel Reservation benchmark to generate Figure 14.
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-vs-throughput --num-apis 1 \
+  --bench hotel --also-hotel-social --comment figure14
+```
+
+**Expected time:** ~45m
+
+**Inspecting results**
+
+The plot is `exp_runs_test/*_<comment>/plots/hotel/merged/latency-vs-throughput-hotel_latency_vs_throughput.pdf`.
+
+## Goodput vs load (Hotel Reservation and Social Network)
+
+The following command runs the Hotel Reservation and Social Network benchmarks to generate Figure 7.
+
+**Option A: Only Roshanfer (~1h)**
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench hotel,social --also-hotel-social --num-apis 1 --system roshanfer --comment figure7_roshanfer
+```
+**Option B: All systems (~6h)**
+
+```bash
+./run_tests.sh --remote --num-generators 3 --type latency-and-goodput-vs-load \
+  --bench hotel,social --also-hotel-social --num-apis 1 --comment figure7_all
+```
+
+**Inspecting results**
+
+Fetching without `--plots-only` needs up to 8.5G of storage.
+
+The plots are:
+
+- 7a: `exp_runs_test/*_<comment>/plots/hotel/merged/latency-and-goodput-vs-load-hotel_combined.pdf`
+- 7b: `exp_runs_test/*_<comment>/plots/social/merged/latency-and-goodput-vs-load-social_combined.pdf`
+
+## Troubleshooting
+
+Each run writes `exp_runs_test/<id>/<bench>/exp-<index>/`. Rerunning `run_tests.sh` is safe because the orchestrator is designed to be idempotent and each run uses a new directory.
+
+**1. Executor log.** `logs/executor_*.log` is the hub. It records every phase and prints `Logging output to: …` for specialized transcripts (provision, K3s, deploy, teardown, build, tuner). Start there to see what failed, then open the file it names.
+
+**2. Run summaries.** `run_summary.csv` (and `run_summary.jsonl`) lists every repeat. Rows with `status` other than `success` failed. The `path` column is that repeat’s `raw/` directory.
+
+**3. Repeat details.** In that `raw/` directory:
+- collected service and sidecar logs: `service_logs/`
+- load-generator stdout/stderr: `wrapper_stdout_*.txt` and `wrapper_stderr_*.txt`
+- structured error fields: `run_details.json`
+
+---
+
+## Citation
+
+Farzad Mohammadi, Theo Akande, and Marios Kogias. 2027. Roshanfer: Achieving Performance Resilience in Cloud Microservices. In *Proceedings of the 22nd European Conference on Computer Systems* (EuroSys ’27).
+
+```bibtex
+@inproceedings{mohammadi2027roshanfer,
+  title     = {Roshanfer: Achieving Performance Resilience in Cloud Microservices},
+  author    = {Mohammadi, Farzad and Akande, Theo and Kogias, Marios},
+  booktitle = {Proceedings of the 22nd European Conference on Computer Systems},
+  year      = {2027}
+}
+```
+
+## Contact
+
+Farzad Mohammadi, [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
+
+Questions and problems: please [open a GitHub issue](https://github.com/roshanfer-project/roshanfer-experiments/issues) and send an email to [f.mohammadi24@imperial.ac.uk](mailto:f.mohammadi24@imperial.ac.uk).
+
+---
+
+## License
+
+Original code in this repository, and in the `rwg`, `benchmarks` (except as noted below), `benchmarks/sidecar`, and `formal` submodules, is under the [MIT License](LICENSE). That license allows comparison and extension, as required for the Available badge.
+
+Third-party components keep their own licenses; see [THIRD_PARTY.md](THIRD_PARTY.md). `benchmarks/hotel/` and `benchmarks/social/` are derived from [DeathStarBench](https://github.com/delimitrou/DeathStarBench) (Apache License 2.0).
+
+`exec/README.md` describes tuners, git worktrees, and additional plot flags.

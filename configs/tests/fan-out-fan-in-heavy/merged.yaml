@@ -4,11 +4,11 @@ figures:
     include:
       latency-vs-throughput-fan-out-fan-in-heavy-plain:
         label: Plain
-      latency-vs-throughput-fan-out-fan-in-heavy-sidecar:
+      latency-vs-throughput-fan-out-fan-in-heavy-roshanfer:
         label: Roshanfer
 
   max-queue-fan-out-fan-in-heavy:
     type: max-queue
     include:
-      max-queue-fan-out-fan-in-heavy-sidecar:
+      max-queue-fan-out-fan-in-heavy-roshanfer:
         label: Roshanfer

@@ -1,46 +1,10 @@
 {
-  "#": "Sample configuration for the experiment execution framework. Copy to config.json and edit.",
-  "output_base_dir": "./exp_runs",
-  "experiment_index": "hotel-full-set4",
+  "experiment_index": "hotel",
   "num_generators": 3,
-  "prometheus_url": "http://192.168.1.100:9091",
-  "raw_artifact_subdir": "raw",
-  "metrics_subdir": "metrics",
-  "default_retries": 3,
-  "remote_microservice_host": "192.168.1.100",
-  "remote_microservice_user": "farzad",
-  "remote_microservice_path": "/home/farzad/files/benchmarks/hotel/exec",
-  "rwg_binary_path": "./rwg/rwg",
   "bench": "hotel",
-  "hosts_file": "configs/hotel/hosts.txt",
-  "ssh_binary": "ssh",
-  "docker_compose_binary": "docker-compose",
-  "git_root": "..",
-  "plotting_enabled": true,
-  "plot_output_subdir": "plots",
-  "experiment_defaults": {
-    "latency-and-goodput-vs-load": {
-      "duration_sec": 10
-    }
-  },
-  "expansion": {
-    "latency-and-goodput-vs-load": {
-      "strategy": "per_load_rate",
-      "sleep_between_units_sec": 5
-    },
-    "latency-vs-throughput": {
-      "strategy": "per_load_rate",
-      "sleep_between_units_sec": 5
-    }
-  },
+  "hosts_file": "hosts.txt",
   "slos": {
     "search-hotel": 28,
     "reserve-hotel": 25
-  },
-  "metrics": {},
-  "report": {
-    "embed_plots": true,
-    "show_failed_only_section": true
-  },
-  "notes": "Add or override any additional keys; unknown keys are accessible via Config.extra"
+  }
 }

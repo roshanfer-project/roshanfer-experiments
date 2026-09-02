@@ -60,7 +60,7 @@
             "apis": [
                 "f1"
             ],
-            "system": "sidecar",
+            "system": "roshanfer",
             "repeat": 1,
             "collector_freq": 200
         },

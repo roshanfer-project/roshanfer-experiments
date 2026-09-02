@@ -1,0 +1,6 @@
+# Copy to hosts.txt (gitignored) when REQUIRE_REMOTE=0.
+# First num_generators lines are generators; the rest are K3s/workload.
+# Every line must be user@host.
+
+user@localhost
+user@localhost

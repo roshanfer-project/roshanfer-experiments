@@ -1,17 +1,10 @@
 {
-    "output_base_dir": "./exp_runs",
-    "experiment_index": "chain-2-bimodal",
-    "num_generators": 1,
-    "raw_artifact_subdir": "raw",
-    "metrics_subdir": "metrics",
-    "rwg_binary_path": "./rwg/rwg",
-    "bench": "tests/chain-2-bimodal",
-    "hosts_file": "configs/tests/chain-2-bimodal/hosts.txt",
-    "ssh_binary": "ssh",
-    "git_root": "..",
-    "slos": {
-      "f1": "25"
-    },
-    "metrics": {},
-    "post_deploy_wait_sec": 1
+  "experiment_index": "chain-2-bimodal",
+  "num_generators": 1,
+  "bench": "tests/chain-2-bimodal",
+  "hosts_file": "hosts.txt",
+  "slos": {
+    "f1": "25"
+  },
+  "post_deploy_wait_sec": 1
 }

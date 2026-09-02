@@ -2,7 +2,7 @@
 
 This module handles merging multiple experiments into unified figures based on
 a YAML configuration file. It focuses on creating combined visualizations
-where different systems (sidecar, rajomon, dagor) are compared in the same plot.
+where different systems (roshanfer, rajomon, dagor) are compared in the same plot.
 
 Supported merge types:
 1. latency-and-goodput-vs-load: Single figure with all experiments as legend entries
@@ -371,7 +371,7 @@ def generate_resource_waste_bar_merged(
                         is_roshanfer_exp = (
                             label == 'Roshanfer'
                             or label in SYSTEM_DISPLAY_LABELS.values()
-                            or 'sidecar' in exp_name
+                            or 'roshanfer' in exp_name
                             or 'approx' in exp_name
                         )
                         
@@ -428,8 +428,13 @@ def generate_resource_waste_bar_merged(
         exp_data.append({
             'label': label,
             'services': list(all_services_this_exp),
-            'data': aggregated_data
+            'data': aggregated_data,
+            'apis': apis,
         })
+
+    if not exp_data:
+        print(f"Warning: No run data for any included experiment in '{figure_name}'")
+        return []
     
     # Union of all services across experiments, preserve order of first appearance
     def unique_ordered(seq):
@@ -448,9 +453,7 @@ def generate_resource_waste_bar_merged(
     # Get all unique APIs across experiments
     all_apis = set()
     for ed in exp_data:
-        exp_def = experiment_configs[list(include_experiments.keys())[exp_data.index(ed)]]
-        apis = exp_def.get('apis', [])
-        all_apis.update(apis)
+        all_apis.update(ed.get('apis', []))
     all_apis = sorted(list(all_apis))
     n_apis = len(all_apis)  # Define n_apis early
     
@@ -715,12 +718,11 @@ def generate_max_queue_merged(
     global_config: str = None
 ) -> list:
     """
-    Generate merged max-queue and avg-queue figures.
+    Generate merged max-queue figure.
     For each included experiment, aggregate per (service, api) across repeats and plot grouped bars.
     Each experiment is a subplot (column). Shared legend for APIs above.
     """
     from pathlib import Path
-    import statistics
     # Import helpers from plugin
     # Import primitives
     try:
@@ -761,7 +763,6 @@ def generate_max_queue_merged(
         experiment_configs[en].get('bench', bench_default) == 'social'
         for en in exp_names
     )
-    ncols = len(exp_names)
     # For each experiment, aggregate max queue per (service, api)
     exp_data = []
     all_services = set()
@@ -814,6 +815,10 @@ def generate_max_queue_merged(
                 traceback.print_exc()
                 continue
 
+        if not repeat_metric_files:
+            print(f"Warning: No run data found for experiment '{exp_name}'")
+            continue
+
         # Determine services and APIs
         fallback_services = exp_def.get('services', [])
         fallback_apis = exp_def.get('apis', [])
@@ -839,7 +844,6 @@ def generate_max_queue_merged(
         all_apis.update(apis)
         
         data_max = {svc: {api: [] for api in apis} for svc in services}
-        data_avg = {svc: {api: [] for api in apis} for svc in services}
 
         for i in range(len(repeat_metric_files)):
             mf = repeat_metric_files[i]
@@ -848,7 +852,6 @@ def generate_max_queue_merged(
             for svc in services:
                 for api in apis:
                     val_max = 0.0
-                    val_avg = 0.0
                     found_prom = False
 
                     if prom and prom.metrics and api in prom.metrics:
@@ -860,15 +863,10 @@ def generate_max_queue_merged(
                             if 'max_queue' in node:
                                 val_max = float(node['max_queue'])
                                 found_prom = True
-                            if 'avg_queue' in node:
-                                val_avg = float(node['avg_queue'])
-                                found_prom = True
-                            if found_prom:
                                 break
 
                     if found_prom:
                         data_max[svc][api].append(val_max)
-                        data_avg[svc][api].append(val_avg)
                         continue
 
                     original_service_variants = [svc]
@@ -890,23 +888,25 @@ def generate_max_queue_merged(
                             break
                     if not chosen:
                         data_max[svc][api].append(0.0)
-                        data_avg[svc][api].append(0.0)
                         continue
                     ts, vals = extract_series(mf[chosen])
                     if not vals:
                         data_max[svc][api].append(0.0)
-                        data_avg[svc][api].append(0.0)
                     else:
                         data_max[svc][api].append(float(max(vals)))
-                        data_avg[svc][api].append(float(statistics.mean(vals)))
 
         exp_data.append({
             'label': label,
             'services': services,
             'apis': apis,
             'data_max': data_max,
-            'data_avg': data_avg,
         })
+
+    if not exp_data:
+        print(f"Warning: No run data for any included experiment in '{figure_name}'")
+        return []
+
+    ncols = len(exp_data)
 
     # Union of all services/apis across experiments, preserve order of first appearance
     def unique_ordered(seq):
@@ -926,8 +926,7 @@ def generate_max_queue_merged(
         for ed in exp_data:
             for api in all_apis:
                 vm = ed['data_max'].get(svc, {}).get(api, [])
-                va = ed['data_avg'].get(svc, {}).get(api, [])
-                if any(v > 0 for v in vm) or any(v > 0 for v in va):
+                if any(v > 0 for v in vm):
                     has_nonzero = True
                     break
             if has_nonzero:
@@ -942,7 +941,7 @@ def generate_max_queue_merged(
         all_services = _sort_services_social(all_services)
 
     if not all_services:
-        print("[max-queue-merged] All services have zero max and avg queue; skipping plots.")
+        print("[max-queue-merged] All services have zero max queue; skipping plots.")
         return []
 
     single_api_mode = len(all_apis) == 1
@@ -1039,7 +1038,6 @@ def generate_max_queue_merged(
 
     produced = [
         _save_one_merged('data_max', 'Queue Size\n  (req)', True, '_max_queue.pdf'),
-        _save_one_merged('data_avg', 'Queue Size\n  (req)', True, '_avg_queue.pdf'),
     ]
     return produced
 
@@ -1131,6 +1129,22 @@ def _load_summary(run_root: Path) -> List[Dict]:
     return records
 
 
+def _run_roots_to_scan(experiments_root: Path) -> List[Path]:
+    if experiments_root.name.startswith('exp-'):
+        return [experiments_root]
+    return [experiments_root / f'exp-{i:03d}' for i in range(1, 20)]
+
+
+def _executed_experiment_names(experiments_root: Path) -> set:
+    names = set()
+    for run_root in _run_roots_to_scan(experiments_root):
+        for rec in _load_summary(run_root):
+            en = rec.get('experiment_name')
+            if en:
+                names.add(en)
+    return names
+
+
 def _load_metric_files(metrics_dir: Path) -> Dict[str, dict]:
     """Load metric files from a metrics directory."""
     out: Dict[str, dict] = {}
@@ -1209,7 +1223,6 @@ def generate_latency_goodput_vs_load_merged(
         exp_def = experiment_configs[exp_name]
         label = resolve_plot_label(exp_config, exp_name, exp_def)
         apis = exp_def.get('apis', [])
-        all_apis.update(apis)
         
         # Load experiment run data
         records = []
@@ -1226,7 +1239,10 @@ def generate_latency_goodput_vs_load_merged(
                 continue
         
         if not records:
-            raise Exception(f"No run data found for experiment '{exp_name}' in {experiments_root}")
+            print(f"Warning: No run data found for experiment '{exp_name}' in {experiments_root}")
+            continue
+
+        all_apis.update(apis)
         
         # Group by load
         load_groups = {}
@@ -1564,12 +1580,20 @@ def generate_merged_figures(
     if experiment_index:
         experiments_root = experiments_root / f'exp-{experiment_index}'
         print(f"Using only experiment run directory: {experiments_root}")
+
+    executed = _executed_experiment_names(experiments_root)
     
     for figure_name, figure_config in figures.items():
         figure_type = figure_config.get('type')
         
         if not figure_type:
             print(f"Warning: Figure '{figure_name}' has no type specified")
+            continue
+
+        include = figure_config.get('include') or {}
+        include_names = list(include.keys()) if isinstance(include, dict) else []
+        if include_names and not any(name in executed for name in include_names):
+            print(f"Skipping '{figure_name}': included experiments were not executed")
             continue
         
         print(f"Generating merged figure: {figure_name} (type: {figure_type})")
@@ -1999,6 +2023,10 @@ def generate_latency_vs_throughput_merged(
                             br = cfg.get('base_rate')
                             unit_load_value[unit_name] = int(br) if br is not None else None
                     found_units[unit_name].append(Path(r.get('artifact_dir')))
+
+        if not found_units:
+            print(f"Warning: No run data found for experiment '{exp_name}'")
+            continue
 
         # 2. Process each unit (load level) for EACH API
         # We need to collect points separately for each API because they might be in different files or keys

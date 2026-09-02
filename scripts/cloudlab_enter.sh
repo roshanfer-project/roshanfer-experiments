@@ -1,0 +1,156 @@
+#!/bin/bash
+# SSH to CloudLab node0, clone this repo, fetch manifest on first enter, attach tmux session "roshanfer".
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SESSION="roshanfer"
+BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
+DEST_REL="roshanfer-experiments"
+DEFAULT_URL="wisc.cloudlab.us"
+
+usage() {
+  echo "Usage: $0 --name NAME --project PROJECT --user USER [--url URL]"
+  echo ""
+  echo "SSH to the CloudLab control node (node0), clone this repo (current local"
+  echo "branch, with submodules) into ~/${DEST_REL}, fetch the experiment"
+  echo "manifest on first enter, and attach tmux session ${SESSION}."
+  echo ""
+  echo "Options:"
+  echo "  --name NAME       Experiment Name from the CloudLab experiment page (required)"
+  echo "  --project PROJECT Experiment Project from the CloudLab experiment page (required)"
+  echo "  --user USER       CloudLab username (required)"
+  echo "  --url URL         Cluster hostname (default: ${DEFAULT_URL})"
+  echo "  -h, --help        Show this help and exit"
+  echo ""
+  echo "SSH target: USER@node0.NAME.PROJECT-pg0.URL"
+  echo ""
+  echo "Examples:"
+  echo "  $0 --name myexp --project MyProject --user alice"
+}
+
+NAME=""
+PROJECT=""
+CL_USER=""
+URL="$DEFAULT_URL"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --name"; usage; exit 1; }
+      NAME="$2"
+      shift 2
+      ;;
+    --project)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --project"; usage; exit 1; }
+      PROJECT="$2"
+      shift 2
+      ;;
+    --user)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --user"; usage; exit 1; }
+      CL_USER="$2"
+      shift 2
+      ;;
+    --url)
+      [[ -z "${2:-}" ]] && { echo "Missing value for --url"; usage; exit 1; }
+      URL="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+[[ -n "$NAME" ]] || { echo "Missing --name"; usage; exit 1; }
+[[ -n "$PROJECT" ]] || { echo "Missing --project"; usage; exit 1; }
+[[ -n "$CL_USER" ]] || { echo "Missing --user"; usage; exit 1; }
+[[ -n "$BRANCH" ]] || { echo "error: local parent must be on a named branch (not detached)."; exit 1; }
+
+origin_to_ssh() {
+  local url="$1"
+  if [[ "$url" =~ ^https://([^/]+)/(.+)$ ]]; then
+    printf 'git@%s:%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  else
+    printf '%s' "$url"
+  fi
+}
+
+CLONE_URL="$(origin_to_ssh "$(git -C "$ROOT" remote get-url origin)")"
+HOST="${CL_USER}@node0.${NAME}.${PROJECT}-pg0.${URL}"
+
+# Forward local GitHub keys: CloudLab auth uses a key file, which -A cannot offer.
+if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
+  eval "$(ssh-agent -s)" >/dev/null
+fi
+if ! ssh-add -l >/dev/null 2>&1; then
+  ssh-add || { echo "error: add your GitHub SSH key to the agent (e.g. ssh-add ~/.ssh/id_ed25519)"; exit 1; }
+fi
+
+# provision.sh copies ~/.ssh/id_ed25519 from node0 to workers; -A does not write that file.
+# shellcheck source=/dev/null
+source "$ROOT/scripts/pick_github_ssh_key.sh"
+GH_KEY_PATH=""
+GH_KEY_PATH="$(pick_github_ssh_key)" || {
+  echo "error: no OpenSSH GitHub key on this laptop (ssh -G github.com, or ~/.ssh/id_ed25519|id_ecdsa|id_rsa + .pub)."
+  echo "PuTTY .ppk and FIDO/hardware keys cannot be copied to CloudLab workers."
+  exit 1
+}
+
+SSH_OPTS="${SSH_OPTS:--o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null}"
+# shellcheck disable=SC2086
+ssh $SSH_OPTS "$HOST" "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+# Install as id_ed25519 so provision.sh and worker git use a default name (any key type).
+# shellcheck disable=SC2086
+scp $SSH_OPTS "$GH_KEY_PATH" "$HOST:~/.ssh/id_ed25519"
+# shellcheck disable=SC2086
+scp $SSH_OPTS "${GH_KEY_PATH}.pub" "$HOST:~/.ssh/id_ed25519.pub"
+
+remote=$(cat <<EOF
+set -euo pipefail
+DEST="\$HOME/${DEST_REL}"
+SESSION=$(printf '%q' "$SESSION")
+BRANCH=$(printf '%q' "$BRANCH")
+CLONE_URL=$(printf '%q' "$CLONE_URL")
+
+chmod 600 "\$HOME/.ssh/id_ed25519"
+chmod 644 "\$HOME/.ssh/id_ed25519.pub"
+ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+need_pkgs=()
+command -v tmux >/dev/null 2>&1 || need_pkgs+=(tmux)
+command -v direnv >/dev/null 2>&1 || need_pkgs+=(direnv)
+if (( \${#need_pkgs[@]} )); then
+  sudo apt-get update -qq
+  sudo apt-get install -y "\${need_pkgs[@]}"
+fi
+
+if [[ ! -d "\$DEST/.git" ]]; then
+  git clone --recurse-submodules -b "\$BRANCH" "\$CLONE_URL" "\$DEST"
+else
+  git -C "\$DEST" submodule update --init --recursive
+fi
+
+if ! grep -q 'direnv hook bash' "\$HOME/.bashrc" 2>/dev/null; then
+  echo 'eval "\$(direnv hook bash)"' >> "\$HOME/.bashrc"
+fi
+direnv allow "\$DEST"
+
+if [[ ! -s "\$DEST/manifest.xml" ]]; then
+  "\$DEST/scripts/fetch_manifest.sh"
+fi
+
+if ! tmux has-session -t "\$SESSION" 2>/dev/null; then
+  tmux new-session -d -s "\$SESSION" -c "\$DEST"
+fi
+exec tmux attach-session -t "\$SESSION"
+EOF
+)
+
+# shellcheck disable=SC2086
+exec ssh -A -o AddKeysToAgent=yes $SSH_OPTS -t "$HOST" "bash -c $(printf '%q' "$remote")"
