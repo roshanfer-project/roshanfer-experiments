@@ -72,9 +72,7 @@ def _infer_services_and_apis(repeat_metric_files: List[Dict[str, dict]], fallbac
                         # usage: check if it has services with max_queue
                         has_queue = False
                         for svc_key, svc_val in api_val.items():
-                            if isinstance(svc_val, dict) and (
-                                'max_queue' in svc_val or 'avg_queue' in svc_val
-                            ):
+                            if isinstance(svc_val, dict) and 'max_queue' in svc_val:
                                 has_queue = True
                                 hierarchical_services.add(_normalize_service_name(svc_key))
                         
@@ -168,17 +166,14 @@ def _find_svc_stats(prom_api_data: dict, svc: str):
     return None
 
 
-def _read_max_avg_for_repeat(mf: dict, svc: str, api: str) -> Tuple[float, float]:
-    """Return (max_queue_sample, avg_queue_sample) for one repeat; legacy stems use max/mean of series."""
+def _read_max_for_repeat(mf: dict, svc: str, api: str) -> float:
+    """Return max_queue for one repeat; legacy stems use max of series."""
     if 'prometheus' in mf:
         prom_data = mf['prometheus']
         if api in prom_data and isinstance(prom_data[api], dict):
             found = _find_svc_stats(prom_data[api], svc)
-            if found and isinstance(found, dict):
-                mv = float(found['max_queue']) if 'max_queue' in found else None
-                av = float(found['avg_queue']) if 'avg_queue' in found else None
-                if mv is not None or av is not None:
-                    return (mv if mv is not None else 0.0, av if av is not None else 0.0)
+            if found and isinstance(found, dict) and 'max_queue' in found:
+                return float(found['max_queue'])
 
     original_service_variants = [svc]
     if svc == 'frontend':
@@ -199,19 +194,18 @@ def _read_max_avg_for_repeat(mf: dict, svc: str, api: str) -> Tuple[float, float
             continue
         ts, vals = extract_series(mf[st])
         if not vals:
-            return (0.0, 0.0)
-        return (float(max(vals)), float(sum(vals) / len(vals)))
+            return 0.0
+        return float(max(vals))
 
-    return (0.0, 0.0)
+    return 0.0
 
 
-def _collect_max_avg_data(
+def _collect_max_data(
     repeat_metric_files: List[Dict[str, dict]],
     services: List[str],
     apis: List[str],
-) -> Tuple[Dict[str, Dict[str, List[float]]], Dict[str, Dict[str, List[float]]]]:
+) -> Dict[str, Dict[str, List[float]]]:
     data_max: Dict[str, Dict[str, List[float]]] = {svc: {api: [] for api in apis} for svc in services}
-    data_avg: Dict[str, Dict[str, List[float]]] = {svc: {api: [] for api in apis} for svc in services}
     import os
 
     for repeat_idx, mf in enumerate(repeat_metric_files):
@@ -219,24 +213,22 @@ def _collect_max_avg_data(
             print(f"[max-queue][repeat {repeat_idx}] scan start")
         for svc in services:
             for api in apis:
-                max_v, avg_v = _read_max_avg_for_repeat(mf, svc, api)
+                max_v = _read_max_for_repeat(mf, svc, api)
                 data_max[svc][api].append(max_v)
-                data_avg[svc][api].append(avg_v)
                 if os.environ.get('PLOT_DEBUG'):
-                    print(f"[max-queue][repeat {repeat_idx}] svc={svc} api={api} max={max_v} avg={avg_v}")
-    return data_max, data_avg
+                    print(f"[max-queue][repeat {repeat_idx}] svc={svc} api={api} max={max_v}")
+    return data_max
 
 
 def _union_nonzero_services(
     services: List[str],
     apis: List[str],
     data_max: Dict[str, Dict[str, List[float]]],
-    data_avg: Dict[str, Dict[str, List[float]]],
 ) -> List[str]:
     out = []
     for svc in services:
         for api in apis:
-            if any(v > 0 for v in data_max[svc][api]) or any(v > 0 for v in data_avg[svc][api]):
+            if any(v > 0 for v in data_max[svc][api]):
                 out.append(svc)
                 break
     return out
@@ -322,30 +314,23 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:  # type: ignore
     if os.environ.get('PLOT_DEBUG'):
         print(f"[max-queue] services={services} apis={apis}")
 
-    data_max, data_avg = _collect_max_avg_data(repeat_metric_files, services, apis)
+    data_max = _collect_max_data(repeat_metric_files, services, apis)
 
     if os.environ.get('PLOT_DEBUG'):
         counts = {svc: {api: len(lst) for api, lst in apis_dict.items()} for svc, apis_dict in data_max.items()}
         print(f"[max-queue][aggregate] repeat_counts={counts}")
 
-    services_u = _union_nonzero_services(services, apis, data_max, data_avg)
+    services_u = _union_nonzero_services(services, apis, data_max)
     if os.environ.get('PLOT_DEBUG'):
         print(
-            f"[max-queue] Filtering services (union max|avg): original={len(services)} "
+            f"[max-queue] Filtering services: original={len(services)} "
             f"kept={len(services_u)} dropped={set(services)-set(services_u)}"
         )
 
     if not services_u:
-        print("[max-queue] All services have zero max and avg queue; skipping plots.")
+        print("[max-queue] All services have zero max queue; skipping plots.")
         return []
 
-    paths: List[Path] = []
     max_path = out_dir / 'max_queue_bar.pdf'
     _save_queue_bar_figure(data_max, services_u, apis, max_path, 'Max Queue (req)', log_y=True)
-    paths.append(max_path)
-
-    avg_path = out_dir / 'avg_queue_bar.pdf'
-    _save_queue_bar_figure(data_avg, services_u, apis, avg_path, 'Avg Queue (req)', log_y=True)
-    paths.append(avg_path)
-
-    return paths
+    return [max_path]

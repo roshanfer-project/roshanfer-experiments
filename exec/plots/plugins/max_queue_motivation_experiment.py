@@ -27,14 +27,14 @@ try:
         _normalize_service_name,
         _mean_std,
         _infer_services_and_apis,
-        _read_max_avg_for_repeat,
+        _read_max_for_repeat,
     )
 except Exception:  # pragma: no cover
     from experiments.exec.plots.plugins.max_queue_unit import (  # type: ignore
         _normalize_service_name,
         _mean_std,
         _infer_services_and_apis,
-        _read_max_avg_for_repeat,
+        _read_max_for_repeat,
     )
 
 
@@ -99,7 +99,6 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
         print(f"[max-queue-motivation] services={services} api={api} loads={loads}")
     
     data_max: Dict[str, Dict[int, List[float]]] = {svc: {load: [] for load in loads} for svc in services}
-    data_avg: Dict[str, Dict[int, List[float]]] = {svc: {load: [] for load in loads} for svc in services}
 
     for load in loads:
         unit_entry = load_to_unit[load]
@@ -110,13 +109,12 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
                 print(f"[max-queue-motivation][load {load}][repeat {repeat_idx}] scan start")
 
             for svc in services:
-                max_v, avg_v = _read_max_avg_for_repeat(mf, svc, api)
+                max_v = _read_max_for_repeat(mf, svc, api)
                 data_max[svc][load].append(max_v)
-                data_avg[svc][load].append(avg_v)
                 if os.environ.get('PLOT_DEBUG'):
                     print(
                         f"[max-queue-motivation][load {load}][repeat {repeat_idx}] "
-                        f"svc={svc} api={api} max={max_v} avg={avg_v}"
+                        f"svc={svc} api={api} max={max_v}"
                     )
 
     if os.environ.get('PLOT_DEBUG'):
@@ -129,7 +127,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
     non_zero_services = []
     for svc in services:
         for load in loads:
-            if any(v > 0 for v in data_max[svc][load]) or any(v > 0 for v in data_avg[svc][load]):
+            if any(v > 0 for v in data_max[svc][load]):
                 non_zero_services.append(svc)
                 break
 
@@ -141,7 +139,7 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
     services = non_zero_services
 
     if not services:
-        print("[max-queue-motivation] All services have zero max and avg queue; skipping plots.")
+        print("[max-queue-motivation] All services have zero max queue; skipping plots.")
         return []
 
     try:
@@ -205,6 +203,5 @@ def generate_experiment_plots(ctx: Dict) -> List[Path]:  # type: ignore
         return fig_path
 
     paths.append(_save_motivation(data_max, 'max_queue_motivation_bar.pdf', 'Max Queueing (req)', True))
-    paths.append(_save_motivation(data_avg, 'avg_queue_motivation_bar.pdf', 'Avg Queueing (req)', True))
 
     return paths

@@ -20,3 +20,11 @@ figures:
         label: Z8trRkp4mp
       latency-and-rate-vs-time-alibaba-lb-amphiqueue-edf:
         label: Z8trRkp4mp
+
+  lb-avg-queue-alibaba-lb:
+    type: lb-avg-queue
+    include:
+      lb-avg-queue-alibaba-lb-p2c:
+        label: P2C
+      lb-avg-queue-alibaba-lb-amphiqueue-edf:
+        label: AmphiQueue-EDF

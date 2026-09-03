@@ -8,7 +8,8 @@ Supported merge types:
 1. latency-and-goodput-vs-load: Single figure with all experiments as legend entries
 2. latency-and-rate-vs-time: Side-by-side subplots with labels as titles  
 3. max-queue: Same as latency-and-rate-vs-time
-4. resource-waste-bar: Grouped bar chart comparing resource waste across experiments
+4. lb-avg-queue: one CPU bar per service, then one queue bar per system (ingress first)
+5. resource-waste-bar: Grouped bar chart comparing resource waste across experiments
 
 The runner discovers and uses processed data from existing plugins rather than
 reprocessing raw metrics.
@@ -1041,6 +1042,131 @@ def generate_max_queue_merged(
     ]
     return produced
 
+
+def generate_lb_avg_queue_merged(
+    figure_name: str,
+    figure_config: dict,
+    experiment_configs: dict,
+    experiments_root: Path,
+    output_dir: Path,
+    global_config: str = None,
+) -> list:
+    """Merged lb-avg-queue: one CPU bar per service, then one queue bar per system."""
+    try:
+        from exec.plots.plugins.lb_avg_queue_unit import (
+            collect_repeat_cpu_queue,
+            nonzero_services,
+            save_lb_avg_queue_figure,
+        )
+    except Exception:
+        from experiments.exec.plots.plugins.lb_avg_queue_unit import (  # type: ignore
+            collect_repeat_cpu_queue,
+            nonzero_services,
+            save_lb_avg_queue_figure,
+        )
+    try:
+        from exec.plots.plotting_primitives import (
+            SubplotGrid, ACM_COMPACT_HALF,
+        )
+    except ImportError:
+        try:
+            from plots.plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF,
+            )
+        except ImportError:
+            from plotting_primitives import (  # type: ignore
+                SubplotGrid, ACM_COMPACT_HALF,
+            )
+
+    include_experiments = figure_config.get('include', {})
+    if not include_experiments:
+        return []
+    exp_names = list(include_experiments.keys())
+
+    bench = None
+    if global_config:
+        try:
+            with open(global_config) as f:
+                bench = json.load(f).get('bench')
+        except Exception:
+            pass
+
+    exp_data = []
+    for exp_name in exp_names:
+        exp_cfg = include_experiments[exp_name]
+        if exp_name not in experiment_configs:
+            raise Exception(f"Experiment '{exp_name}' not found in experiment configs")
+        exp_def = experiment_configs[exp_name]
+        label = resolve_plot_label(exp_cfg, exp_name, exp_def)
+
+        artifact_dirs = []
+        for run_root in _run_roots_to_scan(experiments_root):
+            for record in _load_summary(run_root):
+                if record.get('experiment_name') == exp_name:
+                    artifact_dirs.append(Path(record.get('artifact_dir', '.')))
+        if not artifact_dirs:
+            print(f"Warning: No run data found for experiment '{exp_name}'")
+            continue
+
+        apis = exp_def.get('apis', [])
+        fallback = exp_def.get('services', [])
+        services, cpu_data, queue_data = collect_repeat_cpu_queue(
+            artifact_dirs, apis, fallback, bench=bench,
+        )
+        services = nonzero_services(services, cpu_data, queue_data)
+        exp_data.append({
+            'label': label,
+            'services': services,
+            'cpu_data': cpu_data,
+            'queue_data': queue_data,
+        })
+
+    if not exp_data:
+        print(f"Warning: No run data for any included experiment in '{figure_name}'")
+        return []
+
+    def unique_ordered(seq):
+        seen = set()
+        out = []
+        for x in seq:
+            if x not in seen:
+                out.append(x)
+                seen.add(x)
+        return out
+
+    all_services = unique_ordered([svc for ed in exp_data for svc in ed['services']])
+    all_services = [
+        svc for svc in all_services
+        if svc != "ingress"
+        and any(
+            any(v > 0 for v in ed['cpu_data'].get(svc, []))
+            or any(v > 0 for v in ed['queue_data'].get(svc, []))
+            for ed in exp_data
+        )
+    ]
+    if os.environ.get('PLOT_DEBUG'):
+        print(f"[lb-avg-queue-merged] services={all_services}")
+    if not all_services:
+        print("[lb-avg-queue-merged] All services have zero CPU and avg queue; skipping plots.")
+        return []
+
+    style = ACM_COMPACT_HALF
+    grid = SubplotGrid(style, layout="1x1")
+    ax = grid.get_ax(0, 0)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fig_path = output_dir / f'{figure_name}_lb_avg_queue.pdf'
+    save_lb_avg_queue_figure(
+        all_services,
+        out_path=fig_path,
+        series=[(ed['label'], ed['cpu_data'], ed['queue_data']) for ed in exp_data],
+        style=style,
+        grid=grid,
+        ax=ax,
+    )
+    grid.save(fig_path)
+    return [fig_path]
+
+
 def load_merged_config(merged_config_path: Path) -> Dict[str, Any]:
     """Load and parse the merged.yaml configuration file."""
     if not merged_config_path.exists():
@@ -1613,6 +1739,12 @@ def generate_merged_figures(
                 print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
             elif figure_type == 'max-queue':
                 produced = generate_max_queue_merged(
+                    figure_name, figure_config, experiment_configs,
+                    experiments_root, output_dir, global_config_path
+                )
+                print(f"  Generated {len(produced)} files: {[p.name for p in produced]}")
+            elif figure_type == 'lb-avg-queue':
+                produced = generate_lb_avg_queue_merged(
                     figure_name, figure_config, experiment_configs,
                     experiments_root, output_dir, global_config_path
                 )

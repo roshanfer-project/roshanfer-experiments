@@ -46,6 +46,7 @@ MERGED_STEMS = (
     "_combined",
     "_resource_waste_bar",
     "_max_queue",
+    "_lb_avg_queue",
 )
 
 

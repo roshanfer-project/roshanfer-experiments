@@ -21,8 +21,27 @@ from urllib.parse import quote
 
 from .config import Config
 from .models import RunUnit, RunResult, CollectorResult, is_sidecar_family
+from .plots.plugins.lb_avg_queue_unit import (
+    _entry_from_callgraph,
+    _match_service,
+)
 import urllib.request
 import urllib.error
+
+INGRESS_MEAN_ONLY_SYSTEMS = ("p2c", "wrr", "amphiqueue", "amphiqueue-fcfs", "amphiqueue-edf")
+INGRESS_MEAN_AND_MAX_SYSTEMS = ("plain", "roshanfer", "rajomon", "dagor")
+
+
+def _frontend_replica_keys(api_data: Dict[str, Any], entry_ms: str | None) -> List[str]:
+    if entry_ms:
+        keys = [k for k in api_data if _match_service(k, [entry_ms]) == entry_ms]
+        if keys:
+            return keys
+    frontend_keys = [k for k in api_data if _match_service(k, ["frontend"]) == "frontend"]
+    nginx_keys = [k for k in api_data if _match_service(k, ["nginx"]) == "nginx"]
+    if frontend_keys and nginx_keys:
+        return []
+    return frontend_keys or nginx_keys
 
 class Collector:
     def __init__(self, config: Config):
@@ -236,56 +255,88 @@ class Collector:
                 except Exception as e:
                     logging.warning(f"Failed to query metric {metric}: {e}")
 
-            # Ingress: derived queue before entry service; only when bare frontend/nginx job exists (non-LB).
+            want_mean = unit.system in INGRESS_MEAN_ONLY_SYSTEMS or unit.system in INGRESS_MEAN_AND_MAX_SYSTEMS
+            want_max = unit.system in INGRESS_MEAN_AND_MAX_SYSTEMS
+            entry_ms = _entry_from_callgraph(unit.bench) if unit.bench else None
+
             for api in unit.apis:
+                if not want_mean and not want_max:
+                    break
                 if api not in data:
-                     # No metrics for this API, skip ingress calc
-                     continue
-                
-                # Read overall-{api}.json
+                    continue
+
                 overall_file = output_dir / f"overall-{api}.json"
                 if not overall_file.exists():
                     logging.warning(f"Skipping ingress calc for {api}: {overall_file} not found")
                     continue
-                
+
                 try:
                     overall_data = json.loads(overall_file.read_text())
-                    max_workers = overall_data.get("maximum_workers")
-                    
-                    if max_workers is None:
-                        logging.warning(f"Skipping ingress calc for {api}: maximum_workers missing in overall json")
+                    replica_keys = _frontend_replica_keys(data[api], entry_ms)
+                    if not replica_keys:
+                        fe = [k for k in data[api] if _match_service(k, ["frontend"]) == "frontend"]
+                        ng = [k for k in data[api] if _match_service(k, ["nginx"]) == "nginx"]
+                        if fe and ng:
+                            logging.warning(
+                                f"Skipping ingress calc for {api}: both 'frontend' and 'nginx' replicas found"
+                            )
+                        else:
+                            logging.warning(
+                                f"Skipping ingress calc for {api}: no frontend replicas "
+                                f"(entry={entry_ms!r})"
+                            )
                         continue
-                    
-                    # Check for frontend vs nginx
-                    has_frontend = "frontend" in data[api] and "max_queue" in data[api]["frontend"]
-                    has_nginx = "nginx" in data[api] and "max_queue" in data[api]["nginx"]
-                    
-                    if has_frontend and has_nginx:
-                        logging.warning(f"Ambiguous ingress calc for {api}: Both 'frontend' and 'nginx' services found.")
-                        continue
-                    
-                    if not has_frontend and not has_nginx:
-                        logging.info(
-                            f"Skipping ingress calc for {api}: no exact 'frontend' or 'nginx' key "
-                            "(replicated modes use per-replica push grouping; ingress not reported)."
-                        )
-                        continue
-                    
-                    # Exactly one exists
-                    frontend_svc = "frontend" if has_frontend else "nginx"
-                    frontend_queue = data[api][frontend_svc]["max_queue"]
-                    
-                    ingress_val = max_workers - frontend_queue
-                    
+
+                    avgs = []
+                    maxes = []
+                    for key in replica_keys:
+                        stats = data[api].get(key)
+                        if not isinstance(stats, dict):
+                            continue
+                        if "avg_queue" in stats:
+                            avgs.append(float(stats["avg_queue"]))
+                        if "max_queue" in stats:
+                            maxes.append(float(stats["max_queue"]))
+
                     if "ingress" not in data[api]:
                         data[api]["ingress"] = {}
-                    
-                    data[api]["ingress"]["max_queue"] = ingress_val
 
-                    fe = data[api][frontend_svc]
-                    if "avg_queue" in fe:
-                        data[api]["ingress"]["avg_queue"] = max_workers - fe["avg_queue"]
-                    
+                    if want_mean:
+                        throughput = overall_data.get("throughput")
+                        mean_latency = overall_data.get("mean_latency")
+                        if throughput is None or mean_latency is None:
+                            logging.warning(
+                                f"Skipping ingress avg_queue for {api}: "
+                                "throughput or mean_latency missing in overall json"
+                            )
+                        elif not avgs:
+                            logging.warning(
+                                f"Skipping ingress avg_queue for {api}: "
+                                "no avg_queue on frontend replicas"
+                            )
+                        else:
+                            frontend_mean = sum(avgs) / len(avgs)
+                            avg_concurrency = throughput * (mean_latency / 1000.0)
+                            data[api]["ingress"]["avg_queue"] = avg_concurrency - frontend_mean
+
+                    if want_max:
+                        max_workers = overall_data.get("maximum_workers")
+                        if max_workers is None:
+                            logging.warning(
+                                f"Skipping ingress max_queue for {api}: "
+                                "maximum_workers missing in overall json"
+                            )
+                        elif not maxes:
+                            logging.warning(
+                                f"Skipping ingress max_queue for {api}: "
+                                "no max_queue on frontend replicas"
+                            )
+                        else:
+                            data[api]["ingress"]["max_queue"] = max_workers - maxes[0]
+
+                    if not data[api]["ingress"]:
+                        del data[api]["ingress"]
+
                 except Exception as e:
                     logging.warning(f"Error during ingress calc for {api}: {e}")
 

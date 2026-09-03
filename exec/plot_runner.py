@@ -419,7 +419,10 @@ def generate_for_index(experiment_index: str, experiments_root: Path, output_roo
                     pass
                 
                 # Check data existence for at least one source
-                if metric_files or prom_data or (artifact_dir/'output').exists():
+                if metric_files or prom_data or (artifact_dir/'output').exists() or (
+                    (artifact_dir / 'raw' / 'cpu_metrics.csv').is_file()
+                    or (artifact_dir / 'raw' / 'cpu_utilization_summary.csv').is_file()
+                ):
                     artifact_dirs.append(artifact_dir)
 
             if not artifact_dirs:

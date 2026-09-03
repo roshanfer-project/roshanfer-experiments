@@ -111,8 +111,8 @@
         {
             "type": "latency-and-rate-vs-time",
             "loads": {
-                "start": 1600,
-                "end": 1600,
+                "start": 1300,
+                "end": 1300,
                 "step": 500
             },
             "base_rate": 1200,
@@ -125,6 +125,48 @@
             "collector_freq": 200,
             "warmup_duration_sec": 10,
             "warmup": 10
+        },
+        {
+            "type": "lb-avg-queue",
+            "loads": {
+                "start": 1300,
+                "end": 1300,
+                "step": 500
+            },
+            "base_rate": 1200,
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "p2c",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup_duration_sec": 5,
+            "warmup": 5,
+            "deploy_env": {
+                "queuing_export": "true"
+            }
+        },
+        {
+            "type": "lb-avg-queue",
+            "loads": {
+                "start": 1300,
+                "end": 1300,
+                "step": 500
+            },
+            "base_rate": 1200,
+            "duration_sec": 15,
+            "apis": [
+                "Z8trRkp4mp"
+            ],
+            "system": "amphiqueue-edf",
+            "repeat": 3,
+            "collector_freq": 200,
+            "warmup_duration_sec": 5,
+            "warmup": 5,
+            "deploy_env": {
+                "queuing_export": "true"
+            }
         }
     ]
 }
