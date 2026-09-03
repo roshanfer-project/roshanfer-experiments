@@ -303,7 +303,7 @@ def save_lb_avg_queue_figure(
     queue_data: Dict[str, List[float]] | None = None,
     out_path: Path = Path("."),
     title: str = "",
-    ylabel: str = "Cores / req",
+    ylabel: str = "Average queue size or # cores",
     ylim: Tuple[float, float] | None = None,
     show_ylabel: bool = True,
     show_yticklabels: bool = True,
