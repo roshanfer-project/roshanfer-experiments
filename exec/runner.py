@@ -309,7 +309,26 @@ class Runner:
         self.config = config
 
     def _resolve_target_addr(self, unit: RunUnit) -> str:
-        """NodePort host for generators. Prefer k8s node short name, not hosts-file index."""
+        """NodePort host for generators. For sidecar family, the ingress Pod's node."""
+        if is_sidecar_family(unit.system):
+            try:
+                cp = subprocess.run(
+                    ["kubectl", "get", "pod", "ingress", "-o", "jsonpath={.spec.nodeName}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                if cp.returncode == 0:
+                    short = _short_host(cp.stdout)
+                    if short:
+                        return short
+                logging.warning(
+                    "TARGET_ADDR: kubectl get pod ingress failed: %s",
+                    (cp.stderr or cp.stdout or "").strip()[:300],
+                )
+            except Exception as e:
+                logging.warning("TARGET_ADDR: kubectl get pod ingress failed: %s", e)
+
         try:
             cp = subprocess.run(
                 ["kubectl", "get", "nodes", "-o", "jsonpath={.items[0].metadata.name}"],
