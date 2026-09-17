@@ -8,7 +8,7 @@ Supported merge types:
 1. latency-and-goodput-vs-load: Single figure with all experiments as legend entries
 2. latency-and-rate-vs-time: Side-by-side subplots with labels as titles  
 3. max-queue: Same as latency-and-rate-vs-time
-4. lb-avg-queue: one CPU bar per service, then one queue bar per system (ingress first)
+4. lb-avg-queue: one queue bar per system per service (ingress first)
 5. resource-waste-bar: Grouped bar chart comparing resource waste across experiments
 
 The runner discovers and uses processed data from existing plugins rather than
@@ -1051,7 +1051,7 @@ def generate_lb_avg_queue_merged(
     output_dir: Path,
     global_config: str = None,
 ) -> list:
-    """Merged lb-avg-queue: one CPU bar per service, then one queue bar per system."""
+    """Merged lb-avg-queue: one queue bar per system per service."""
     try:
         from exec.plots.plugins.lb_avg_queue_unit import (
             collect_repeat_cpu_queue,
@@ -1150,7 +1150,8 @@ def generate_lb_avg_queue_merged(
         print("[lb-avg-queue-merged] All services have zero CPU and avg queue; skipping plots.")
         return []
 
-    style = ACM_COMPACT_HALF
+    from dataclasses import replace as _replace
+    style = _replace(ACM_COMPACT_HALF, aspect_ratio=0.4)
     grid = SubplotGrid(style, layout="1x1")
     ax = grid.get_ax(0, 0)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1162,6 +1163,8 @@ def generate_lb_avg_queue_merged(
         style=style,
         grid=grid,
         ax=ax,
+        include_cpu=False,
+        ylabel="Average queue size",
     )
     grid.save(fig_path)
     return [fig_path]

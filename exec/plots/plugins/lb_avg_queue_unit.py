@@ -308,6 +308,7 @@ def save_lb_avg_queue_figure(
     show_ylabel: bool = True,
     show_yticklabels: bool = True,
     add_legend: bool = True,
+    include_cpu: bool = True,
     style=None,
     grid=None,
     ax=None,
@@ -339,15 +340,16 @@ def save_lb_avg_queue_figure(
     bar_groups = []
     merged = len(series) > 1
     if merged:
-        cpu_means, cpu_stds = [], []
-        for s in services:
-            vals: List[float] = []
-            for _, cpu, _ in series:
-                vals.extend(cpu.get(s, []))
-            cm, cs = _mean_std(vals)
-            cpu_means.append(0.0 if cm is None else cm)
-            cpu_stds.append(0.0 if cs is None else cs)
-        bar_groups.append(("Allocated CPU", cpu_means, cpu_stds))
+        if include_cpu:
+            cpu_means, cpu_stds = [], []
+            for s in services:
+                vals: List[float] = []
+                for _, cpu, _ in series:
+                    vals.extend(cpu.get(s, []))
+                cm, cs = _mean_std(vals)
+                cpu_means.append(0.0 if cm is None else cm)
+                cpu_stds.append(0.0 if cs is None else cs)
+            bar_groups.append(("Allocated CPU", cpu_means, cpu_stds))
         for prefix, _, queue in series:
             q_means, q_stds = [], []
             for s in services:
@@ -367,7 +369,8 @@ def save_lb_avg_queue_figure(
                 q_means.append(0.0 if qm is None else qm)
                 q_stds.append(0.0 if qs is None else qs)
             p = f"{prefix} " if prefix else ""
-            bar_groups.append((f"{p}Allocated CPU", cpu_means, cpu_stds))
+            if include_cpu:
+                bar_groups.append((f"{p}Allocated CPU", cpu_means, cpu_stds))
             bar_groups.append((f"{p}{QUEUE_LEGEND}", q_means, q_stds))
     plot_grouped_bars(ax, list(range(len(services))), bar_groups, style=style)
     ax.set_xticks(list(range(len(services))))
