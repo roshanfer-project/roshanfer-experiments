@@ -309,6 +309,7 @@ def save_lb_avg_queue_figure(
     show_yticklabels: bool = True,
     add_legend: bool = True,
     include_cpu: bool = True,
+    downstreams: Dict[str, List[str]] | None = None,
     style=None,
     grid=None,
     ax=None,
@@ -397,6 +398,10 @@ def save_lb_avg_queue_figure(
         log_y=True,
         show_yticklabels=show_yticklabels,
     )
+    if downstreams:
+        for tick, svc in zip(ax.get_xticklabels(), services):
+            if downstreams.get(svc):
+                tick.set_fontweight("bold")
     if add_legend:
         grid.add_shared_legend(position="top")
     if own_grid:
@@ -426,5 +431,8 @@ def generate_unit_plots(ctx: Dict) -> List[Path]:
     out_dir: Path = ctx["output_dir"]
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "lb_avg_queue_bar.pdf"
-    save_lb_avg_queue_figure(services, cpu_data, queue_data, path)
+    save_lb_avg_queue_figure(
+        services, cpu_data, queue_data, path,
+        downstreams=direct_downstreams_from_callgraph(ctx.get("bench")),
+    )
     return [path]
