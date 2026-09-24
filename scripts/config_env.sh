@@ -22,16 +22,7 @@ if [[ -n "${REPO_ROOT:-}" && -f "$_cfg" ]]; then
   source "$_cfg"
 fi
 unset _cfg
-
-# Cloning is SSH-only. An old config.env may still set GIT_PROTOCOL=https.
-case "${GIT_PROTOCOL:-ssh}" in
-  ssh|SSH) ;;
-  *)
-    echo "error: git cloning is SSH-only. Remove GIT_PROTOCOL from config.env." >&2
-    exit 1
-    ;;
-esac
-GIT_PROTOCOL=ssh
+unset GIT_PROTOCOL
 
 _git_url() {
   local repo="$1"
@@ -45,7 +36,7 @@ REPO_SIDECAR_URL="$(_git_url "$REPO_SIDECAR")"
 REPO_FORMAL_URL="$(_git_url "$REPO_FORMAL")"
 export REQUIRE_REMOTE CONTROL_ON_CLUSTER CLOUDLAB_USER CLOUDLAB_MANIFEST
 export REGISTRY IMAGE_TAG SKIP_BUILD
-export GIT_PROTOCOL GIT_HOST GIT_ORG
+export GIT_HOST GIT_ORG
 export REPO_EXPERIMENTS REPO_BENCHMARKS REPO_RWG REPO_SIDECAR REPO_FORMAL
 export REPO_URL REPO_BENCHMARKS_URL REPO_RWG_URL REPO_SIDECAR_URL REPO_FORMAL_URL
 
@@ -64,7 +55,7 @@ _set_submodule_url() {
   fi
 }
 
-apply_git_protocol() {
+pin_submodule_urls() {
   [[ -n "${REPO_ROOT:-}" && -d "${REPO_ROOT}/.git" ]] || return 0
   _set_submodule_url "$REPO_ROOT" rwg "$REPO_RWG_URL"
   _set_submodule_url "$REPO_ROOT" benchmarks "$REPO_BENCHMARKS_URL"
