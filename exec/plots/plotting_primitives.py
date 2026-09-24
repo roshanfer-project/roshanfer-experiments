@@ -28,6 +28,13 @@ from typing import List, Dict, Any, Tuple, Optional
 import numpy as np
 
 
+def configure_pdf_fonts() -> None:
+    """Embed TrueType (Type 42) instead of Type 3 bitmaps. Required by ACM/IEEE."""
+    import matplotlib as mpl
+    mpl.rcParams['pdf.fonttype'] = 42
+    mpl.rcParams['ps.fonttype'] = 42
+
+
 @dataclass
 class PlotStyle:
     """ACM paper compact styling configuration.
@@ -152,7 +159,8 @@ class SubplotGrid:
     def _create_figure(self, width_ratios, height_ratios):
         """Create figure with constrained_layout, optionally using GridSpec."""
         import matplotlib.pyplot as plt
-        
+        configure_pdf_fonts()
+
         total_width = self.style.width_inches
         total_height = self.style.width_inches * self.style.aspect_ratio * self.nrows / self.ncols
         
@@ -418,6 +426,7 @@ class SubplotGrid:
             path: Output file path (typically .pdf for academic papers)
         """
         import matplotlib.pyplot as plt
+        configure_pdf_fonts()
         path.parent.mkdir(parents=True, exist_ok=True)
         self.fig.savefig(path, bbox_inches='tight', pad_inches=0.01, dpi=self.style.dpi)
         plt.close(self.fig)
