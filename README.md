@@ -130,15 +130,17 @@ Each step lists **where** to run it, **what** it does, and **what to expect**.
 **What:** if you do not already have a normal OpenSSH key on the local machine, create one with the following command:
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 ```
+
+Use an empty passphrase. The private key file is copied to the control node and then to every worker, and those clones are non-interactive.
 
 Add the **same** public key to:
 
 - GitHub: [SSH keys](https://github.com/settings/keys)
 - CloudLab portal: [My Account](https://www.cloudlab.us/) → SSH Keys
 
-`cloudlab_enter.sh` copies this key to the control node. Later, git clones and SSH from the control node to generator and workload nodes use it. Using different keys on GitHub and CloudLab breaks one of those paths.
+`cloudlab_enter.sh` copies this key to the control node. Provisioning copies it to the generator and workload nodes. Every clone of this repository and its submodules (`benchmarks`, `rwg`, `formal`, and nested `benchmarks/sidecar`) uses SSH (`git@github.com:roshanfer-project/...`). HTTPS clone URLs are not supported. The same key is also used for SSH between cluster nodes. Using different keys on GitHub and CloudLab breaks one of those paths. PuTTY `.ppk` keys and hardware keys cannot be copied to workers.
 
 **Expected:** the public key is listed on both GitHub and CloudLab.
 
