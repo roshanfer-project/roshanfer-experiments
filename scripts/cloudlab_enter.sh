@@ -120,8 +120,6 @@ CLONE_URL=$(printf '%q' "$CLONE_URL")
 chmod 600 "\$HOME/.ssh/id_ed25519"
 chmod 644 "\$HOME/.ssh/id_ed25519.pub"
 ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
-# Drop a previous https rewrite so submodule URLs stay SSH.
-git config --global --unset-all url.https://github.com/.insteadof >/dev/null 2>&1 || true
 
 need_pkgs=()
 command -v tmux >/dev/null 2>&1 || need_pkgs+=(tmux)
