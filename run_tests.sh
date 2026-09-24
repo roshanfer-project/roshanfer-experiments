@@ -308,7 +308,9 @@ run_bench() {
   experiment_index=$($PYTHON -c "import json; print(json.load(open('$config')).get('experiment_index','$name'))")
   local timings_file="$out_dir/exp-${experiment_index}/timings.json"
   local plot_sec=0
-  if [[ $exec_rc -eq 0 ]]; then
+  if [[ $exec_rc -ne 0 ]]; then
+    echo "Skipping plots for $name (one or more repeats failed; see the repeat summary above)"
+  elif [[ $exec_rc -eq 0 ]]; then
     local run_summary="$out_dir/exp-${experiment_index}/run_summary.jsonl"
     if [[ ! -f "$run_summary" ]]; then
       echo "Skipping plots for $name (no run summary — filters may have excluded all experiments)"

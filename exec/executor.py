@@ -385,6 +385,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     _init_csv(summary_csv)
 
     run_results = []
+    repeat_outcomes: List[Dict[str, Any]] = []
+    system_failures: List[Tuple[str, str]] = []
 
     # 3. Group by System
     by_system: Dict[str, List[ExperimentConfig]] = {}
@@ -433,6 +435,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         except Exception as e:
             timings["setup"]["build"][system] = time.time() - t_build
             logging.error(f"Skipping system {system} due to build failure: {e}")
+            system_failures.append((system, _short_text(f"build failed: {e}")))
             continue
 
         # B. Tuning
@@ -505,13 +508,17 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             res = runner.run(unit, repeat_dir)
                             
                             # Failure Handling from Run (application failure)
-                            if res.status == "error":
-                                logging.warning(f"    Repeat {r} failed. Status: {res.status}")
+                            if res.status != "success":
+                                logging.warning(
+                                    "    Repeat %s failed. Status: %s. %s",
+                                    r, res.status, _failure_reason(res.details),
+                                )
                             
                             # Collect
                             col_res = collector.collect(unit, res, repeat_dir)
                             _log_result(summary_csv, summary_jsonl, exp, unit, res, col_res, r, unit.repeats)
                             run_results.append(res)
+                            repeat_outcomes.append(_repeat_outcome(exp.name, unit.name, r, res.status, res.details))
                             
                         except Exception as e:
                             logging.error(f"Experiment {exp.name} Unit {unit.name} Repeat {r} failed: {e}")
@@ -527,6 +534,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             # Create dummy collector result
                             fail_col = CollectorResult(unit.name, str(repeat_dir/"metrics"), [], "failed")
                             _log_result(summary_csv, summary_jsonl, exp, unit, fail_res, fail_col, r, unit.repeats)
+                            repeat_outcomes.append(_repeat_outcome(exp.name, unit.name, r, "error", fail_res.details))
                             
                             # Log to main error file
                             try:
@@ -556,14 +564,66 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
 
         except Exception as e:
             logging.error(f"System {system} loop aborted (Unexpected top-level error): {e}", exc_info=True)
+            system_failures.append((system, _short_text(f"aborted: {e}")))
 
     # 5. Report
     # report_module.generate_report(...) # Optional
     timings["total_sec"] = time.time() - start_all
     write_timings(timings_path, timings)
     log_executor_summary(timings)
+    exit_code = _print_repeat_summary(repeat_outcomes, system_failures)
     logging.info(f"Execution finished. Results in {run_root}")
+    return exit_code
+
+def _short_text(text: str, limit: int = 180) -> str:
+    s = " ".join(str(text).split())
+    if len(s) > limit:
+        return s[: limit - 3] + "..."
+    return s
+
+
+def _failure_reason(details: Dict[str, Any] | None) -> str:
+    details = details or {}
+    if details.get("error"):
+        return _short_text(details["error"])
+    if details.get("exception"):
+        return _short_text(details["exception"])
+    parts = [str(v) for k, v in details.items() if str(k).startswith("error_") and v]
+    if parts:
+        return _short_text("; ".join(parts))
+    return "status=error"
+
+
+def _repeat_outcome(experiment: str, unit: str, repeat: int, status: str, details: Dict[str, Any] | None) -> Dict[str, Any]:
+    reason = "" if status == "success" else _failure_reason(details)
+    return {
+        "experiment": experiment,
+        "unit": unit,
+        "repeat": repeat,
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _print_repeat_summary(outcomes: List[Dict[str, Any]], system_failures: List[Tuple[str, str]]) -> int:
+    ok = [o for o in outcomes if o.get("status") == "success"]
+    bad = [o for o in outcomes if o.get("status") != "success"]
+    print("")
+    print("=== Repeat summary ===")
+    print(f"Successful repeats: {len(ok)}")
+    print(f"Failed repeats: {len(bad)}")
+    for o in bad:
+        label = f"{o['experiment']} / {o['unit']} repeat_{int(o['repeat']):03d}"
+        reason = o.get("reason") or "status=error"
+        print(f"  failed: {label}: {reason}")
+    for system, reason in system_failures:
+        print(f"  failed system: {system}: {reason}")
+    if bad or system_failures:
+        print("Overall: failed")
+        return 1
+    print("Overall: success")
     return 0
+
 
 def _safe_name(s: str) -> str:
     import re

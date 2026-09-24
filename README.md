@@ -524,7 +524,7 @@ Each run writes `exp_runs_test/<id>/<bench>/exp-<index>/`. Rerunning `run_tests.
 
 **1. Executor log.** `logs/executor_*.log` is the hub. It records every phase and prints `Logging output to: …` for specialized transcripts (provision, K3s, deploy, teardown, build, tuner). Start there to see what failed, then open the file it names.
 
-**2. Run summaries.** `run_summary.csv` (and `run_summary.jsonl`) lists every repeat. Rows with `status` other than `success` failed. The `path` column is that repeat’s `raw/` directory.
+**2. Run summaries.** `run_summary.csv` (and `run_summary.jsonl`) lists every repeat. Rows with `status` other than `success` failed. The `path` column is that repeat’s `raw/` directory. The run also prints `Successful repeats` and `Failed repeats`, and a short reason for each failed repeat.
 
 **3. Repeat details.** In that `raw/` directory:
 - collected service and sidecar logs: `service_logs/`

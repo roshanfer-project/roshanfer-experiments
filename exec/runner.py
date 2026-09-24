@@ -26,7 +26,23 @@ from .models import RunUnit, RunResult
 from .utils import run_with_logging
 
 
-
+def _salient_output_line(text: str, limit: int = 160) -> str:
+    """One short line from load-generator output, preferring connection errors."""
+    if not text:
+        return ""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    preferred = None
+    for ln in lines:
+        low = ln.lower()
+        if "connection refused" in low or "error" in low or "fail" in low:
+            preferred = ln
+            break
+    chosen = " ".join((preferred or lines[0]).split())
+    if len(chosen) > limit:
+        return chosen[: limit - 3] + "..."
+    return chosen
 
 
 class ResourceMonitor:
@@ -586,7 +602,11 @@ class Runner:
                 
                 if proc.returncode != 0:
                     status = "error"
-                    details[f"error_{api}"] = f"RWG failed on {host} code={proc.returncode}"
+                    snippet = _salient_output_line(stderr) or _salient_output_line(stdout)
+                    msg = f"RWG failed on {host} code={proc.returncode}"
+                    if snippet:
+                        msg += f": {snippet}"
+                    details[f"error_{api}"] = msg
                     logging.error(f"Error on {host} (code={proc.returncode}): {stderr} | Stdout snippet: {stdout[:200]}")
                 else:
                     # Pull output
