@@ -43,19 +43,13 @@ export REPO_URL REPO_BENCHMARKS_URL REPO_RWG_URL REPO_SIDECAR_URL REPO_FORMAL_UR
 _set_submodule_url() {
   local gitdir="$1" name="$2" url="$3"
   [[ -d "$gitdir/.git" || -f "$gitdir/.git" ]] || return 0
-  local file_url cfg_url
-  file_url=$(git -C "$gitdir" config --file .gitmodules --get "submodule.${name}.url" 2>/dev/null || true)
-  cfg_url=$(git -C "$gitdir" config --get "submodule.${name}.url" 2>/dev/null || true)
-  if [[ "$file_url" != "$url" ]]; then
-    git -C "$gitdir" submodule set-url "$name" "$url" >/dev/null 2>&1 || true
-  fi
-  # .git/config overrides .gitmodules; keep it on the SSH URL too.
-  if [[ "$cfg_url" != "$url" ]]; then
-    git -C "$gitdir" config "submodule.${name}.url" "$url"
-  fi
+  local cur
+  cur=$(git -C "$gitdir" config --file .gitmodules --get "submodule.${name}.url" 2>/dev/null || true)
+  [[ "$cur" == "$url" ]] && return 0
+  git -C "$gitdir" submodule set-url "$name" "$url" >/dev/null 2>&1 || true
 }
 
-pin_submodule_urls() {
+apply_git_protocol() {
   [[ -n "${REPO_ROOT:-}" && -d "${REPO_ROOT}/.git" ]] || return 0
   _set_submodule_url "$REPO_ROOT" rwg "$REPO_RWG_URL"
   _set_submodule_url "$REPO_ROOT" benchmarks "$REPO_BENCHMARKS_URL"

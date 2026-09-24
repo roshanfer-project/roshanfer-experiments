@@ -8,7 +8,7 @@ export KUBECONFIG="$REPO_ROOT/benchmarks/k8s/kubeconfig"
 
 # shellcheck source=/dev/null
 source "$_ROOT/scripts/config_env.sh"
-pin_submodule_urls
+apply_git_protocol
 
 if [[ ! -x "$_ROOT/.venv/bin/python" || ! -x "$_ROOT/.venv/bin/pip" ]]; then
     rm -rf "$_ROOT/.venv"
