@@ -130,7 +130,7 @@ Each step lists **where** to run it, **what** it does, and **what to expect**.
 **What:** if you do not already have a normal OpenSSH key on the local machine, create one with the following command:
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 ```
 
 Add the **same** public key to:

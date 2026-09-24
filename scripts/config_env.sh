@@ -8,7 +8,6 @@ CLOUDLAB_MANIFEST="${CLOUDLAB_MANIFEST:-./manifest.xml}"
 REGISTRY="${REGISTRY:-farzad1132}"
 IMAGE_TAG="${IMAGE_TAG:-}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
-GIT_PROTOCOL="${GIT_PROTOCOL:-ssh}"
 GIT_HOST="${GIT_HOST:-github.com}"
 GIT_ORG="${GIT_ORG:-roshanfer-project}"
 REPO_EXPERIMENTS="${REPO_EXPERIMENTS:-roshanfer-experiments}"
@@ -23,14 +22,11 @@ if [[ -n "${REPO_ROOT:-}" && -f "$_cfg" ]]; then
   source "$_cfg"
 fi
 unset _cfg
+unset GIT_PROTOCOL
 
 _git_url() {
   local repo="$1"
-  if [[ "${GIT_PROTOCOL}" == "https" ]]; then
-    printf 'https://%s/%s/%s.git' "$GIT_HOST" "$GIT_ORG" "$repo"
-  else
-    printf 'git@%s:%s/%s.git' "$GIT_HOST" "$GIT_ORG" "$repo"
-  fi
+  printf 'git@%s:%s/%s.git' "$GIT_HOST" "$GIT_ORG" "$repo"
 }
 
 REPO_URL="$(_git_url "$REPO_EXPERIMENTS")"
@@ -40,7 +36,7 @@ REPO_SIDECAR_URL="$(_git_url "$REPO_SIDECAR")"
 REPO_FORMAL_URL="$(_git_url "$REPO_FORMAL")"
 export REQUIRE_REMOTE CONTROL_ON_CLUSTER CLOUDLAB_USER CLOUDLAB_MANIFEST
 export REGISTRY IMAGE_TAG SKIP_BUILD
-export GIT_PROTOCOL GIT_HOST GIT_ORG
+export GIT_HOST GIT_ORG
 export REPO_EXPERIMENTS REPO_BENCHMARKS REPO_RWG REPO_SIDECAR REPO_FORMAL
 export REPO_URL REPO_BENCHMARKS_URL REPO_RWG_URL REPO_SIDECAR_URL REPO_FORMAL_URL
 
