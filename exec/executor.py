@@ -26,6 +26,7 @@ from .runner import Runner
 from .collector import Collector
 from .infra import InfraBuilder
 from . import report as report_module
+from .timings import empty_timings, write_timings, log_executor_summary
 import traceback as tb
 
 def _timestamp() -> str:
@@ -85,12 +86,48 @@ def _load_experiments_file(path: Path) -> List[ExperimentConfig]:
         exps.append(ExperimentConfig.from_dict(raw))
     return exps
 
+_INGRESS_AIMD_PARAMS = {
+    "aimd_err_d": "SIDECAR_AIMD_ERR_D",
+    "aimd_err_i": "SIDECAR_AIMD_ERR_I",
+    "aimd_adj_d": "SIDECAR_AIMD_ADJ_D",
+    "aimd_adj_i": "SIDECAR_AIMD_ADJ_I",
+    "safe_multiply": "SIDECAR_SAFE_MULTIPLY",
+}
+
+
 def _derive_experiment_name(exp: ExperimentConfig, bench: str) -> str:
     """Derive name from type, bench, system. Include api count when > 1 for uniqueness."""
     bench_slug = bench.split("/")[-1] if bench else ""
+    if exp.type == "ingress-param-sensitivity":
+        param = (exp.params or {}).get("parameter", "")
+        if len(exp.apis) > 1:
+            return f"{exp.type}-{param}-{bench_slug}-{len(exp.apis)}-{exp.system}"
+        return f"{exp.type}-{param}-{bench_slug}-{exp.system}"
     if len(exp.apis) > 1:
         return f"{exp.type}-{bench_slug}-{len(exp.apis)}-{exp.system}"
     return f"{exp.type}-{bench_slug}-{exp.system}"
+
+
+def _float_range(start: float, end: float, step: float) -> List[float]:
+    if step <= 0:
+        raise ValueError("param_range.step must be > 0")
+    if end < start:
+        raise ValueError("param_range.end must be >= start")
+    values: List[float] = []
+    n = 0
+    while True:
+        v = start + n * step
+        if v > end + abs(step) * 1e-9:
+            break
+        values.append(v)
+        n += 1
+        if n > 10000:
+            raise ValueError("param_range produced too many values")
+    return values
+
+
+def _fmt_param_value(v: float) -> str:
+    return f"{v:g}"
 
 def _assign_derived_names(exps: List[ExperimentConfig], config: Config) -> List[ExperimentConfig]:
     """Assign derived names when missing, adding suffix for duplicates."""
@@ -118,7 +155,7 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
     step = exp.loads.step if exp.loads else 1
 
     bench = exp.bench or getattr(config, "bench", None) or config.extra.get("bench", "")
-    script = exp.script or ("run.sh" if exp.system == "sidecar" else "run-plain.sh")
+    script = exp.script or ("run.sh" if exp.system == "roshanfer" else "run-plain.sh")
 
     if exp.type == "throughput-vs-overcommitment":
         raw_ocs = exp.params.get("overcommitments") if exp.params else None
@@ -153,6 +190,65 @@ def _expand_experiment_to_units(exp: ExperimentConfig, config: Config, generator
                     cleanup_args=exp.cleanup_args,
                     execution_args=exp.execution_args,
                     metadata={"overcommitment": oc},
+                    repeats=exp.repeat,
+                    generator_hosts=generator_hosts,
+                    deployment_hosts=deployment,
+                    params=params,
+                )
+        return
+
+    if exp.type == "ingress-param-sensitivity":
+        parameter = (exp.params or {}).get("parameter")
+        if parameter not in _INGRESS_AIMD_PARAMS:
+            raise ValueError(
+                f"Experiment '{exp.name}' type ingress-param-sensitivity "
+                f"requires parameter in {sorted(_INGRESS_AIMD_PARAMS)}"
+            )
+        raw_range = (exp.params or {}).get("param_range")
+        if not isinstance(raw_range, dict):
+            raise ValueError(
+                f"Experiment '{exp.name}' type ingress-param-sensitivity "
+                "requires param_range {{start, end, step}}"
+            )
+        try:
+            p_start = float(raw_range["start"])
+            p_end = float(raw_range["end"])
+            p_step = float(raw_range["step"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(
+                f"Experiment '{exp.name}' param_range must have numeric start, end, step"
+            ) from e
+        param_values = _float_range(p_start, p_end, p_step)
+        if not param_values:
+            raise ValueError(
+                f"Experiment '{exp.name}' param_range produced no values"
+            )
+        loads = [0] if (exp.loads is None and exp.base_rate == 0) else list(range(start, end, step))
+        env_key = _INGRESS_AIMD_PARAMS[parameter]
+        for pval in param_values:
+            pstr = _fmt_param_value(pval)
+            for load in loads:
+                params = copy.deepcopy(exp.params) if exp.params else {}
+                deploy_env = dict(params.get("deploy_env") or {})
+                deploy_env[env_key] = pstr
+                params["deploy_env"] = deploy_env
+                yield RunUnit(
+                    name=f"{exp.name}-{parameter}-v{pstr}-rate-{load}",
+                    type=exp.type,
+                    script=script,
+                    base=exp.base_rate,
+                    rate=load,
+                    duration=exp.duration,
+                    system=exp.system,
+                    apis=exp.apis,
+                    bench=bench,
+                    collector_freq=exp.collector_freq,
+                    warmup=exp.warmup,
+                    cooldown=exp.cooldown,
+                    services=exp.services,
+                    cleanup_args=exp.cleanup_args,
+                    execution_args=exp.execution_args,
+                    metadata={"parameter": parameter, "param_value": pval},
                     repeats=exp.repeat,
                     generator_hosts=generator_hosts,
                     deployment_hosts=deployment,
@@ -325,6 +421,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     )
     logging.info(f"Execution started. Logs at {logs_dir}")
 
+    timings = empty_timings()
+    timings_path = run_root / "timings.json"
+
     if config.nanolog_debug:
         os.environ["SIDECAR_ENABLE_NANOLOG"] = "1"
         logging.info("nanolog_debug: SIDECAR_ENABLE_NANOLOG=1 for sidecar builds")
@@ -347,14 +446,18 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         prov_log = logs_dir / f"provision_{_timestamp()}.log"
         k8s_log = logs_dir / f"k8s_setup_{_timestamp()}.log"
         prov_host_logs_dir = logs_dir / "provision_hosts"
+        t0 = time.time()
         infra.provision_hosts(
             Path(config.provisioning_script),
             log_path=prov_log,
             provision_host_logs_dir=prov_host_logs_dir,
         )
+        timings["setup"]["provision_sec"] = time.time() - t0
         
         if hasattr(config, "k8s_script") and config.k8s_script:
-            infra.setup_k8s(Path(config.k8s_script), deployment, log_path=k8s_log)
+            t0 = time.time()
+            infra.setup_k8s(Path(config.k8s_script), effective_num_gens, log_path=k8s_log)
+            timings["setup"]["k8s_sec"] = time.time() - t0
             k8s_ran = True
 
         _write_infra_partition(run_root, config, generators, deployment, filters)
@@ -362,6 +465,9 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
              
     except Exception as e:
         logging.error(f"Infra failure: {e}")
+        timings["total_sec"] = time.time() - start_all
+        write_timings(timings_path, timings)
+        log_executor_summary(timings)
         return 1
 
     # 3. Initialize Runner & Collector
@@ -374,6 +480,8 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
     _init_csv(summary_csv)
 
     run_results = []
+    repeat_outcomes: List[Dict[str, Any]] = []
+    system_failures: List[Tuple[str, str]] = []
 
     # 3. Group by System
     by_system: Dict[str, List[ExperimentConfig]] = {}
@@ -392,26 +500,37 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         bench = system_exps[0].bench or getattr(config, "bench", None) or config.extra.get("bench", "")
         
         # A. Build & Deploy (Moved before Tuning so images exist)
+        t_build = time.time()
         try:
             # Build Step
-            path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
-            tag_base = f"{config.experiment_index}-{path_hash}"
-            tag = _safe_name(tag_base)
+            image_tag = (os.environ.get("IMAGE_TAG") or "").strip()
+            if image_tag:
+                tag = _safe_name(image_tag)
+            else:
+                path_hash = hashlib.sha256(str(Path(config.output_base_dir).resolve()).encode()).hexdigest()[:8]
+                tag = _safe_name(f"{config.experiment_index}-{path_hash}")
             logging.info(f"Tag: {tag}")
-            
-            # Status file in the run directory (separate marker when NanoLog binary required)
+
             _bsuf = "_nanolog" if config.nanolog_debug else ""
             build_status_file = run_root / f"build_success_{tag}{_bsuf}"
-            
-            # Check build
-            if not build_status_file.exists():
+            skip_build = os.environ.get("SKIP_BUILD", "0").strip().lower() in ("1", "true", "yes")
+
+            t_build = time.time()
+            if skip_build:
+                logging.info("SKIP_BUILD set; skipping build.sh (deploy will pull %s)", tag)
+                timings["setup"]["build"][system] = 0.0
+            elif not build_status_file.exists():
                 build_log = logs_dir / f"build_{system}_{_timestamp()}.log"
                 runner.build_system(bench, system, tag, build_status_file, log_path=build_log)
+                timings["setup"]["build"][system] = time.time() - t_build
             else:
                 logging.info(f"Build for tag {tag} already successful. Skipping.")
+                timings["setup"]["build"][system] = 0.0
 
         except Exception as e:
+            timings["setup"]["build"][system] = time.time() - t_build
             logging.error(f"Skipping system {system} due to build failure: {e}")
+            system_failures.append((system, _short_text(f"build failed: {e}")))
             continue
 
         # B. Tuning
@@ -420,11 +539,16 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
             logging.info(f"Found existing best parameters at {best_params_file}. Skipping tuning.")
             try:
                 tuning_params = json.loads(best_params_file.read_text())
+                timings["tuning"][system] = {"sec": 0.0, "skipped": True}
             except Exception as e:
                 logging.warning(f"Failed to read best params from {best_params_file}: {e}. Proceeding with tuning.")
+                t_tune = time.time()
                 tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
+                timings["tuning"][system] = {"sec": time.time() - t_tune, "skipped": False}
         else:
+            t_tune = time.time()
             tuning_params = _run_tuner(system, bench, tuning_dir, logs_dir, config_path, tag=tag, generators=generators, deployment=deployment)
+            timings["tuning"][system] = {"sec": time.time() - t_tune, "skipped": False}
         # Extract 'parameters' key if present, otherwise assume the whole dict is properties
         deploy_params = tuning_params.get("parameters", tuning_params)
         
@@ -439,6 +563,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
         try:
             for exp in system_exps:
                 logging.info(f"  Running Experiment: {exp.name}")
+                t_exp = time.time()
                 exp_dir = run_root / _safe_name(exp.name)
                 exp_dir.mkdir(parents=True, exist_ok=True)
                 
@@ -478,13 +603,17 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             res = runner.run(unit, repeat_dir)
                             
                             # Failure Handling from Run (application failure)
-                            if res.status == "error":
-                                logging.warning(f"    Repeat {r} failed. Status: {res.status}")
+                            if res.status != "success":
+                                logging.warning(
+                                    "    Repeat %s failed. Status: %s. %s",
+                                    r, res.status, _failure_reason(res.details),
+                                )
                             
                             # Collect
                             col_res = collector.collect(unit, res, repeat_dir)
                             _log_result(summary_csv, summary_jsonl, exp, unit, res, col_res, r, unit.repeats)
                             run_results.append(res)
+                            repeat_outcomes.append(_repeat_outcome(exp.name, unit.name, r, res.status, res.details))
                             
                         except Exception as e:
                             logging.error(f"Experiment {exp.name} Unit {unit.name} Repeat {r} failed: {e}")
@@ -500,6 +629,7 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             # Create dummy collector result
                             fail_col = CollectorResult(unit.name, str(repeat_dir/"metrics"), [], "failed")
                             _log_result(summary_csv, summary_jsonl, exp, unit, fail_res, fail_col, r, unit.repeats)
+                            repeat_outcomes.append(_repeat_outcome(exp.name, unit.name, r, "error", fail_res.details))
                             
                             # Log to main error file
                             try:
@@ -516,13 +646,79 @@ def execute(experiments_file: Path, config: Config, config_path: Path, filters: 
                             except Exception as te:
                                 logging.warning(f"Teardown failed for repeat {r}: {te}")
 
+                tune_sec = float((timings["tuning"].get(system) or {}).get("sec") or 0)
+                run_sec = time.time() - t_exp
+                timings["experiments"].append({
+                    "name": exp.name,
+                    "system": system,
+                    "run_sec": run_sec,
+                    "tune_sec": tune_sec,
+                    "plot_sec": 0.0,
+                    "e2e_sec": run_sec + tune_sec,
+                })
+
         except Exception as e:
             logging.error(f"System {system} loop aborted (Unexpected top-level error): {e}", exc_info=True)
+            system_failures.append((system, _short_text(f"aborted: {e}")))
 
     # 5. Report
     # report_module.generate_report(...) # Optional
+    timings["total_sec"] = time.time() - start_all
+    write_timings(timings_path, timings)
+    log_executor_summary(timings)
+    exit_code = _print_repeat_summary(repeat_outcomes, system_failures)
     logging.info(f"Execution finished. Results in {run_root}")
+    return exit_code
+
+def _short_text(text: str, limit: int = 180) -> str:
+    s = " ".join(str(text).split())
+    if len(s) > limit:
+        return s[: limit - 3] + "..."
+    return s
+
+
+def _failure_reason(details: Dict[str, Any] | None) -> str:
+    details = details or {}
+    if details.get("error"):
+        return _short_text(details["error"])
+    if details.get("exception"):
+        return _short_text(details["exception"])
+    parts = [str(v) for k, v in details.items() if str(k).startswith("error_") and v]
+    if parts:
+        return _short_text("; ".join(parts))
+    return "status=error"
+
+
+def _repeat_outcome(experiment: str, unit: str, repeat: int, status: str, details: Dict[str, Any] | None) -> Dict[str, Any]:
+    reason = "" if status == "success" else _failure_reason(details)
+    return {
+        "experiment": experiment,
+        "unit": unit,
+        "repeat": repeat,
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _print_repeat_summary(outcomes: List[Dict[str, Any]], system_failures: List[Tuple[str, str]]) -> int:
+    ok = [o for o in outcomes if o.get("status") == "success"]
+    bad = [o for o in outcomes if o.get("status") != "success"]
+    print("")
+    print("=== Repeat summary ===")
+    print(f"Successful repeats: {len(ok)}")
+    print(f"Failed repeats: {len(bad)}")
+    for o in bad:
+        label = f"{o['experiment']} / {o['unit']} repeat_{int(o['repeat']):03d}"
+        reason = o.get("reason") or "status=error"
+        print(f"  failed: {label}: {reason}")
+    for system, reason in system_failures:
+        print(f"  failed system: {system}: {reason}")
+    if bad or system_failures:
+        print("Overall: failed")
+        return 1
+    print("Overall: success")
     return 0
+
 
 def _safe_name(s: str) -> str:
     import re
@@ -576,7 +772,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument("--only-names", help="Comma-separated list of experiment names to run.")
     p.add_argument("--only-types", help="Comma-separated list of experiment types to run.")
     p.add_argument("--name-contains", help="Run experiments whose name contains this substring.")
-    p.add_argument("--only-system", help="Comma-separated list of systems (plain, sidecar).")
+    p.add_argument("--only-system", help="Comma-separated list of systems (plain, roshanfer).")
     p.add_argument("--only-num-apis", help="Comma-separated list of API counts (e.g. 1,3).")
     p.add_argument("--output-base-dir", help="Override output_base_dir from config.json")
     p.add_argument("--hosts-file", help="Override hosts_file from config.json")

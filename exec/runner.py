@@ -26,7 +26,23 @@ from .models import RunUnit, RunResult
 from .utils import run_with_logging
 
 
-
+def _salient_output_line(text: str, limit: int = 160) -> str:
+    """One short line from load-generator output, preferring connection errors."""
+    if not text:
+        return ""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    preferred = None
+    for ln in lines:
+        low = ln.lower()
+        if "connection refused" in low or "error" in low or "fail" in low:
+            preferred = ln
+            break
+    chosen = " ".join((preferred or lines[0]).split())
+    if len(chosen) > limit:
+        return chosen[: limit - 3] + "..."
+    return chosen
 
 
 class ResourceMonitor:
@@ -282,9 +298,61 @@ class ResourceMonitor:
             logging.warning(f"ResourceMonitor: Failed to write utilization summary: {e}")
 
 
+def _short_host(name: str) -> str:
+    name = name.strip()
+    if "@" in name:
+        name = name.split("@", 1)[1]
+    return name.split(".")[0] if name else ""
+
+
 class Runner:
     def __init__(self, config: Config):
         self.config = config
+
+    def _resolve_target_addr(self, unit: RunUnit) -> str:
+        """NodePort host for generators. Prefer k8s node short name, not hosts-file index."""
+        try:
+            cp = subprocess.run(
+                ["kubectl", "get", "nodes", "-o", "jsonpath={.items[0].metadata.name}"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if cp.returncode == 0:
+                short = _short_host(cp.stdout)
+                if short:
+                    return short
+            logging.warning("TARGET_ADDR: kubectl get nodes failed: %s", (cp.stderr or cp.stdout or "").strip()[:300])
+        except Exception as e:
+            logging.warning("TARGET_ADDR: kubectl failed: %s", e)
+
+        deploy = unit.deployment_hosts[0] if unit.deployment_hosts else ""
+        if deploy:
+            try:
+                cp = subprocess.run(
+                    [
+                        "ssh",
+                        "-o", "StrictHostKeyChecking=no",
+                        "-o", "UserKnownHostsFile=/dev/null",
+                        deploy,
+                        "hostname -s",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                if cp.returncode == 0:
+                    short = _short_host(cp.stdout)
+                    if short:
+                        return short
+            except Exception as e:
+                logging.warning("TARGET_ADDR: ssh hostname failed: %s", e)
+
+            short = _short_host(deploy)
+            if short:
+                return short
+
+        return "node0"
 
     def build_system(self, bench: str, system: str, tag: str, status_file: Optional[Path] = None, log_path: Optional[Path] = None) -> None:
         """
@@ -349,12 +417,7 @@ class Runner:
             raise RuntimeError(msg)
 
     def teardown_system(self, bench: str, system: str, deployment_hosts: List[str], log_path: Optional[Path] = None, quiet: bool = False) -> None:
-        """
-        Teardowns the system using benchmarks/<bench>/destroy.sh or clean.sh
-        Also flushes conntrack on deployment hosts.
-        """
-        # Try destroy.sh first, then clean.sh, or assume deploy handles cleanup? 
-        # Typically good to have explicit teardown.
+        """Teardown via benchmarks/<bench>/destroy.sh and flush conntrack on deployment hosts."""
         script_path = Path("benchmarks") / bench / "destroy.sh"
         if not script_path.exists():
              raise FileNotFoundError(f"Destroy script not found: {script_path}")
@@ -447,6 +510,8 @@ class Runner:
                 raise ValueError(f"Not enough generator hosts ({len(unit.generator_hosts)}) for {len(unit.apis)} APIs")
 
             # Phase 1: Prepare commands for all APIs
+            target_addr = self._resolve_target_addr(unit)
+            logging.info("TARGET_ADDR=%s", target_addr)
             prepared_commands = []
             for idx, api in enumerate(unit.apis):
                 host = unit.generator_hosts[idx]
@@ -458,7 +523,7 @@ class Runner:
                     if host_part in ("localhost", "127.0.0.1"):
                         remote_repo_path = str(Path.cwd().resolve())
                     else:
-                        remote_repo_path = "~/roshanfer-experments"
+                        remote_repo_path = "~/roshanfer-experiments"
                 remote_rwg_path = f"{remote_repo_path}/rwg/rwg"
                 
                 # ...
@@ -490,42 +555,13 @@ class Runner:
                 # Output dir on remote? No, usually wrapper writes to local given path.
                 # We need to specify a remote temp output dir, then pull it.
                 remote_out_dir = f"/tmp/rwg_out_{unit.safe_name()}_{idx}"
-                
-                target_addr = "node0"
-                if unit.deployment_hosts:
-                    try:
-                        hosts_path = Path(self.config.hosts_file)
-                        all_hosts = []
-                        if hosts_path.exists():
-                            with hosts_path.open() as f:
-                                for line in f:
-                                    line = line.strip()
-                                    if line and not line.startswith("#"):
-                                        all_hosts.append(line)
-
-                        deploy_host_raw = unit.deployment_hosts[0]
-                        if deploy_host_raw in all_hosts:
-                            host_idx = all_hosts.index(deploy_host_raw)
-                            target_addr = f"node{host_idx}"
-                        else:
-                            logging.warning(
-                                f"Warning: Host {deploy_host_raw} not found in {hosts_path}, defaulting to node0 logic fallback."
-                            )
-                            raw = deploy_host_raw
-                            if "@" in raw:
-                                raw = raw.split("@")[1]
-                            target_addr = raw.split(".")[0]
-
-                    except Exception as e:
-                        logging.warning(f"Warning: Could not resolve node alias: {e}")
-                        target_addr = "node0"
 
                 cmd_str = (
                     f"cd {remote_wrapper_path} && "
                     f"mkdir -p {remote_out_dir} && "
                     f"TARGET_ADDR={target_addr} RWG_BINARY={remote_rwg_path} {wrapper_cmd} {http_type} {unit.base} {unit.rate} {unit.duration} {api} {remote_out_dir}"
                 )
-                if not (unit.system in ["plain", "sidecar"]):
+                if not (unit.system in ["plain", "roshanfer"]):
                     # add --ignore-errors
                     cmd_str += " --ignore-errors"
                 
@@ -566,7 +602,11 @@ class Runner:
                 
                 if proc.returncode != 0:
                     status = "error"
-                    details[f"error_{api}"] = f"RWG failed on {host} code={proc.returncode}"
+                    snippet = _salient_output_line(stderr) or _salient_output_line(stdout)
+                    msg = f"RWG failed on {host} code={proc.returncode}"
+                    if snippet:
+                        msg += f": {snippet}"
+                    details[f"error_{api}"] = msg
                     logging.error(f"Error on {host} (code={proc.returncode}): {stderr} | Stdout snippet: {stdout[:200]}")
                 else:
                     # Pull output

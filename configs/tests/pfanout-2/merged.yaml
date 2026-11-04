@@ -4,11 +4,11 @@ figures:
     include:
       latency-vs-throughput-pfanout-2-plain:
         label: Plain
-      latency-vs-throughput-pfanout-2-sidecar:
+      latency-vs-throughput-pfanout-2-roshanfer:
         label: Roshanfer
 
   max-queue-pfanout-2:
     type: max-queue
     include:
-      max-queue-pfanout-2-sidecar:
+      max-queue-pfanout-2-roshanfer:
         label: Roshanfer

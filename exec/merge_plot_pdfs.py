@@ -36,13 +36,11 @@ def _apis_display(apis: list[str]) -> str:
 
 MERGED_STEMS = (
     "_latency_vs_throughput",
-    "_goodput_bar",
     "_rate_vs_time",
     "_latency_vs_time",
     "_combined",
     "_resource_waste_bar",
     "_max_queue",
-    "_avg_queue",
 )
 
 
@@ -183,7 +181,9 @@ def _header_pdf_bytes(
 ) -> bytes:
     import matplotlib.pyplot as plt
     from matplotlib.figure import Figure
+    from exec.plots.plotting_primitives import configure_pdf_fonts
 
+    configure_pdf_fonts()
     # ~4.5pt per char at fontsize 7; keep lines inside figure (matplotlib clips at canvas edge).
     wrap_w = max(24, min(96, int(width_pt / 5.0)))
     blocks = [

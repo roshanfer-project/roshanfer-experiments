@@ -2,7 +2,7 @@ figures:
   latency-and-goodput-vs-load-social:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-social-sidecar:
+      latency-and-goodput-vs-load-social-roshanfer:
         label: Roshanfer
       latency-and-goodput-vs-load-social-rajomon:
         label: Rajomon
@@ -12,7 +12,7 @@ figures:
   latency-and-goodput-vs-load-social-3:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-social-3-sidecar:
+      latency-and-goodput-vs-load-social-3-roshanfer:
         label: Roshanfer
       latency-and-goodput-vs-load-social-3-rajomon:
         label: Rajomon
@@ -22,9 +22,9 @@ figures:
   latency-and-rate-vs-time-social:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-social-sidecar:
+      latency-and-rate-vs-time-social-roshanfer:
         label: Roshanfer
-        unit: "latency-and-rate-vs-time-social-sidecar-rate-10000"
+        unit: "latency-and-rate-vs-time-social-roshanfer-rate-10000"
         repeat: 0
       latency-and-rate-vs-time-social-rajomon:
         label: Rajomon
@@ -38,7 +38,7 @@ figures:
   max-queue-social:
     type: max-queue
     include:
-      max-queue-social-sidecar:
+      max-queue-social-roshanfer:
         label: Roshanfer
       max-queue-social-rajomon:
         label: Rajomon
@@ -48,7 +48,7 @@ figures:
   max-queue-social-3:
     type: max-queue
     include:
-      max-queue-social-3-sidecar:
+      max-queue-social-3-roshanfer:
         label: Roshanfer
       max-queue-social-3-rajomon:
         label: Rajomon
@@ -58,7 +58,7 @@ figures:
   resource-waste-bar-social:
     type: resource-waste-bar
     include:
-      resource-waste-social-sidecar:
+      resource-waste-social-roshanfer:
         label: Roshanfer
       resource-waste-social-rajomon:
         label: Rajomon

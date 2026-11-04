@@ -1,13 +1,22 @@
 # Plot generation
 
-- `latency_rate_vs_time.py`: stacked rate + latency lines for `latency-and-rate-vs-time` experiments (uses `plotting_primitives`).
-- `data_loader.py`: RWG + `extract_series()` for legacy metrics JSON.
-- `plotting_primitives.py`: shared ACM-style figures.
+ACM-style matplotlib plots for experiment results.
+
+## Repository layout
+
+```text
+plots/
+├── plotting_primitives.py     shared ACM-style figures
+├── data_loader.py             RWG + extract_series() for legacy metrics JSON
+├── latency_rate_vs_time.py    stacked rate + latency vs time
+├── aggregation.py             series aggregation helpers
+└── plugins/                   per-experiment / per-unit plot plugins
+```
 
 ```bash
 python -m exec.plots.latency_rate_vs_time \
   --experiment-index fan-out \
-  --experiment-name latency-and-rate-vs-time-fan-out-sidecar \
+  --experiment-name latency-and-rate-vs-time-fan-out-roshanfer \
   --experiments-root exp_runs_test/<ts>/fan-out \
   --output-dir generated_plots
 ```

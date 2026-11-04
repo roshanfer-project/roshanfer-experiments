@@ -4,11 +4,11 @@ figures:
     include:
       latency-vs-throughput-chain-2-bimodal-plain:
         label: Plain
-      latency-vs-throughput-chain-2-bimodal-sidecar:
+      latency-vs-throughput-chain-2-bimodal-roshanfer:
         label: Roshanfer
 
   max-queue-chain-2-bimodal:
     type: max-queue
     include:
-      max-queue-chain-2-bimodal-sidecar:
+      max-queue-chain-2-bimodal-roshanfer:
         label: Roshanfer

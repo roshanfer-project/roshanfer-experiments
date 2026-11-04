@@ -18,15 +18,17 @@ class InfraBuilder:
             raise FileNotFoundError(f"Hosts file not found: {self.hosts_file}")
         
         with open(self.hosts_file, "r") as f:
-            # Filter out comments and empty lines
             self.hosts = [
-                line.strip() 
-                for line in f 
+                line.strip()
+                for line in f
                 if line.strip() and not line.strip().startswith("#")
             ]
-        
+
         if not self.hosts:
             raise ValueError(f"No valid hosts found in {self.hosts_file}")
+        for h in self.hosts:
+            if "@" not in h:
+                raise ValueError(f"Host line must be user@host: {h}")
 
     # _run_with_logging removed, using utils.run_with_logging instead
 
@@ -104,36 +106,24 @@ class InfraBuilder:
             logging.error(f"Provisioning failed with code {e.returncode}")
             raise e
 
-    def setup_k8s(self, k8s_script: Path, deployment_hosts: List[str], log_path: Optional[Path] = None):
-        """
-        Runs the K8s setup script on the deployment hosts.
-        Creates a temporary hosts file to pass to the script via HOSTS_FILE env var.
-        """
+    def setup_k8s(self, k8s_script: Path, num_generators: int, log_path: Optional[Path] = None):
+        """Run K8s setup. create.sh reads HOSTS_FILE and skips the first NUM_GENERATORS lines."""
         if not k8s_script.exists():
             raise FileNotFoundError(f"K8s script not found: {k8s_script}")
 
-        logging.info(f"Setting up K8s on {len(deployment_hosts)} hosts...")
-        
-        # Create a temp hosts file for the K8s script
-        import tempfile
         import os
-        
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
-            for h in deployment_hosts:
-                tmp.write(f"{h}\n")
-            tmp_hosts_path = tmp.name
-            
+
+        logging.info(
+            "Setting up K8s from %s (skip first %s generator line(s))",
+            self.hosts_file,
+            num_generators,
+        )
+        env = os.environ.copy()
+        env["HOSTS_FILE"] = str(self.hosts_file.resolve())
+        env["NUM_GENERATORS"] = str(num_generators)
         try:
-            env = os.environ.copy()
-            env["HOSTS_FILE"] = tmp_hosts_path
-            
             run_with_logging([str(k8s_script)], env=env, log_path=log_path)
             logging.info("K8s setup completed successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"K8s setup failed with code {e.returncode}")
-            # Clean up? 
-            # We raise so executor can stop
             raise e
-        finally:
-            if os.path.exists(tmp_hosts_path):
-                os.remove(tmp_hosts_path)

@@ -4,11 +4,11 @@ figures:
     include:
       latency-vs-throughput-fan-out-3-plain:
         label: Plain
-      latency-vs-throughput-fan-out-3-sidecar:
+      latency-vs-throughput-fan-out-3-roshanfer:
         label: Roshanfer
 
   max-queue-fan-out-3:
     type: max-queue
     include:
-      max-queue-fan-out-3-sidecar:
+      max-queue-fan-out-3-roshanfer:
         label: Roshanfer

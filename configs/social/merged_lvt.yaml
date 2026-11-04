@@ -1,8 +1,0 @@
-figures:
-  latency-vs-throughput-social:
-    type: latency-vs-throughput
-    include:
-      latency-vs-throughput-social-sidecar:
-        label: Roshanfer
-      latency-vs-throughput-social-plain:
-        label: Plain

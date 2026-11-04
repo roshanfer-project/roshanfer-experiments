@@ -4,13 +4,13 @@ figures:
     include:
       latency-vs-throughput-dynamic-large-plain:
         label: Plain
-      latency-vs-throughput-dynamic-large-sidecar:
+      latency-vs-throughput-dynamic-large-roshanfer:
         label: Roshanfer
 
   max-queue-dynamic-large:
     type: max-queue
     include:
-      max-queue-dynamic-large-sidecar:
+      max-queue-dynamic-large-roshanfer:
         label: Roshanfer
       max-queue-dynamic-large-rajomon:
         label: Rajomon
@@ -20,7 +20,7 @@ figures:
   latency-and-goodput-vs-load-dynamic-large:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-dynamic-large-sidecar:
+      latency-and-goodput-vs-load-dynamic-large-roshanfer:
         label: Roshanfer
       latency-and-goodput-vs-load-dynamic-large-rajomon:
         label: Rajomon
@@ -30,9 +30,9 @@ figures:
   latency-and-rate-vs-time-dynamic-large:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-dynamic-large-sidecar:
+      latency-and-rate-vs-time-dynamic-large-roshanfer:
         label: Roshanfer
-        unit: latency-and-rate-vs-time-dynamic-large-sidecar-rate-6000
+        unit: latency-and-rate-vs-time-dynamic-large-roshanfer-rate-6000
         repeat: 0
       latency-and-rate-vs-time-dynamic-large-rajomon:
         label: Rajomon

@@ -1,18 +1,11 @@
 {
-  "output_base_dir": "./exp_runs",
-  "experiment_index": "alibaba-large-test5",
+  "experiment_index": "alibaba-large",
   "num_generators": 1,
-  "raw_artifact_subdir": "raw",
-  "metrics_subdir": "metrics",
-  "rwg_binary_path": "./rwg/rwg",
   "bench": "alibaba-large",
-  "hosts_file": "configs/alibaba-large/hosts.txt",
-  "ssh_binary": "ssh",
-  "git_root": "..",
+  "hosts_file": "hosts.txt",
   "slos": {
     "Z8trRkp4mp": "600"
   },
-  "metrics": {},
   "tuner": {
     "tune_api": "Z8trRkp4mp",
     "tuner_base": 500,

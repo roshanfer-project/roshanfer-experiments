@@ -2,7 +2,7 @@ figures:
   latency-and-goodput-vs-load-hotel:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-hotel-sidecar:
+      latency-and-goodput-vs-load-hotel-roshanfer:
         label: Roshanfer
       latency-and-goodput-vs-load-hotel-rajomon:
         label: Rajomon
@@ -12,7 +12,7 @@ figures:
   latency-and-goodput-vs-load-hotel-2:
     type: latency-and-goodput-vs-load
     include:
-      latency-and-goodput-vs-load-hotel-2-sidecar:
+      latency-and-goodput-vs-load-hotel-2-roshanfer:
         label: Roshanfer
       latency-and-goodput-vs-load-hotel-2-rajomon:
         label: Rajomon
@@ -22,9 +22,9 @@ figures:
   latency-and-rate-vs-time-hotel:
     type: latency-and-rate-vs-time
     include:
-      latency-and-rate-vs-time-hotel-sidecar:
+      latency-and-rate-vs-time-hotel-roshanfer:
         label: Roshanfer
-        unit: "latency-and-rate-vs-time-hotel-sidecar-rate-10000"
+        unit: "latency-and-rate-vs-time-hotel-roshanfer-rate-10000"
         repeat: 0
       latency-and-rate-vs-time-hotel-rajomon:
         label: Rajomon
@@ -38,7 +38,7 @@ figures:
   max-queue-hotel:
     type: max-queue
     include:
-      max-queue-hotel-sidecar:
+      max-queue-hotel-roshanfer:
         label: Roshanfer
       max-queue-hotel-rajomon:
         label: Rajomon
@@ -48,7 +48,7 @@ figures:
   max-queue-hotel-2:
     type: max-queue
     include:
-      max-queue-hotel-2-sidecar:
+      max-queue-hotel-2-roshanfer:
         label: Roshanfer
       max-queue-hotel-2-rajomon:
         label: Rajomon
@@ -58,7 +58,7 @@ figures:
   resource-waste-bar-hotel:
     type: resource-waste-bar
     include:
-      resource-waste-hotel-sidecar:
+      resource-waste-hotel-roshanfer:
         label: Roshanfer
       resource-waste-hotel-rajomon:
         label: Rajomon
@@ -76,7 +76,7 @@ figures:
   latency-vs-throughput-hotel:
     type: latency-vs-throughput
     include:
-      latency-vs-throughput-hotel-sidecar:
+      latency-vs-throughput-hotel-roshanfer:
         label: Roshanfer
       latency-vs-throughput-hotel-plain:
         label: Plain
